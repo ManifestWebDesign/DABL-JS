@@ -835,7 +835,7 @@ Query = Class.extend({
 	 */
 	getOrderByClause : function(conn) {
 		var statement = new QueryStatement(conn),
-		orders = this._orders;
+		orders = this._orders.slice(0);
 
 		for (var x = 0, len = orders.length; x < len; x++) {
 			var order = orders[x],
@@ -857,7 +857,7 @@ Query = Class.extend({
 	getGroupByClause : function(conn) {
 		var statement = new QueryStatement(conn);
 		if (this._groups) {
-			var groups = this._groups;
+			var groups = this._groups.slice(0);
 			for (var x = 0, len = groups.length; x < len; x++) {
 				statement.addIdentifier(groups[x]);
 				groups[x] = QueryStatement.IDENTIFIER;

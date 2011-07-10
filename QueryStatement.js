@@ -16,7 +16,7 @@ QueryStatement.PARAM = '?';
 
 QueryStatement.embed = function(string, array, placeholder) {
 	if (string.split(placeholder).length - 1 != array.length) {
-		throw new Error('The number of occurances of ' + placeholder + ' do not match the number of identifiers.');
+		throw new Error('The number of occurances of ' + placeholder + ' do not match the number of _identifiers.');
 	}
 
 	if (array.length == 0) {
@@ -29,7 +29,7 @@ QueryStatement.embed = function(string, array, placeholder) {
 		var identifier = array[x];
 		currentIndex = string.lastIndexOf(placeholder, currentIndex);
 		if (currentIndex == -1) {
-			throw new Error('The number of occurances of ' + placeholder + ' do not match the number of identifiers.');
+			throw new Error('The number of occurances of ' + placeholder + ' do not match the number of _identifiers.');
 		}
 		string = string.substring(0, currentIndex) + identifier + string.substr(currentIndex + pLength);
 	}
@@ -37,25 +37,25 @@ QueryStatement.embed = function(string, array, placeholder) {
 	return string;
 }
 
-QueryStatement.embedIdentifiers = function(string, identifiers, conn) {
+QueryStatement.embedIdentifiers = function(string, _identifiers, conn) {
 	if (conn) {
-		identifiers = conn.quoteIdentifier(identifiers);
+		_identifiers = conn.quoteIdentifier(_identifiers);
 	}
-	return this.embed(string, identifiers, this.IDENTIFIER);
+	return this.embed(string, _identifiers, this.IDENTIFIER);
 };
 
 /**
  * Emulates a prepared statement.  Should only be used as a last resort.
  * @param string
- * @param params
+ * @param _params
  * @param conn
  * @return string
  */
-QueryStatement.embedParams = function(string, params, conn) {
+QueryStatement.embedParams = function(string, _params, conn) {
 	if (conn) {
-		params = conn.prepareInput(params);
+		_params = conn.prepareInput(_params);
 	}
-	return this.embed(string, params, this.PARAM);
+	return this.embed(string, _params, this.PARAM);
 };
 
 QueryStatement.prototype = {
@@ -63,11 +63,11 @@ QueryStatement.prototype = {
 	/**
 	 * @var string
 	 */
-	queryString : '',
+	_queryString : '',
 	/**
 	 * @var array
 	 */
-	params : [],
+	_params : [],
 	/**
 	 * @var DABLPDO
 	 */
@@ -75,7 +75,7 @@ QueryStatement.prototype = {
 	/**
 	 * @var array
 	 */
-	identifiers : [],
+	_identifiers : [],
 
 	/**
 	 * Sets the PDO connection to be used for preparing and
@@ -98,30 +98,30 @@ QueryStatement.prototype = {
 	 * @param string string
 	 */
 	setString : function(string) {
-		this.queryString = string;
+		this._queryString = string;
 	},
 
 	/**
 	 * @return string
 	 */
 	getString : function() {
-		return this.queryString;
+		return this._queryString;
 	},
 
 	/**
-	 * Merges given array into params
-	 * @param array params
+	 * Merges given array into _params
+	 * @param array _params
 	 */
 	addParams : function(params) {
-		this.params = this.params.concat(params);
+		this._params = this._params.concat(params);
 	},
 
 	/**
 	 * Replaces params with given array
-	 * @param array params
+	 * @param array
 	 */
 	setParams : function(params) {
-		this.params = params.slice(0);
+		this._params = params.slice(0);
 	},
 
 	/**
@@ -129,14 +129,14 @@ QueryStatement.prototype = {
 	 * @param mixed param
 	 */
 	addParam : function(param) {
-		this.params.push(param);
+		this._params.push(param);
 	},
 
 	/**
 	 * @return array
 	 */
 	getParams : function() {
-		return this.params.slice(0);;
+		return this._params.slice(0);;
 	},
 
 	/**
@@ -144,7 +144,7 @@ QueryStatement.prototype = {
 	 * @param array identifiers
 	 */
 	addIdentifiers : function(identifiers) {
-		this.identifiers = this.identifiers.concat(identifiers);
+		this._identifiers = this._identifiers.concat(identifiers);
 	},
 
 	/**
@@ -152,7 +152,7 @@ QueryStatement.prototype = {
 	 * @param array identifiers
 	 */
 	setIdentifiers : function(identifiers) {
-		this.identifiers = identifiers.slice(0);;
+		this._identifiers = identifiers.slice(0);;
 	},
 
 	/**
@@ -160,22 +160,22 @@ QueryStatement.prototype = {
 	 * @param mixed identifier
 	 */
 	addIdentifier : function(identifier) {
-		this.identifiers.push(identifier);
+		this._identifiers.push(identifier);
 	},
 
 	/**
 	 * @return array
 	 */
 	getIdentifiers : function() {
-		return this.identifiers.slice(0);
+		return this._identifiers.slice(0);
 	},
 
 	/**
 	 * @return string
 	 */
 	toString : function() {
-		var string = QueryStatement.embedIdentifiers(this.queryString, this.identifiers.slice(0), this.connection);
-		return QueryStatement.embedParams(string, this.params.slice(0), this.connection);
+		var string = QueryStatement.embedIdentifiers(this._queryString, this._identifiers.slice(0), this.connection);
+		return QueryStatement.embedParams(string, this._params.slice(0), this.connection);
 	},
 
 	/**
@@ -185,7 +185,7 @@ QueryStatement.prototype = {
 	 */
 	bindAndExecute : function() {
 		var conn = this.getConnection(),
-			string = QueryStatement.embedIdentifiers(this.getString(), this.identifiers, conn),
+			string = QueryStatement.embedIdentifiers(this._queryString, this._identifiers, conn),
 			result;
 
 //		var result = conn.prepare(string);
