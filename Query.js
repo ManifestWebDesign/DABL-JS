@@ -187,8 +187,8 @@ Query = Class.extend({
 				asPos = -1;
 			}
 			if (spacePos !== -1) {
-				alias = table.substring(spacePos + 1).trim();
-				table = table.substring(0, asPos === -1 ? spacePos : asPos).trim();
+				alias = table.substr(spacePos + 1).trim();
+				table = table.substr(0, asPos === -1 ? spacePos : asPos);
 			}
 		}
 
@@ -239,8 +239,8 @@ Query = Class.extend({
 			// find the last space in the string
 			var spacePos = tableName.lastIndexOf(' ');
 			if (spacePos !== -1) {
-				tableName = tableName.substring(0, spacePos + 1);
-				alias = tableName.substring(spacePos);
+				tableName = tableName.substring(0, spacePos);
+				alias = tableName.substr(spacePos);
 			}
 			alias = tableName;
 		}

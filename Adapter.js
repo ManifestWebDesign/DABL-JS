@@ -6,7 +6,7 @@ function padDigits(num) {
 	return num;
 }
 
-Adapter = new Class({
+Adapter = Class.extend({
 
 	_db: null,
 
@@ -64,13 +64,15 @@ Adapter = new Class({
 	 */
 	prepareInput: function(value) {
 		if (value.constructor == Array) {
+			value = value.slice(0);
 			for (var x = 0, len = value.length; x < len; x++) {
 				value[x] = this.prepareInput(value[x]);
 			}
 			return value;
 		}
 
-		if (parseInt(value, 10) == value) {
+		var intVal = parseInt(value, 10);
+		if (intVal + '' == value + '') {
 			return value;
 		}
 

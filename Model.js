@@ -1,9 +1,5 @@
 Model = Class.extend({
 
-	init: function Model(){
-		console.log('in Model');
-	},
-
 	toString: function() {
 		return this.constructor.getName() + implode('-', this.getPrimaryKeyValues());
 	},
