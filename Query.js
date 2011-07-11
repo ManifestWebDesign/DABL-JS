@@ -587,7 +587,7 @@ Query.prototype = {
 		// the string statement will use
 		var queryS = '';
 
-		switch (this.getAction().toUpperCase()) {
+		switch (this._action.toUpperCase()) {
 			default:
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
@@ -640,7 +640,7 @@ Query.prototype = {
 			}
 		}
 
-		if (this.getAction() != Query.ACTION_COUNT && this._orders.length > 0) {
+		if (this._action != Query.ACTION_COUNT && this._orders.length > 0) {
 			clause = this.getOrderByClause();
 			statement.addIdentifiers(clause.getIdentifiers());
 			statement.addParams(clause.getParams());
@@ -655,7 +655,7 @@ Query.prototype = {
 			}
 		}
 
-		if (this.needsComplexCount() && this.getAction() == Query.ACTION_COUNT) {
+		if (this.needsComplexCount() && this._action == Query.ACTION_COUNT) {
 			queryS = "SELECT count(0)\nFROM (" + queryS + ") a";
 		}
 
@@ -686,7 +686,7 @@ Query.prototype = {
 			tableStatement = null;
 		}
 
-		switch (this.getAction().toUpperCase()) {
+		switch (this._action.toUpperCase()) {
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
 				// setup identifiers for table_string
@@ -798,7 +798,7 @@ Query.prototype = {
 
 		var statement = new QueryStatement(conn),
 			alias = this.getAlias(),
-			action = this.getAction().toUpperCase();
+			action = this._action.toUpperCase();
 
 		if (action == Query.ACTION_DELETE) {
 			return statement;
@@ -811,11 +811,10 @@ Query.prototype = {
 			}
 
 			if (this._groups.length > 0) {
-				var groups = this._groups;
+				var groups = this._groups.slice(0);
 				for (var x = 0, length = groups.length; x < length; x ++) {
-					var group = groups[x];
-					statement.addIdentifier(group);
-					group = QueryStatement.IDENTIFIER;
+					statement.addIdentifier(groups[x]);
+					groups[x] = QueryStatement.IDENTIFIER;
 				}
 				statement.setString(groups.join(', '));
 				return statement;
