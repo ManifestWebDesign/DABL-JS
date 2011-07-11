@@ -1,4 +1,6 @@
 function QueryStatement(conn) {
+	this._params = [];
+	this._identifiers = [];
 	if (conn) {
 		this.setConnection(conn);
 	}
@@ -69,13 +71,13 @@ QueryStatement.prototype = {
 	 */
 	_params : [],
 	/**
-	 * @var DABLPDO
-	 */
-	connection : null,
-	/**
 	 * @var array
 	 */
 	_identifiers : [],
+	/**
+	 * @var DABLPDO
+	 */
+	connection : null,
 
 	/**
 	 * Sets the PDO connection to be used for preparing and

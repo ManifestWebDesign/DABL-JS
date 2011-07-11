@@ -43,7 +43,7 @@ Adapter = Class.extend({
 		if (text.indexOf('[') != -1 || text.indexOf(' ') != -1 || text.indexOf('(') != -1 || text.indexOf('*') != -1) {
 			return text;
 		}
-		return '[' + text.split('.').join('].[') + ']';
+		return '[' + text.replace('.', '].[') + ']';
 	},
 
 	/**
@@ -51,9 +51,9 @@ Adapter = Class.extend({
 	 */
 	applyLimit: function(sql, offset, limit) {
 		if ( limit > 0 ) {
-			sql = sql + ' LIMIT ' + limit + (offset > 0 ? ' OFFSET ' + offset : '');
+			sql = sql + "\nLIMIT " + limit + (offset > 0 ? ' OFFSET ' + offset : '');
 		} else if ( offset > 0 ) {
-			sql = sql + ' LIMIT -1 OFFSET ' + offset;
+			sql = sql + "\nLIMIT -1 OFFSET " + offset;
 		}
 		return sql;
 	},
@@ -71,11 +71,6 @@ Adapter = Class.extend({
 			return value;
 		}
 
-		var intVal = parseInt(value, 10);
-		if (intVal + '' == value + '') {
-			return value;
-		}
-
 		if (value === true || value === false) {
 			return value ? 1 : 0;
 		}
@@ -84,6 +79,9 @@ Adapter = Class.extend({
 			return 'NULL';
 		}
 
+		if (parseInt(value, 10) === value) {
+			return value;
+		}
 		return this.quote(value);
 	},
 

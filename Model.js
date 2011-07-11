@@ -1,5 +1,10 @@
 Model = Class.extend({
 
+	init : function Model() {
+		this._modifiedColumns = {};
+		this._validationErrors = [];
+	},
+
 	toString: function() {
 		return this.constructor.getName() + implode('-', this.getPrimaryKeyValues());
 	},

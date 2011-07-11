@@ -1,23 +1,77 @@
-String.prototype.trim = function() {
-	return this.replace(/^\s+|\s+$/g, '');
+/**
+ * Creates new instance of Query, parameters will be passed to the
+ * setTable() method.
+ * @return self
+ * @param tableName Mixed[optional]
+ * @param alias String[optional]
+ */
+function Query (tableName, alias) {
+	this._columns = [];
+	this._joins = [];
+	this._orders = [];
+	this._groups = [];
+	this._where = new Condition;
+	this.setTable(tableName, alias);
+	return this;
 }
-String.prototype.ltrim = function() {
-	return this.replace(/^\s+/, '');
-}
-String.prototype.rtrim = function() {
-	return this.replace(/\s+$/, '');
-}
+
+Query.ACTION_COUNT = 'COUNT';
+Query.ACTION_DELETE = 'DELETE';
+Query.ACTION_SELECT = 'SELECT';
+
+// Comparison types
+Query.EQUAL = '=';
+Query.NOT_EQUAL = '<>';
+Query.ALT_NOT_EQUAL = '!=';
+Query.GREATER_THAN = '>';
+Query.LESS_THAN = '<';
+Query.GREATER_EQUAL = '>=';
+Query.LESS_EQUAL = '<=';
+Query.LIKE = 'LIKE';
+Query.NOT_LIKE = 'NOT LIKE';
+Query.CUSTOM = 'CUSTOM';
+Query.DISTINCT = 'DISTINCT';
+Query.IN = 'IN';
+Query.NOT_IN = 'NOT IN';
+Query.ALL = 'ALL';
+Query.IS_NULL = 'IS NULL';
+Query.IS_NOT_NULL = 'IS NOT NULL';
+Query.BETWEEN = 'BETWEEN';
+
+// Comparison type for update
+Query.CUSTOM_EQUAL = 'CUSTOM_EQUAL';
+
+// PostgreSQL comparison types
+Query.ILIKE = 'ILIKE';
+Query.NOT_ILIKE = 'NOT ILIKE';
+
+// JOIN TYPES
+Query.JOIN = 'JOIN';
+Query.LEFT_JOIN = 'LEFT JOIN';
+Query.RIGHT_JOIN = 'RIGHT JOIN';
+Query.INNER_JOIN = 'INNER JOIN';
+Query.OUTER_JOIN = 'OUTER JOIN';
+
+// Binary AND
+Query.BINARY_AND = '&';
+
+// Binary OR
+Query.BINARY_OR = '|';
+
+// 'Order by' qualifiers
+Query.ASC = 'ASC';
+Query.DESC = 'DESC';
 
 /**
  * Used to build query strings using OOP
  */
-Query = Class.extend({
+Query.prototype = {
 
-	_action : 'SELECT',
+	_action : Query.ACTION_SELECT,
 	/**
 	 * @var array
 	 */
-	_columns : {},
+	_columns : [],
 	/**
 	 * @var mixed
 	 */
@@ -62,19 +116,6 @@ Query = Class.extend({
 	 * @var bool
 	 */
 	_distinct : false,
-
-	/**
-	 * Creates new instance of Query, parameters will be passed to the
-	 * setTable() method.
-	 * @return self
-	 * @param tableName Mixed[optional]
-	 * @param alias String[optional]
-	 */
-	init : function(tableName, alias) {
-		this.setWhere(new Condition);
-		this.setTable(tableName, alias);
-		return this;
-	},
 
 	//	__clone : function() {
 	//		if (this._where instanceof Condition) {
@@ -126,7 +167,7 @@ Query = Class.extend({
 	 * @return Query
 	 */
 	addColumn : function(columnName) {
-		this._columns[columnName] = columnName;
+		this._columns.push(columnName);
 		return this;
 	},
 
@@ -136,7 +177,7 @@ Query = Class.extend({
 	 * @return Query
 	 */
 	setColumns : function(columnsArray) {
-		this._columns = columnsArray;
+		this._columns = columnsArray.slice(0);
 		return this;
 	},
 
@@ -180,14 +221,15 @@ Query = Class.extend({
 			if (!alias) {
 				throw new Error('The nested query must have an alias.');
 			}
-		} else if (null === alias) {
-			var spacePos = table.indexOf(' ');
-			var asPos = table.toUpperCase().lastIndexOf(' AS ');
+		} else if (typeof alias == 'undefined') {
+			var spacePos = table.lastIndexOf(' '), // 11
+				asPos = table.toUpperCase().lastIndexOf(' AS '); // 8
+
 			if (asPos !== spacePos - 3) {
 				asPos = -1;
 			}
 			if (spacePos !== -1) {
-				alias = table.substr(spacePos + 1).trim();
+				alias = table.substr(spacePos + 1);
 				table = table.substr(0, asPos === -1 ? spacePos : asPos);
 			}
 		}
@@ -235,7 +277,7 @@ Query = Class.extend({
 			if (!alias) {
 				throw new Error('The nested query must have an alias.');
 			}
-		} else if (null === alias) {
+		} else if (typeof alias == 'undefined') {
 			// find the last space in the string
 			var spacePos = tableName.lastIndexOf(' ');
 			if (spacePos !== -1) {
@@ -245,6 +287,9 @@ Query = Class.extend({
 			alias = tableName;
 		}
 
+		if (this._extraTables == null) {
+			this._extraTables = {};
+		}
 		this._extraTables[alias] = tableName;
 		return this;
 	},
@@ -533,7 +578,7 @@ Query = Class.extend({
 	 */
 	getQuery : function(conn) {
 		if (!conn) {
-			conn = DBManager.getConnection();
+			conn = new Adapter;
 		}
 
 		// the QueryStatement for the Query
@@ -542,7 +587,7 @@ Query = Class.extend({
 		// the string statement will use
 		var queryS = '';
 
-		switch (strtoupper(this.getAction())) {
+		switch (this.getAction().toUpperCase()) {
 			default:
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
@@ -561,7 +606,7 @@ Query = Class.extend({
 		statement.addParams(tableStatement.getParams());
 		queryS = queryS + "\nFROM " + tableStatement.getString();
 
-		if (this._joins) {
+		if (this._joins.length > 0) {
 			for (var j = 0, jlen = this._joins.length; j < jlen; j++) {
 				var join = this._joins[j],
 					join_statement = join.getQueryStatement(conn);
@@ -579,7 +624,7 @@ Query = Class.extend({
 			statement.addIdentifiers(where_statement.getIdentifiers());
 		}
 
-		if (this._groups) {
+		if (this._groups.length > 0) {
 			var clause = this.getGroupByClause();
 			statement.addIdentifiers(clause.getIdentifiers());
 			statement.addParams(clause.getParams());
@@ -595,7 +640,7 @@ Query = Class.extend({
 			}
 		}
 
-		if (this.getAction() != Query.ACTION_COUNT && this._orders) {
+		if (this.getAction() != Query.ACTION_COUNT && this._orders.length > 0) {
 			clause = this.getOrderByClause();
 			statement.addIdentifiers(clause.getIdentifiers());
 			statement.addParams(clause.getParams());
@@ -604,7 +649,7 @@ Query = Class.extend({
 
 		if (this._limit) {
 			if (conn) {
-				conn.applyLimit(queryS, this._offset, this._limit);
+				queryS = conn.applyLimit(queryS, this._offset, this._limit);
 			} else {
 				queryS = queryS + "\nLIMIT " + (this._offset ? this._offset + ', ' : '') + this._limit;
 			}
@@ -641,7 +686,7 @@ Query = Class.extend({
 			tableStatement = null;
 		}
 
-		switch (strtoupper(this.getAction())) {
+		switch (this.getAction().toUpperCase()) {
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
 				// setup identifiers for table_string
@@ -664,12 +709,12 @@ Query = Class.extend({
 				}
 
 				// setup identifiers for any additional tables
-				if (this._extraTables) {
-					for (var t = 0, tlen = this._extraTables.length; t < tlen; t++) {
-						var extraTable = this._extraTables[t];
+				if (this._extraTables != null) {
+					for (var tAlias in this._extraTables) {
+						var extraTable = this._extraTables[tAlias];
 						if (extraTable instanceof Query) {
 							var extra_table_statement = extraTable.getQuery(conn),
-								extraTableString = '(' + extra_table_statement.getString() + ') AS ' + alias;
+								extraTableString = '(' + extra_table_statement.getString() + ') AS ' + tAlias;
 							statement.addParams(extra_table_statement.getParams());
 							statement.addIdentifiers(extra_table_statement.getIdentifiers());
 						} else {
@@ -678,8 +723,8 @@ Query = Class.extend({
 								extraTableString = QueryStatement.IDENTIFIER;
 								statement.addIdentifier(extraTable);
 							}
-							if (alias != extraTable) {
-								extraTableString = extraTableString + ' AS ' + alias;
+							if (tAlias != extraTable) {
+								extraTableString = extraTableString + ' AS ' + tAlias;
 							}
 						}
 						tableString = tableString + ', ' + extraTableString;
@@ -719,12 +764,11 @@ Query = Class.extend({
 	 * @return bool
 	 */
 	hasAggregates : function() {
-		if (this._groups) {
+		if (this._groups.length > 0) {
 			return true;
 		}
-		for (var x = 0, length = this._columns.length; x < length; x ++) {
-			var column = this._columns[x];
-			if (strpos(column, '(') !== false) {
+		for (var c = 0, clen = this._columns.length; c < clen; c++) {
+			if (this._columns[c].indexOf('(') != -1) {
 				return true;
 			}
 		}
@@ -766,7 +810,7 @@ Query = Class.extend({
 				return statement;
 			}
 
-			if (this._groups) {
+			if (this._groups.length > 0) {
 				var groups = this._groups;
 				for (var x = 0, length = groups.length; x < length; x ++) {
 					var group = groups[x];
@@ -777,7 +821,7 @@ Query = Class.extend({
 				return statement;
 			}
 
-			if (!this._distinct && null === this.getHaving() && this._columns) {
+			if (!this._distinct && null === this.getHaving() && this._columns.length > 0) {
 				var columnsToUse = [];
 				for (var c = 0, clen = this._columns.length; c < clen; c++) {
 					column = this._columns[c];
@@ -797,7 +841,7 @@ Query = Class.extend({
 		var columns_string;
 
 		// setup columns_string
-		if (this._columns) {
+		if (this._columns.length > 0) {
 			for (var c = 0, clen = this._columns.length; c < clen; c++) {
 				column = this._columns[c];
 				statement.addIdentifier(column);
@@ -856,7 +900,7 @@ Query = Class.extend({
 	 */
 	getGroupByClause : function(conn) {
 		var statement = new QueryStatement(conn);
-		if (this._groups) {
+		if (this._groups.length > 0) {
 			var groups = this._groups.slice(0);
 			for (var x = 0, len = groups.length; x < len; x++) {
 				statement.addIdentifier(groups[x]);
@@ -918,51 +962,4 @@ Query = Class.extend({
 		this.setAction(Query.ACTION_SELECT);
 		return this.getQuery(conn).bindAndExecute();
 	}
-});
-
-Query.ACTION_COUNT = 'COUNT';
-Query.ACTION_DELETE = 'DELETE';
-Query.ACTION_SELECT = 'SELECT';
-
-// Comparison types
-Query.EQUAL = '=';
-Query.NOT_EQUAL = '<>';
-Query.ALT_NOT_EQUAL = '!=';
-Query.GREATER_THAN = '>';
-Query.LESS_THAN = '<';
-Query.GREATER_EQUAL = '>=';
-Query.LESS_EQUAL = '<=';
-Query.LIKE = 'LIKE';
-Query.NOT_LIKE = 'NOT LIKE';
-Query.CUSTOM = 'CUSTOM';
-Query.DISTINCT = 'DISTINCT';
-Query.IN = 'IN';
-Query.NOT_IN = 'NOT IN';
-Query.ALL = 'ALL';
-Query.IS_NULL = 'IS NULL';
-Query.IS_NOT_NULL = 'IS NOT NULL';
-Query.BETWEEN = 'BETWEEN';
-
-// Comparison type for update
-Query.CUSTOM_EQUAL = 'CUSTOM_EQUAL';
-
-// PostgreSQL comparison types
-Query.ILIKE = 'ILIKE';
-Query.NOT_ILIKE = 'NOT ILIKE';
-
-// JOIN TYPES
-Query.JOIN = 'JOIN';
-Query.LEFT_JOIN = 'LEFT JOIN';
-Query.RIGHT_JOIN = 'RIGHT JOIN';
-Query.INNER_JOIN = 'INNER JOIN';
-Query.OUTER_JOIN = 'OUTER JOIN';
-
-// Binary AND
-Query.BINARY_AND = '&';
-
-// Binary OR
-Query.BINARY_OR = '|';
-
-// 'Order by' qualifiers
-Query.ASC = 'ASC';
-Query.DESC = 'DESC';
+};
