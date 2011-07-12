@@ -1,9 +1,6 @@
-function padDigits(num) {
-	num = num + '';
-	if (num.length == 1) {
-		num = '0' + num;
-	}
-	return num;
+function _sPad(value) {
+	value = value + '';
+	return value.length == 2 ? value : '0' + value;
 }
 
 Adapter = Class.extend({
@@ -22,14 +19,14 @@ Adapter = Class.extend({
 		if (!(value instanceof Date)) {
 			value = new Date(value);
 		}
-		return value.getFullYear() + '-' + padDigits(value.getMonth() + 1) + '-' + padDigits(value.getDate());
+		return value.getFullYear() + '-' + _sPad(value.getMonth() + 1) + '-' + _sPad(value.getDate());
 	},
 
 	formatDateTime: function(value) {
 		if (!(value instanceof Date)) {
 			value = new Date(value);
 		}
-		return this.formatDate(value) + ' ' + padDigits(value.getHours()) + ':' + padDigits(value.getMinutes()) + ':' + padDigits(value.getSeconds());
+		return this.formatDate(value) + ' ' + _sPad(value.getHours()) + ':' + _sPad(value.getMinutes()) + ':' + _sPad(value.getSeconds());
 	},
 
 	quoteIdentifier: function(text) {
@@ -82,6 +79,16 @@ Adapter = Class.extend({
 		if (parseInt(value, 10) === value) {
 			return value;
 		}
+
+		if (value instanceof Date) {
+			if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+				// just a date
+				value = this.formatDate(value);
+			} else {
+				value = this.formatDateTime(value);
+			}
+		}
+
 		return this.quote(value);
 	},
 

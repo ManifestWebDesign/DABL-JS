@@ -27,7 +27,7 @@ QueryStatement.embed = function(string, array, placeholder) {
 
 	var currentIndex = string.length;
 	var pLength = placeholder.length;
-	for (var x = array.length - 1; x >= 0; x--) {
+	for (var x = array.length - 1; x >= 0; --x) {
 		var identifier = array[x];
 		currentIndex = string.lastIndexOf(placeholder, currentIndex);
 		if (currentIndex == -1) {
@@ -69,11 +69,11 @@ QueryStatement.prototype = {
 	/**
 	 * @var array
 	 */
-	_params : [],
+	_params : null,
 	/**
 	 * @var array
 	 */
-	_identifiers : [],
+	_identifiers : null,
 	/**
 	 * @var DABLPDO
 	 */

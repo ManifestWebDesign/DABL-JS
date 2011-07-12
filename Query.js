@@ -71,7 +71,7 @@ Query.prototype = {
 	/**
 	 * @var array
 	 */
-	_columns : [],
+	_columns : null,
 	/**
 	 * @var mixed
 	 */
@@ -83,11 +83,11 @@ Query.prototype = {
 	/**
 	 * @var array
 	 */
-	_extraTables : {},
+	_extraTables: null,
 	/**
 	 * @var QueryJoin[]
 	 */
-	_joins : [],
+	_joins: null,
 	/**
 	 * @var Condition
 	 */
@@ -95,11 +95,11 @@ Query.prototype = {
 	/**
 	 * @var array
 	 */
-	_orders : [],
+	_orders: null,
 	/**
 	 * @var array
 	 */
-	_groups : [],
+	_groups: null,
 	/**
 	 * @var Condition
 	 */
@@ -432,7 +432,7 @@ Query.prototype = {
 	},
 
 	andBetween : function(column, from, to) {
-		return this.addAnd(column, array(from, to), Query.BETWEEN);
+		return this.addAnd(column, [from, to], Query.BETWEEN);
 	},
 
 	/**
@@ -485,7 +485,7 @@ Query.prototype = {
 	},
 
 	orBetween : function(column, from, to) {
-		return this.addOr(column, array(from, to), Query.BETWEEN);
+		return this.addOr(column, [from, to], Query.BETWEEN);
 	},
 
 	/**
@@ -841,12 +841,12 @@ Query.prototype = {
 
 		// setup columns_string
 		if (this._columns.length > 0) {
-			for (var c = 0, clen = this._columns.length; c < clen; c++) {
-				column = this._columns[c];
-				statement.addIdentifier(column);
-				column = QueryStatement.IDENTIFIER;
+			var columns = this._columns.slice(0);
+			for (var c = 0, clen = columns.length; c < clen; c++) {
+				statement.addIdentifier(columns[c]);
+				columns[c] = QueryStatement.IDENTIFIER;
 			}
-			columns_string = this._columns.join(', ');
+			columns_string = columns.join(', ');
 		} else if (alias) {
 			// default to selecting only columns from the target table
 			columns_string = alias + '.*';

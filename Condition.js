@@ -28,8 +28,8 @@ Condition.QUOTE_NONE = 4;
 
 Condition.prototype = {
 
-	_ands : [],
-	_ors : [],
+	_ands : null,
+	_ors : null,
 
 	/**
 	 * @return string
