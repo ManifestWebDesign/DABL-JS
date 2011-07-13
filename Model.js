@@ -1,6 +1,7 @@
 function addGettersAndSetters(object, colName, colType) {
 	object.__defineGetter__(colName, function() {
-		return this['__' +  colName];
+		var value = this['__' +  colName];
+		return typeof value == 'undefined' ? null : value;
 	});
 
 	object.__defineSetter__(colName, function(value) {
@@ -16,13 +17,6 @@ function addGettersAndSetters(object, colName, colType) {
 Model = Class.extend({
 
 	init : function Model() {
-		this._modifiedColumns = {};
-		var columnTypes = this.constructor._columnTypes;
-		for (var colName in columnTypes) {
-			var colType = columnTypes[colName];
-			addGettersAndSetters(this, colName, colType)
-			this[colName] = null;
-		}
 		this._modifiedColumns = {};
 		this._validationErrors = [];
 	},
@@ -60,7 +54,7 @@ Model = Class.extend({
 		var newObject = new this.constructor;
 		newObject.fromArray(this.toArray());
 
-		var pks = this.constructor.getPrimaryKeys();
+		var pks = this.constructor._primaryKeys;
 		for (var x = 0, len = pks.length; x < len; ++x) {
 			var pk = pks[x];
 			newObject[pk] = null;
@@ -157,9 +151,7 @@ Model = Class.extend({
 	 * @return Model
 	 */
 	fromArray: function(object) {
-		var columns = this.constructor.getColumnNames();
-		for (var x = 0, len = columns.length; x < len; ++x) {
-			var column = columns[x];
+		for (var column in this.constructor._columns) {
 			if (!(column in object)) {
 				continue;
 			}
@@ -174,10 +166,8 @@ Model = Class.extend({
 	 * @return array
 	 */
 	toArray: function() {
-		var array = {},
-			columns = this.constructor.getColumnNames();
-		for (var x = 0, len = columns.length; x < len; ++x) {
-			var column = columns[x];
+		var array = {};
+		for (var column in this.constructor._columns) {
 			array[column] = this['__' + column];
 		}
 		return array;
@@ -188,8 +178,8 @@ Model = Class.extend({
 	 * @return bool
 	 */
 	hasPrimaryKeyValues: function() {
-		var pks = this.constructor.getPrimaryKeys();
-		if (!pks) {
+		var pks = this.constructor._primaryKeys;
+		if (pks.length == 0) {
 			return false;
 		}
 		for (var x = 0, len = pks.length; x < len; ++x) {
@@ -208,7 +198,7 @@ Model = Class.extend({
 	 */
 	getPrimaryKeyValues: function() {
 		var arr = [],
-			pks = this.constructor.getPrimaryKeys();
+			pks = this.constructor._primaryKeys;
 
 		for (var x = 0, len = pks.length; x < len; ++x) {
 			var pk = pks[x];
@@ -244,10 +234,10 @@ Model = Class.extend({
 	 * @return int number of records deleted
 	 */
 	destroy: function() {
-		var pks = this.constructor.getPrimaryKeys(),
+		var pks = this.constructor._primaryKeys,
 			q = new Query;
 
-		if (!pks) {
+		if (pks.length == 0) {
 			throw new Error('This table has no primary keys');
 		}
 
@@ -282,7 +272,7 @@ Model = Class.extend({
 			throw new Error('Cannot save ' + this.constructor.getClassName() + ' with validation errors.');
 		}
 
-		if (this.constructor.getPrimaryKeys().length == 0) {
+		if (this.constructor._primaryKeys.length == 0) {
 			throw new Error('Cannot save without primary keys');
 		}
 
@@ -341,13 +331,11 @@ Model = Class.extend({
 			fields = [],
 			values = [],
 			placeholders = [],
-			columns = this.constructor.getColumnNames(),
 			quotedTable = conn.quoteIdentifier(this.constructor.getTableName()),
 			statement = new QueryStatement(conn);
 
-		for (var x = 0, len = columns.length; x < len; ++x) {
-			var column = columns[x],
-				value = this['__' + column];
+		for (var column in this.constructor._columns) {
+			var value = this['__' + column];
 
 			if (value === null && !this.isColumnModified(column)) {
 				continue;
@@ -386,7 +374,7 @@ Model = Class.extend({
 	 * @return Int
 	 */
 	_update: function() {
-		if (!this.constructor.getPrimaryKeys()) {
+		if (!this.constructor._primaryKeys) {
 			throw new Error('This table has no primary keys');
 		}
 
@@ -396,7 +384,7 @@ Model = Class.extend({
 			values = [],
 			pkWhere = [],
 			statement = new QueryStatement(conn),
-			pks = this.constructor.getPrimaryKeys(),
+			pks = this.constructor._primaryKeys,
 			modColumns = this.getModifiedColumns();
 
 		for (var x = 0, len = modColumns.length; x < len; ++x) {
@@ -465,13 +453,13 @@ Model.INTEGER_TYPES = {
 	SMALLINT: Model.COLUMN_TYPE_SMALLINT,
 	TINYINT: Model.COLUMN_TYPE_TINYINT,
 	INTEGER: Model.COLUMN_TYPE_INTEGER,
-	BIGIN: Model.COLUMN_TYPE_BIGINT
+	BIGINT: Model.COLUMN_TYPE_BIGINT
 };
 
 Model.LOB_TYPES = {
 	VARBINARY: Model.COLUMN_TYPE_VARBINARY,
 	LONGVARBINARY: Model.COLUMN_TYPE_LONGVARBINARY,
-	BLO: Model.COLUMN_TYPE_BLOB
+	BLOB: Model.COLUMN_TYPE_BLOB
 };
 
 Model.TEMPORAL_TYPES = {
@@ -565,17 +553,13 @@ Model.coerceTemporalValue = function(value, columnType) {
 	return new Date(value);
 }
 
-Model._tableName = null;
+Model._table = null;
 
 Model._primaryKeys = null;
 
-Model._primaryKey = null;
-
 Model._isAutoIncrement = true;
 
-Model._columnNames = null;
-
-Model._columnTypes = null;
+Model._columns = null;
 
 Model._connectionName = 'default_connection';
 
@@ -588,23 +572,15 @@ Model.getConnection = function(){
  * @return string
  */
 Model.getTableName = function() {
-	return this._tableName;
-}
-
-/**
- * Access to array of column names
- * @return array
- */
-Model.getColumnNames = function() {
-	return this._columnNames;
+	return this._table;
 }
 
 /**
  * Access to array of column types, indexed by column name
  * @return array
  */
-Model.getColumnTypes = function() {
-	return this._columnTypes;
+Model.getColumns = function() {
+	return this._columns.slice(0);
 }
 
 /**
@@ -612,15 +588,16 @@ Model.getColumnTypes = function() {
  * @return array
  */
 Model.getColumnType = function(columnName) {
-	return this._columnTypes[columnName];
+	return this._columns[columnName];
 }
 
 /**
  * @return bool
  */
 Model.hasColumn = function(columnName) {
-	for (var x = 0, len = this._columnNames.length; x < len; ++x) {
-		if (this._columnNames[x].toLowerCase() == columnName.toLowerCase()) {
+	columnName = columnName.toLowerCase();
+	for (var colName in this._columns) {
+		if (colName.toLowerCase() == columnName) {
 			return true;
 		}
 	}
@@ -632,7 +609,7 @@ Model.hasColumn = function(columnName) {
  * @return array
  */
 Model.getPrimaryKeys = function() {
-	return this._primaryKeys;
+	return this._primaryKeys.slice(0);
 }
 
 /**
@@ -640,7 +617,7 @@ Model.getPrimaryKeys = function() {
  * @return array
  */
 Model.getPrimaryKey = function() {
-	return this._primaryKey;
+	return this._primaryKeys.length == 1 ? this._primaryKeys[0] : null;
 }
 
 /**
@@ -666,7 +643,7 @@ Model.retrieveByPK = function(thePK) {
  * @return Model
  */
 Model.retrieveByPKs = function() {
-	var pks = this.getPrimaryKeys(),
+	var pks = this._primaryKeys,
 		q = new Query;
 
 	for (var x = 0, len = pks.length; x < len; ++x) {
@@ -780,11 +757,11 @@ Model.create = function(props){
 	var connectionName = props._connectionName;
 	delete props._connectionName;
 
-	if (typeof props.tableName == 'undefined') {
-		throw new Error('Must provide a tableName when exending Model');
+	if (typeof props.table == 'undefined') {
+		throw new Error('Must provide a table when exending Model');
 	}
-	var tableName = props.tableName;
-	delete props.tableName;
+	var table = props.table;
+	delete props.table;
 
 	if (typeof props.columns == 'undefined') {
 		throw new Error('Must provide columns when exending Model');
@@ -801,19 +778,12 @@ Model.create = function(props){
 	var newClass = this.extend(props);
 
 	newClass._connectionName = connectionName;
-
-	newClass._tableName = tableName;
+	newClass._table = table;
+	newClass._columns = columns;
 	newClass._primaryKeys = primaryKeys;
 
-	if (primaryKeys.length == 1) {
-		newClass._primaryKey = primaryKeys[0];
-	}
-
-	newClass._columnTypes = columns;
-	newClass._columnNames = [];
-
-	for (var colName in columns) {
-		newClass._columnNames.push(colName);
+	for (var column in columns) {
+		addGettersAndSetters(newClass.prototype, column, columns[column]);
 	}
 	return newClass;
 };
