@@ -14,6 +14,9 @@
 	// Create a new Class that inherits from this class
 	Class.extend = function(prop) {
 		var _super = this.prototype;
+		if (typeof prop == 'undefined') {
+			prop = {};
+		}
 
 		// Instantiate a base class (but only create the instance,
 		// don't run the init constructor)
@@ -62,7 +65,7 @@
 		Class.prototype = prototype;
 
 		// Enforce the constructor to be what we expect
-		Class.constructor = Class;
+		Class.prototype.constructor = Class;
 
 		// And make this class extendable
 		Class.extend = arguments.callee;

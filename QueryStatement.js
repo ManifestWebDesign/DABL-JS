@@ -190,6 +190,8 @@ QueryStatement.prototype = {
 			string = QueryStatement.embedIdentifiers(this._queryString, this._identifiers, conn),
 			result;
 
+		result = new ResultSet(string);
+
 //		var result = conn.prepare(string);
 //		foreach (this.getParams() as key => value) {
 //			pdo_type = PDO::PARAM_STR;

@@ -5,14 +5,23 @@ function _sPad(value) {
 
 Adapter = Class.extend({
 
-	_db: null,
+	_conn: null,
 
-	init: function Adapter(db) {
-		this._db = db;
+	init: function Adapter(name) {
+
+		this._conn = {
+			'execute' : function(sql) {
+				return new ResultSet(sql);
+			},
+			'name' : name,
+			'prepare' : function() {
+				throw new Error('prepare!');
+			}
+		}
 	},
 
 	lastInsertId: function() {
-		return this._db.execute('SELECT last_insert_rowid()').field(0);
+		return this._conn.execute('SELECT last_insert_rowid()').field(0);
 	},
 
 	formatDate: function(value) {
@@ -96,3 +105,12 @@ Adapter = Class.extend({
 		return "'" + value.replace("'", "''") + "'";
 	}
 });
+
+Adapter.connections = {};
+
+Adapter.getConnection = function(name) {
+	if (name in this.connections) {
+		return this.connections[name];
+	}
+	return new this(name);
+};
