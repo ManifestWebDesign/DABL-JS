@@ -75,21 +75,21 @@ QueryStatement.prototype = {
 	 */
 	_identifiers : null,
 	/**
-	 * @var DABLPDO
+	 * @var Adapter
 	 */
 	connection : null,
 
 	/**
 	 * Sets the PDO connection to be used for preparing and
 	 * executing the query
-	 * @param DABLPDO conn
+	 * @param conn
 	 */
 	setConnection : function(conn) {
 		this.connection = conn;
 	},
 
 	/**
-	 * @return DABLPDO
+	 * @return Adapter
 	 */
 	getConnection : function() {
 		return this.connection;
@@ -112,7 +112,7 @@ QueryStatement.prototype = {
 
 	/**
 	 * Merges given array into _params
-	 * @param array _params
+	 * @param params
 	 */
 	addParams : function(params) {
 		this._params = this._params.concat(params);
@@ -120,7 +120,7 @@ QueryStatement.prototype = {
 
 	/**
 	 * Replaces params with given array
-	 * @param array
+	 * @param params
 	 */
 	setParams : function(params) {
 		this._params = params.slice(0);
@@ -128,7 +128,7 @@ QueryStatement.prototype = {
 
 	/**
 	 * Adds given param to param array
-	 * @param mixed param
+	 * @param param
 	 */
 	addParam : function(param) {
 		this._params.push(param);
@@ -143,7 +143,7 @@ QueryStatement.prototype = {
 
 	/**
 	 * Merges given array into idents
-	 * @param array identifiers
+	 * @param identifiers
 	 */
 	addIdentifiers : function(identifiers) {
 		this._identifiers = this._identifiers.concat(identifiers);
@@ -151,7 +151,7 @@ QueryStatement.prototype = {
 
 	/**
 	 * Replaces idents with given array
-	 * @param array identifiers
+	 * @param identifiers
 	 */
 	setIdentifiers : function(identifiers) {
 		this._identifiers = identifiers.slice(0);
@@ -159,7 +159,7 @@ QueryStatement.prototype = {
 
 	/**
 	 * Adds given param to param array
-	 * @param mixed identifier
+	 * @param identifier
 	 */
 	addIdentifier : function(identifier) {
 		this._identifiers.push(identifier);

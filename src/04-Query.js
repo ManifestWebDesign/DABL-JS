@@ -2,7 +2,7 @@
  * Creates new instance of Query, parameters will be passed to the
  * setTable() method.
  * @return self
- * @param tableName Mixed[optional]
+ * @param table Mixed[optional]
  * @param alias String[optional]
  */
 function Query (table, alias) {
@@ -133,7 +133,7 @@ Query.prototype = {
 
 	/**
 	 * Specify whether to select only distinct rows
-	 * @param Bool bool
+	 * @param bool
 	 */
 	setDistinct : function(bool) {
 		if (typeof bool == 'undefined') {
@@ -165,7 +165,7 @@ Query.prototype = {
 	 *
 	 * {@example libraries/dabl/database/query/Query_addColumn.php}
 	 *
-	 * @param String column_name
+	 * @param columnName
 	 * @return Query
 	 */
 	addColumn : function(columnName) {
@@ -175,7 +175,7 @@ Query.prototype = {
 
 	/**
 	 * Set array of strings of columns to be selected
-	 * @param array columns_array
+	 * @param columnsArray
 	 * @return Query
 	 */
 	setColumns : function(columnsArray) {
@@ -193,7 +193,7 @@ Query.prototype = {
 
 	/**
 	 * Set array of strings of groups to be selected
-	 * @param array groups_array
+	 * @param groupsArray
 	 * @return Query
 	 */
 	setGroups : function(groupsArray) {
@@ -214,8 +214,8 @@ Query.prototype = {
 	 * or an instance of Query if you would like to nest queries.
 	 * This function also supports arbitrary SQL.
 	 *
-	 * @param String|Query table_name Name of the table to add, or sub-Query
-	 * @param String[optional] alias Alias for the table
+	 * @param table Name of the table to add, or sub-Query
+	 * @param alias Alias for the table
 	 * @return Query
 	 */
 	setTable : function(table, alias) {
@@ -259,8 +259,8 @@ Query.prototype = {
 	},
 
 	/**
-	 * @param type table_name
-	 * @param type alias
+	 * @param tableName
+	 * @param alias
 	 * @return Query
 	 */
 	addTable : function(tableName, alias) {
@@ -283,7 +283,7 @@ Query.prototype = {
 	 * Provide the Condition object to generate the WHERE clause of
 	 * the query.
 	 *
-	 * @param Condition w
+	 * @param w Condition
 	 * @return Query
 	 */
 	setWhere : function(w) {
@@ -305,9 +305,9 @@ Query.prototype = {
 	 * Add a JOIN to the query.
 	 *
 	 * @todo Support the ON clause being NULL correctly
-	 * @param string|Query tableOrColumn Table to join on
-	 * @param string|Condition onClauseOrColumn ON clause to join with
-	 * @param string joinType Type of JOIN to perform
+	 * @param tableOrColumn Table to join on
+	 * @param onClauseOrColumn ON clause to join with
+	 * @param joinType Type of JOIN to perform
 	 * @return Query
 	 */
 	addJoin : function(tableOrColumn, onClauseOrColumn, joinType) {
@@ -486,7 +486,7 @@ Query.prototype = {
 	/**
 	 * Provide the Condition object to generate the HAVING clause of the query
 	 * @return Query
-	 * @param w Condition
+	 * @param where Condition
 	 */
 	setHaving : function(where) {
 		this._having = where;
@@ -505,6 +505,7 @@ Query.prototype = {
 	 * Adds a column to ORDER BY in the form of "COLUMN DIRECTION"
 	 * @return Query
 	 * @param column String
+	 * @param dir String
 	 */
 	orderBy : function(column, dir) {
 		if (null !== dir && typeof dir != 'undefined') {
@@ -558,7 +559,7 @@ Query.prototype = {
 	/**
 	 * Builds and returns the query string
 	 *
-	 * @param mixed conn Database connection to use
+	 * @param conn Database connection to use
 	 * @return QueryStatement
 	 */
 	getQuery : function(conn) {

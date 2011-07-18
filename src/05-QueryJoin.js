@@ -78,7 +78,7 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @param mixed table_name
+	 * @param tableName
 	 * @return QueryJoin
 	 */
 	setTable : function(tableName) {
@@ -96,7 +96,7 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @param string alias
+	 * @param alias String
 	 * @return QueryJoin
 	 */
 	setAlias : function(alias) {
@@ -105,7 +105,7 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @param Condition on_clause
+	 * @param onClause Condition
 	 * @return QueryJoin
 	 */
 	setOnClause : function(onClause) {
@@ -115,7 +115,7 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @param string join_type
+	 * @param joinType String
 	 * @return QueryJoin
 	 */
 	setJoinType : function(joinType) {
@@ -124,7 +124,7 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @param DABLPDO conn
+	 * @param conn Adapter
 	 * @return QueryStatement
 	 */
 	getQueryStatement : function(conn) {

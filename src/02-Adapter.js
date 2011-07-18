@@ -6,7 +6,7 @@ function _sPad(value) {
 Adapter = Class.extend({
 
 	_db: null,
-	
+
 	_dbFile: null,
 
 	init: function Adapter(dbFile) {
@@ -24,14 +24,12 @@ Adapter = Class.extend({
 			sql = sql.setConnection(this);
 			return sql.bindAndExecute();
 		}
-		
-		Ti.API.info('SQL: ' + sql);
-		
+
 		var rs = params ? this._db.execute(sql, params) : this._db.execute(sql),
 			rows = [];
 
 		rows.rowsAffected = this._db.rowsAffected;
-		
+
 		if (null === rs) {
 			return rows;
 		}
