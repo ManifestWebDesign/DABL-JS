@@ -25,10 +25,13 @@ QueryStatement.embed = function(string, array, placeholder) {
 		return string;
 	}
 
-	var currentIndex = string.length;
-	var pLength = placeholder.length;
-	for (var x = array.length - 1; x >= 0; --x) {
-		var identifier = array[x];
+	var currentIndex = string.length,
+		pLength = placeholder.length,
+		x,
+		identifier;
+
+	for (x = array.length - 1; x >= 0; --x) {
+		identifier = array[x];
 		currentIndex = string.lastIndexOf(placeholder, currentIndex);
 		if (currentIndex == -1) {
 			throw new Error('The number of occurances of ' + placeholder + ' do not match the number of _identifiers.');

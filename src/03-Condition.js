@@ -50,7 +50,10 @@ Condition.prototype = {
 
 		var statement = new QueryStatement,
 			clauseStatement,
-			isArray;
+			isArray,
+			placeholders,
+			x,
+			len;
 
 		// Left can be a Condition
 		if (left instanceof Condition) {
@@ -147,8 +150,8 @@ Condition.prototype = {
 			// IN or NOT_IN
 			if (quote == Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
 				statement.addParams(right);
-				var placeholders = [];
-				for (var x = 0, length = right.length; x < length; x++) {
+				placeholders = [];
+				for (x = 0, len = right.length; x < len; ++x) {
 					placeholders.push(QueryStatement.PARAM);
 				}
 				right = '(' + placeholders.join(',') + ')';
@@ -193,14 +196,16 @@ Condition.prototype = {
 	 * @return Condition
 	 */
 	addAnd : function(left, right, operator, quote) {
+		var key, condition;
+
 		if (typeof left == 'object') {
-			for (var key in left) {
+			for (key in left) {
 				this.addAnd(key, left[key]);
 			}
 			return this;
 		}
 
-		var condition = this._processCondition.apply(this, arguments);
+		condition = this._processCondition.apply(this, arguments);
 
 		if (condition) {
 			this._ands.push(condition);
@@ -224,14 +229,16 @@ Condition.prototype = {
 	 * @return Condition
 	 */
 	addOr : function(left, right, operator, quote) {
+		var key, condition;
+
 		if (typeof left == 'object') {
-			for (var key in left) {
+			for (key in left) {
 				this.addOr(key, left[key]);
 			}
 			return this;
 		}
 
-		var condition = this._processCondition.apply(this, arguments);
+		condition = this._processCondition.apply(this, arguments);
 
 		if (condition) {
 			this._ors.push(condition);
@@ -254,10 +261,13 @@ Condition.prototype = {
 		var statement = new QueryStatement,
 			string = '',
 			andStrings = [],
-			orStrings = [];
+			orStrings = [],
+			x, len,
+			andStatement,
+			orStatement;
 
-		for (var a = 0, alen = this._ands.length; a < alen; a++) {
-			var andStatement = this._ands[a];
+		for (x = 0, len = this._ands.length; x < len; ++x) {
+			andStatement = this._ands[x];
 			andStrings.push(andStatement.getString());
 			statement.addParams(andStatement.getParams());
 			statement.addIdentifiers(andStatement.getIdentifiers());
@@ -267,8 +277,8 @@ Condition.prototype = {
 			AND = andStrings.join("\n\tAND ");
 		}
 
-		for (var x = 0, len = this._ors.length; x < len; x++) {
-			var orStatement = this._ors[x];
+		for (x = 0, len = this._ors.length; x < len; ++x) {
+			orStatement = this._ors[x];
 			orStrings.push(orStatement.getString());
 			statement.addParams(orStatement.getParams());
 			statement.addIdentifiers(orStatement.getIdentifiers());

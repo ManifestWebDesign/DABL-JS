@@ -132,10 +132,12 @@ QueryJoin.prototype = {
 			table = this._table,
 			onClause = this._onClause,
 			joinType = this._joinType,
-			alias = this._alias;
+			alias = this._alias,
+			tableStatement,
+			onClauseStatement;
 
 		if (table instanceof Query) {
-			var tableStatement = table.getQuery(conn);
+			tableStatement = table.getQuery(conn);
 			table = '(' + tableStatement.getString() + ')';
 			statement.addParams(tableStatement.getParams());
 			statement.addIdentifiers(tableStatement.getIdentifiers());
@@ -154,7 +156,7 @@ QueryJoin.prototype = {
 		} else if (null === onClause) {
 			onClause = '1 = 1';
 		} else if (onClause instanceof Condition) {
-			var onClauseStatement = onClause.getQueryStatement();
+			onClauseStatement = onClause.getQueryStatement();
 			onClause = onClauseStatement.getString();
 			statement.addParams(onClauseStatement.getParams());
 			statement.addIdentifiers(onClauseStatement.getIdentifiers());

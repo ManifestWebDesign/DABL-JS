@@ -17,9 +17,11 @@ Migration.migrate = function(options) {
 		options = {};
 	}
 
+	var tableName, migrations = {}, startVersion, targetVersion, i;
+
 	// Drop tables
 	if(options.refresh) {
-		for (var tableName in Model.models){
+		for (tableName in Model.models){
 			Adapter.execute('DROP TABLE IF EXISTS ' + tableName);
 //				Migration.each(model.options.hasAndBelongsToMany, function(assocTable) {
 //					var mappingTable = [model.table, assocTable].sort().toString().replace(',', '_');
@@ -32,14 +34,13 @@ Migration.migrate = function(options) {
 		Migration.setupSchema();
 	}
 
-	var migrations = {};
 	if(Migration.migrations)
 		migrations = Migration.migrations;
 
 	// test for apparently-valid obj literal based on migration 1 being present
 	if(migrations[1] && migrations[1].constructor === Object) {
-		var startVersion = Migration.currentSchemaVersion();
-		var targetVersion = Infinity;
+		startVersion = Migration.currentSchemaVersion();
+		targetVersion = Infinity;
 
 		// did user specify a migration number?
 		if(options.number !== null && typeof options.number != 'undefined')
@@ -48,7 +49,7 @@ Migration.migrate = function(options) {
 			targetVersion = options;
 
 		// actually handle a migrations object
-		var i = startVersion;
+		i = startVersion;
 
 		do {
 			// schema is already up to date
@@ -147,15 +148,19 @@ Migration.setupSchema = function(force) {
 Migration.writeSchema = function(tableName, cols) {
 	if(tableName === 'schema_definitions' || tableName === 'schema_migrations')
 		return;
-	var keys = [];
-	var values = [];
-	for (var cName in cols) {
+	var keys = [],
+		values = [],
+		cName,
+		names,
+		types,
+		table;
+	for (cName in cols) {
 		keys.push(cName);
 		values.push(cols[cName]);
 	}
-	var names = keys.join();
-	var types = keys.join();
-	var table = Migration.schema.findBy('table_name', tableName);
+	names = keys.join();
+	types = keys.join();
+	table = Migration.schema.findBy('table_name', tableName);
 	if(table) {
 		table.column_names = names;
 		table.column_types = types;
@@ -174,12 +179,15 @@ Migration.writeSchema = function(tableName, cols) {
 Migration.readSchema = function(tableName) {
 	if(tableName === 'schema_definitions' || tableName === 'schema_migrations')
 		return null;
-	var table = Migration.schema.findBy('table_name', tableName);
-	var column_names = table.column_names.split(',');
-	var column_types = table.column_types.split(',');
-	var cols = {};
-	for (var i = 0, len = column_names.length; i < len; ++i){
-		var col = column_names[i];
+	var table = Migration.schema.findBy('table_name', tableName),
+		column_names = table.column_names.split(','),
+		column_types = table.column_types.split(','),
+		cols = {},
+		i,
+		len = column_names.length,
+		col;
+	for (i = 0; i < len; ++i){
+		col = column_names[i];
 		cols[col] = column_types[i];
 	}
 	return cols;
@@ -187,7 +195,7 @@ Migration.readSchema = function(tableName) {
 
 Migration.currentSchemaVersion = function() {
 	var sql = 'SELECT version FROM schema_migrations LIMIT 1';
-	
+
 	return parseInt(Adapter.execute(sql)[0].version, 10);
 };
 
@@ -202,11 +210,13 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 		throw new Error('MIGRATION_EXCEPTION: Not a valid column modification');
 	}
 
-	var oldCols = Migration.readSchema(tableName);
-	var newCols = {};
+	var oldCols = Migration.readSchema(tableName),
+		newCols = {},
+		colName,
+		colType;
 
-	for (var colName in oldCols) {
-		var colType = oldCols[colName];
+	for (colName in oldCols) {
+		colType = oldCols[colName];
 		switch(options['modification']) {
 			case 'remove':
 				if(colName !== columnName)
@@ -241,29 +251,29 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 		if (records.length > 0) {
 			throw new Error('Modify column not quite ready yet...');
 		}
-		
+
 		Migration.dropTable(tableName);
 		Migration.createTable(tableName, newCols);
 
 //		for (var i = 0, len = records.length; i < len; ++i) {
-// 			
+//
 			// var record = records[i];
 			// switch(options.modification) {
 				// case 'remove':
 					// delete record[columnName];
 					// Migration.save(tableName, newCols, record);
 					// break;
-// 
+//
 				// case 'rename':
 					// record[options.newName] = record[columnName];
 					// delete record[columnName];
 					// Migration.save(tableName, newCols, record);
 					// break;
-// 
+//
 				// case 'change':
 					// Migration.save(tableName, newCols, record);
 					// break;
-// 
+//
 				// default:
 					// throw('MIGRATION_EXCEPTION: Not a valid column modification');
 			// }
@@ -278,11 +288,13 @@ Migration.createTable = function(name, columns) {
 	if(!name || !columns) {
 		return;
 	}
-	var sql = 'CREATE TABLE IF NOT EXISTS ' + name;
+	var sql = 'CREATE TABLE IF NOT EXISTS ' + name,
+		colName,
+		colType;
 	if(columns) {
 		sql += '(';
-		for (var colName in columns) {
-			var colType = columns[colName];
+		for (colName in columns) {
+			colType = columns[colName];
 			if(colName === 'id')
 				sql += 'id INTEGER PRIMARY KEY AUTOINCREMENT, ';
 			else
@@ -296,24 +308,27 @@ Migration.createTable = function(name, columns) {
 };
 
 Migration.dropTable = function(name) {
-	var sql = 'DROP TABLE IF EXISTS ' + name;
+	var sql = 'DROP TABLE IF EXISTS ' + name,
+		schemaTable;
 	Adapter.execute(sql);
-	var schemaTable = Migration.schema.findBy('table_name', name);
+	schemaTable = Migration.schema.findBy('table_name', name);
 	schemaTable.destroy();
 };
 
 Migration.renameTable = function(oldName, newName) {
-	var sql = 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName;
+	var sql = 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName,
+		schemaTable;
 	Adapter.execute(sql);
-	var schemaTable = Migration.schema.findBy('table_name', oldName);
+	schemaTable = Migration.schema.findBy('table_name', oldName);
 	schemaTable.table_name = newName;
 	schemaTable.save();
 };
 
 Migration.addColumn = function(tableName, columnName, dataType) {
-	var sql = 'ALTER TABLE ' + tableName + ' ADD COLUMN ' + columnName + ' ' + dataType.toUpperCase();
+	var sql = 'ALTER TABLE ' + tableName + ' ADD COLUMN ' + columnName + ' ' + dataType.toUpperCase(),
+		cols;
 	Adapter.execute(sql);
-	var cols = Migration.readSchema(tableName);
+	cols = Migration.readSchema(tableName);
 	cols[columnName] = dataType;
 	Migration.writeSchema(tableName, cols);
 };

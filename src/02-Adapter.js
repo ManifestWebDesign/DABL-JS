@@ -26,7 +26,11 @@ Adapter = Class.extend({
 		}
 
 		var rs = params ? this._db.execute(sql, params) : this._db.execute(sql),
-			rows = [];
+			rows = [],
+			row,
+			i,
+			j,
+			field;
 
 		rows.rowsAffected = this._db.rowsAffected;
 
@@ -35,9 +39,9 @@ Adapter = Class.extend({
 		}
 
 		while(rs.isValidRow()) {
-			var row = {};
-			for(var i = 0, j = rs.getFieldCount(); i < j; ++i) {
-				var field = rs.getFieldName(i);
+			row = {};
+			for(i = 0, j = rs.getFieldCount(); i < j; ++i) {
+				field = rs.getFieldName(i);
 				row[field] = rs.field(i);
 			}
 			rows.push(row);
@@ -86,7 +90,7 @@ Adapter = Class.extend({
 
 	quoteIdentifier: function(text) {
 		if (text instanceof Array) {
-			for (var x = 0, len = text.length; x < len; x++) {
+			for (var x = 0, len = text.length; x < len; ++x) {
 				text[x] = this.quoteIdentifier(text[x]);
 			}
 			return text;
@@ -117,7 +121,7 @@ Adapter = Class.extend({
 	prepareInput: function(value) {
 		if (value instanceof Array) {
 			value = value.slice(0);
-			for (var x = 0, len = value.length; x < len; x++) {
+			for (var x = 0, len = value.length; x < len; ++x) {
 				value[x] = this.prepareInput(value[x]);
 			}
 			return value;

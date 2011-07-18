@@ -568,16 +568,26 @@ Query.prototype = {
 		}
 
 		// the QueryStatement for the Query
-		var statement = new QueryStatement(conn);
+		var statement = new QueryStatement(conn),
+			queryS,
+			columnsStatement,
+			tableStatement,
+			x,
+			len,
+			join,
+			join_statement,
+			whereStatement,
+			clause,
+			havingStatement;
 
 		// the string statement will use
-		var queryS = '';
+		queryS = '';
 
 		switch (this._action.toUpperCase()) {
 			default:
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
-				var columnsStatement = this.getColumnsClause(conn);
+				columnsStatement = this.getColumnsClause(conn);
 				statement.addIdentifiers(columnsStatement.getIdentifiers());
 				statement.addParams(columnsStatement.getParams());
 				queryS = queryS + 'SELECT ' + columnsStatement.getString();
@@ -587,14 +597,14 @@ Query.prototype = {
 				break;
 		}
 
-		var tableStatement = this.getTablesClause(conn);
+		tableStatement = this.getTablesClause(conn);
 		statement.addIdentifiers(tableStatement.getIdentifiers());
 		statement.addParams(tableStatement.getParams());
 		queryS = queryS + "\nFROM " + tableStatement.getString();
 
 		if (this._joins.length > 0) {
-			for (var j = 0, jlen = this._joins.length; j < jlen; j++) {
-				var join = this._joins[j],
+			for (x = 0, len = this._joins.length; x < len; ++x) {
+				join = this._joins[x],
 					join_statement = join.getQueryStatement(conn);
 				queryS = queryS + "\n\t" + join_statement.getString();
 				statement.addParams(join_statement.getParams());
@@ -602,27 +612,27 @@ Query.prototype = {
 			}
 		}
 
-		var where_statement = this.getWhereClause();
+		whereStatement = this.getWhereClause();
 
-		if (where_statement) {
-			queryS = queryS + "\nWHERE " + where_statement.getString();
-			statement.addParams(where_statement.getParams());
-			statement.addIdentifiers(where_statement.getIdentifiers());
+		if (whereStatement) {
+			queryS = queryS + "\nWHERE " + whereStatement.getString();
+			statement.addParams(whereStatement.getParams());
+			statement.addIdentifiers(whereStatement.getIdentifiers());
 		}
 
 		if (this._groups.length > 0) {
-			var clause = this.getGroupByClause();
+			clause = this.getGroupByClause();
 			statement.addIdentifiers(clause.getIdentifiers());
 			statement.addParams(clause.getParams());
 			queryS = queryS + clause.getString();
 		}
 
 		if (null !== this.getHaving()) {
-			var having_statement = this.getHaving().getQueryStatement();
-			if (having_statement) {
-				queryS = queryS + "\nHAVING " + having_statement.getString();
-				statement.addParams(having_statement.getParams());
-				statement.addIdentifiers(having_statement.getIdentifiers());
+			havingStatement = this.getHaving().getQueryStatement();
+			if (havingStatement) {
+				queryS = queryS + "\nHAVING " + havingStatement.getString();
+				statement.addParams(havingStatement.getParams());
+				statement.addIdentifiers(havingStatement.getIdentifiers());
 			}
 		}
 
@@ -655,19 +665,27 @@ Query.prototype = {
 	 */
 	getTablesClause : function(conn) {
 
-		var table = this.getTable();
+		var table = this.getTable(),
+			statement,
+			alias,
+			tableStatement,
+			tAlias,
+			tableString,
+			extraTable,
+			extraTableStatement,
+			extraTableString;
 
 		if (!table) {
 			throw new Error('No table specified.');
 		}
 
-		var statement = new QueryStatement(conn),
+		statement = new QueryStatement(conn),
 		alias = this.getAlias();
 
 		// if table is a Query, get its QueryStatement
 		if (table instanceof Query) {
-			var tableStatement = table.getQuery(conn),
-				tableString = '(' + tableStatement.getString() + ')';
+			tableStatement = table.getQuery(conn),
+			tableString = '(' + tableStatement.getString() + ')';
 		} else {
 			tableStatement = null;
 		}
@@ -696,13 +714,13 @@ Query.prototype = {
 
 				// setup identifiers for any additional tables
 				if (this._extraTables != null) {
-					for (var tAlias in this._extraTables) {
-						var extraTable = this._extraTables[tAlias];
+					for (tAlias in this._extraTables) {
+						extraTable = this._extraTables[tAlias];
 						if (extraTable instanceof Query) {
-							var extra_table_statement = extraTable.getQuery(conn),
-								extraTableString = '(' + extra_table_statement.getString() + ') AS ' + tAlias;
-							statement.addParams(extra_table_statement.getParams());
-							statement.addIdentifiers(extra_table_statement.getIdentifiers());
+							extraTableStatement = extraTable.getQuery(conn),
+							extraTableString = '(' + extraTableStatement.getString() + ') AS ' + tAlias;
+							statement.addParams(extraTableStatement.getParams());
+							statement.addIdentifiers(extraTableStatement.getIdentifiers());
 						} else {
 							extraTableString = extraTable;
 							if (extraTableString.indexOf(' ') == -1) {
@@ -753,7 +771,7 @@ Query.prototype = {
 		if (this._groups.length > 0) {
 			return true;
 		}
-		for (var c = 0, clen = this._columns.length; c < clen; c++) {
+		for (var c = 0, clen = this._columns.length; c < clen; ++c) {
 			if (this._columns[c].indexOf('(') != -1) {
 				return true;
 			}
@@ -776,15 +794,21 @@ Query.prototype = {
 	 * @return QueryStatement
 	 */
 	getColumnsClause : function(conn) {
-		var table = this.getTable(), column;
+		var table = this.getTable(),
+			column,
+			statement = new QueryStatement(conn),
+			alias = this.getAlias(),
+			action = this._action.toUpperCase(),
+			groups,
+			x,
+			len,
+			columnsToUse,
+			columnsString,
+			columns;
 
 		if (!table) {
 			throw new Error('No table specified.');
 		}
-
-		var statement = new QueryStatement(conn),
-			alias = this.getAlias(),
-			action = this._action.toUpperCase();
 
 		if (action == Query.ACTION_DELETE) {
 			return statement;
@@ -797,8 +821,8 @@ Query.prototype = {
 			}
 
 			if (this._groups.length > 0) {
-				var groups = this._groups.slice(0);
-				for (var x = 0, length = groups.length; x < length; x ++) {
+				groups = this._groups.slice(0);
+				for (x = 0, len = groups.length; x < len; ++x) {
 					statement.addIdentifier(groups[x]);
 					groups[x] = QueryStatement.IDENTIFIER;
 				}
@@ -807,9 +831,9 @@ Query.prototype = {
 			}
 
 			if (!this._distinct && null === this.getHaving() && this._columns.length > 0) {
-				var columnsToUse = [];
-				for (var c = 0, clen = this._columns.length; c < clen; c++) {
-					column = this._columns[c];
+				columnsToUse = [];
+				for (x = 0, len = this._columns.length; x < len; ++x) {
+					column = this._columns[x];
 					if (column.indexOf('(') == -1) {
 						continue;
 					}
@@ -823,30 +847,28 @@ Query.prototype = {
 			}
 		}
 
-		var columns_string;
-
 		// setup columns_string
 		if (this._columns.length > 0) {
-			var columns = this._columns.slice(0);
-			for (var c = 0, clen = columns.length; c < clen; c++) {
-				statement.addIdentifier(columns[c]);
-				columns[c] = QueryStatement.IDENTIFIER;
+			columns = this._columns.slice(0);
+			for (x = 0, len = columns.length; x < len; ++x) {
+				statement.addIdentifier(columns[x]);
+				columns[x] = QueryStatement.IDENTIFIER;
 			}
-			columns_string = columns.join(', ');
+			columnsString = columns.join(', ');
 		} else if (alias) {
 			// default to selecting only columns from the target table
-			columns_string = alias + '.*';
+			columnsString = alias + '.*';
 		} else {
 			// default to selecting only columns from the target table
-			columns_string = QueryStatement.IDENTIFIER + '.*';
+			columnsString = QueryStatement.IDENTIFIER + '.*';
 			statement.addIdentifier(table);
 		}
 
 		if (this._distinct) {
-			columns_string = 'DISTINCT ' + columns_string;
+			columnsString = 'DISTINCT ' + columnsString;
 		}
 
-		statement.setString(columns_string);
+		statement.setString(columnsString);
 		return statement;
 	},
 
@@ -864,16 +886,20 @@ Query.prototype = {
 	 */
 	getOrderByClause : function(conn) {
 		var statement = new QueryStatement(conn),
-		orders = this._orders.slice(0);
+			orders = this._orders.slice(0),
+			x = 0,
+			len = orders.length,
+			order,
+			orderParts;
 
-		for (var x = 0, len = orders.length; x < len; x++) {
-			var order = orders[x],
-				order_parts = order.split(' ');
-			if (order_parts.length > 1) {
-				statement.addIdentifier(order_parts[0]);
-				order_parts[0] = QueryStatement.IDENTIFIER;
+		for (x; x < len; ++x) {
+			order = orders[x],
+			orderParts = order.split(' ');
+			if (orderParts.length > 1) {
+				statement.addIdentifier(orderParts[0]);
+				orderParts[0] = QueryStatement.IDENTIFIER;
 			}
-			orders[x] = order_parts.join(' ');
+			orders[x] = orderParts.join(' ');
 		}
 		statement.setString("\nORDER BY " + orders.join(', '));
 		return statement;
@@ -884,10 +910,13 @@ Query.prototype = {
 	 * @return QueryStatement
 	 */
 	getGroupByClause : function(conn) {
-		var statement = new QueryStatement(conn);
+		var statement = new QueryStatement(conn),
+			groups,
+			x,
+			len;
 		if (this._groups.length > 0) {
-			var groups = this._groups.slice(0);
-			for (var x = 0, len = groups.length; x < len; x++) {
+			groups = this._groups.slice(0);
+			for (x = 0, len = groups.length; x < len; ++x) {
 				statement.addIdentifier(groups[x]);
 				groups[x] = QueryStatement.IDENTIFIER;
 			}

@@ -46,12 +46,16 @@ Model = Class.extend({
 	 * @return Model
 	 */
 	copy: function() {
-		var newObject = new this.constructor;
+		var newObject = new this.constructor,
+			pks = this.constructor._primaryKeys,
+			x,
+			len,
+			pk;
+
 		newObject.fromArray(this.toArray());
 
-		var pks = this.constructor._primaryKeys;
-		for (var x = 0, len = pks.length; x < len; ++x) {
-			var pk = pks[x];
+		for (x = 0, len = pks.length; x < len; ++x) {
+			pk = pks[x];
 			newObject[pk] = null;
 		}
 		return newObject;
@@ -70,8 +74,9 @@ Model = Class.extend({
 	 * @return bool
 	 */
 	isColumnModified: function(columnName) {
-		for (var key in this._modifiedColumns) {
-			var modifiedColumn = this._modifiedColumns[key];
+		var key, modifiedColumn;
+		for (key in this._modifiedColumns) {
+			modifiedColumn = this._modifiedColumns[key];
 			if (columnName.toLowerCase() == modifiedColumn.toLowerCase()) {
 				return true;
 			}
@@ -100,7 +105,9 @@ Model = Class.extend({
 		}
 
 		var temporal = Model.isTemporalType(columnType),
-			numeric = Model.isNumericType(columnType);
+			numeric = Model.isNumericType(columnType),
+			intVal,
+			floatVal;
 
 		if (numeric || temporal) {
 			if ('' === value) {
@@ -109,14 +116,14 @@ Model = Class.extend({
 				if (numeric) {
 					if (Model.isIntegerType(columnType)) {
 						// validate and cast
-						var intVal = parseInt(value, 10);
+						intVal = parseInt(value, 10);
 						if (typeof value == 'undefined' || intVal.toString() != value.toString()) {
 							throw new Error(value + ' is not a valid integer');
 						}
 						value = intVal;
 					} else {
 						// only validates, doesn't cast...yet
-						var floatVal = parseFloat(value, 10);
+						floatVal = parseFloat(value, 10);
 						if (typeof value == 'undefined' || floatVal.toString() != value.toString()) {
 							throw new Error(value + ' is not a valid float');
 						}
@@ -160,8 +167,9 @@ Model = Class.extend({
 	 * @return array
 	 */
 	toArray: function() {
-		var array = {};
-		for (var column in this.constructor._columns) {
+		var array = {},
+			column;
+		for (column in this.constructor._columns) {
 			array[column] = this['_' + column];
 		}
 		return array;
@@ -172,12 +180,15 @@ Model = Class.extend({
 	 * @return bool
 	 */
 	hasPrimaryKeyValues: function() {
-		var pks = this.constructor._primaryKeys;
+		var pks = this.constructor._primaryKeys,
+			x,
+			len,
+			pk;
 		if (pks.length == 0) {
 			return false;
 		}
-		for (var x = 0, len = pks.length; x < len; ++x) {
-			var pk = pks[x];
+		for (x = 0, len = pks.length; x < len; ++x) {
+			pk = pks[x];
 			if (this['_' + pk] === null) {
 				return false;
 			}
@@ -192,10 +203,13 @@ Model = Class.extend({
 	 */
 	getPrimaryKeyValues: function() {
 		var arr = [],
-			pks = this.constructor._primaryKeys;
+			pks = this.constructor._primaryKeys,
+			x,
+			len,
+			pk;
 
-		for (var x = 0, len = pks.length; x < len; ++x) {
-			var pk = pks[x];
+		for (x = 0, len = pks.length; x < len; ++x) {
+			pk = pks[x];
 			arr.push(this['_' + pk]);
 		}
 		return arr;
@@ -229,15 +243,20 @@ Model = Class.extend({
 	 */
 	destroy: function() {
 		var pks = this.constructor._primaryKeys,
-			q = new Query;
+			q = new Query,
+			x,
+			len,
+			pk,
+			pkVal,
+			result;
 
 		if (pks.length == 0) {
 			throw new Error('This table has no primary keys');
 		}
 
-		for (var x = 0, len = pks.length; x < len; ++x) {
-			var pk = pks[x];
-			var pkVal = this['_' + pk];
+		for (x = 0, len = pks.length; x < len; ++x) {
+			pk = pks[x];
+			pkVal = this['_' + pk];
 			if (pkVal === null) {
 				throw new Error('Cannot delete using NULL primary key.');
 			}
@@ -245,7 +264,7 @@ Model = Class.extend({
 		}
 
 		q.setTable(this.constructor.getTableName());
-		var result = this.constructor.doDelete(q, false);
+		result = this.constructor.doDelete(q, false);
 		return result;
 	},
 
@@ -269,30 +288,30 @@ Model = Class.extend({
 			throw new Error('Cannot save without primary keys');
 		}
 
-		if (this.isNew() && this.constructor.hasColumn('Created') && !this.isColumnModified('Created')) {
-			this.setCreated(CURRENT_TIMESTAMP);
+		if (this.isNew() && this.constructor.hasColumn('created') && !this.isColumnModified('created')) {
+			this.created = CURRENT_TIMESTAMP;
 		}
 
-		if ((this.isNew() || this.isModified()) && this.constructor.hasColumn('Updated') && !this.isColumnModified('Updated')) {
-			this.setUpdated(CURRENT_TIMESTAMP);
+		if ((this.isNew() || this.isModified()) && this.constructor.hasColumn('updated') && !this.isColumnModified('updated')) {
+			this.updated = CURRENT_TIMESTAMP;
 		}
 
 		if (this.isNew()) {
 			return this.insert();
 		}
-		return this._update();
+		return this.update();
 	},
 
 	archive: function() {
-		if (!this.constructor.hasColumn('Archived')) {
-			throw new Error('Cannot call archive on models without "Archived" column');
+		if (!this.constructor.hasColumn('archived')) {
+			throw new Error('Cannot call archive on models without "archived" column');
 		}
 
-		if (null !== this.getArchived()) {
+		if (null !== this.archived && typeof this.archived != 'undefined') {
 			throw new Error('This ' + this.constructor.getClassName() + ' is already archived.');
 		}
 
-		this.setArchived(CURRENT_TIMESTAMP);
+		this.archived = CURRENT_TIMESTAMP;
 		return this.save();
 	},
 
@@ -325,10 +344,16 @@ Model = Class.extend({
 			values = [],
 			placeholders = [],
 			quotedTable = conn.quoteIdentifier(this.constructor.getTableName()),
-			statement = new QueryStatement(conn);
+			statement = new QueryStatement(conn),
+			column,
+			value,
+			queryString,
+			result,
+			count,
+			id;
 
-		for (var column in this.constructor._columns) {
-			var value = this['_' + column];
+		for (column in this.constructor._columns) {
+			value = this['_' + column];
 
 			if ((value === null || typeof value == 'undefined') && !this.isColumnModified(column)) {
 				continue;
@@ -339,18 +364,18 @@ Model = Class.extend({
 			placeholders.push('?');
 		}
 
-		var queryString = 'INSERT INTO ' +
+		queryString = 'INSERT INTO ' +
 			quotedTable + ' (' + fields.join(', ') + ') VALUES (' +
 			placeholders.join(', ') + ') ';
 
 		statement.setString(queryString);
 		statement.setParams(values);
 
-		var result = statement.bindAndExecute();
-		var count = result.rowsAffected;
+		result = statement.bindAndExecute();
+		count = result.rowsAffected;
 
 		if (pk && this.constructor.isAutoIncrement()) {
-			var id = conn.lastInsertId();
+			id = conn.lastInsertId();
 			if (null !== id) {
 				this[pk] = id;
 			}
@@ -366,7 +391,11 @@ Model = Class.extend({
 	 * the number of affected rows.
 	 * @return Int
 	 */
-	_update: function() {
+	update: function(hash) {
+		if (typeof hash == 'object') {
+			this.fromaArray(hash);
+		}
+
 		if (this.constructor._primaryKeys.length == 0) {
 			throw new Error('This table has no primary keys');
 		}
@@ -378,10 +407,17 @@ Model = Class.extend({
 			pkWhere = [],
 			statement = new QueryStatement(conn),
 			pks = this.constructor._primaryKeys,
-			modColumns = this.getModifiedColumns();
+			modColumns = this.getModifiedColumns(),
+			x,
+			len,
+			modCol,
+			pk,
+			pkVal,
+			queryString,
+			result;
 
-		for (var x = 0, len = modColumns.length; x < len; ++x) {
-			var modCol = modColumns[x];
+		for (x = 0, len = modColumns.length; x < len; ++x) {
+			modCol = modColumns[x];
 			fields.push(conn.quoteIdentifier(modCol) + ' = ?');
 			values.push(this['_' + modCol]);
 		}
@@ -392,7 +428,7 @@ Model = Class.extend({
 		}
 
 		for (x = 0, len = pks.length; x < len; ++x) {
-			var pk = pks[x],
+			pk = pks[x],
 				pkVal = this['_' + pk];
 			if (pkVal === null || typeof pkVal == 'undefined')
 				throw new Error('Cannot update with NULL primary key.');
@@ -400,11 +436,11 @@ Model = Class.extend({
 			values.push(pkVal);
 		}
 
-		var queryString = 'UPDATE ' + quotedTable + ' SET ' + fields.join(', ') + ' WHERE ' + pkWhere.join(' AND ');
+		queryString = 'UPDATE ' + quotedTable + ' SET ' + fields.join(', ') + ' WHERE ' + pkWhere.join(' AND ');
 
 		statement.setString(queryString);
 		statement.setParams(values);
-		var result = statement.bindAndExecute();
+		result = statement.bindAndExecute();
 		this.resetModified();
 		return result.rowsAffected;
 	}
@@ -517,12 +553,17 @@ Model.isBlobType = function(type) {
  * @return Model[]
  */
 Model.fromResult = function(result) {
-	var objects = [];
-	for (var i = 0, len = result.length; i < len; ++i) {
-		var object = new this,
-			row = result[i];
+	var objects = [],
+		i,
+		len,
+		object,
+		row,
+		fieldName;
+	for (i = 0, len = result.length; i < len; ++i) {
+		object = new this,
+		row = result[i];
 
-		for (var fieldName in row) {
+		for (fieldName in row) {
 			object[fieldName] = row[fieldName];
 		}
 		object.setNew(false);
@@ -532,13 +573,14 @@ Model.fromResult = function(result) {
 }
 
 Model.coerceTemporalValue = function(value, columnType) {
+	var x, date;
 	if (value instanceof Array) {
-		for (var x = 0, len = value; x < len; ++x) {
+		for (x = 0, len = value; x < len; ++x) {
 			value[x] = this.coerceTemporalValue(value[x], columnType);
 		}
 		return value;
 	}
-	var date = new Date(value);
+	date = new Date(value);
 	if (isNaN(date.getTime())) {
 		throw new Error(value + ' is not a valid date');
 	}
@@ -636,11 +678,15 @@ Model.retrieveByPK = function(thePK) {
  */
 Model.retrieveByPKs = function() {
 	var pks = this._primaryKeys,
-		q = new Query;
+		q = new Query,
+		x,
+		len,
+		pk,
+		pkVal;
 
-	for (var x = 0, len = pks.length; x < len; ++x) {
-		var pk = pks[x],
-			pkVal = arguments[x];
+	for (x = 0, len = pks.length; x < len; ++x) {
+		pk = pks[x],
+		pkVal = arguments[x];
 
 		if (pkVal === null || typeof pkVal == 'undefined') {
 			return null;
@@ -676,8 +722,7 @@ Model.fetchSingle = function(queryString) {
  * @return Model[]
  */
 Model.fetch = function(queryString) {
-	var conn = this.getConnection();
-	var result = conn.query(queryString);
+	var result = this.getConnection().query(queryString);
 	return this.fromResult(result);
 }
 
@@ -711,12 +756,10 @@ Model.doCount = function(q) {
  * @return int
  */
 Model.doDelete = function(q) {
-	var conn = this.getConnection();
 	if (!q.getTable() || this.getTableName() != q.getTable()) {
 		q.setTable(this.getTableName());
 	}
-	var result = q.doDelete(conn);
-	return result;
+	return q.doDelete(this.getConnection());
 }
 
 /**
@@ -733,12 +776,10 @@ Model.doSelect = function(q) {
  */
 Model.doSelectRS = function(q) {
 	q = q || new Query;
-	var conn = this.getConnection();
 	if (!q.getTable() || this.getTableName() != q.getTable()) {
 		q.setTable(this.getTableName());
 	}
-
-	return q.doSelect(conn);
+	return q.doSelect(this.getConnection());
 }
 
 Model.models = {};
@@ -747,8 +788,10 @@ Model.models = {};
  * @return Model
  */
 Model.create = function(props){
+	var conn, newClass, column, type, prop;
+
 	if (typeof props.connectionName == 'undefined') {
-		var conn = Adapter.getConnection();
+		conn = Adapter.getConnection();
 		if (!conn) {
 			throw new Error('No database specified or found.');
 		}
@@ -764,17 +807,17 @@ Model.create = function(props){
 		throw new Error('Must provide primaryKeys when exending Model');
 	}
 
-	var newClass = this.extend(props.instancePrototype);
+	newClass = this.extend(props.instancePrototype);
 
-	for (var column in props.columns) {
-		var type = props.columns[column] = props.columns[column].toUpperCase();
+	for (column in props.columns) {
+		type = props.columns[column] = props.columns[column].toUpperCase();
 		if (!Model.isColumnType(type)) {
 			throw new Error(type + ' is not a valide DABL/SQLite column type');
 		}
 		addGetterAndSetter(newClass.prototype, column, type);
 	}
 
-	for (var prop in props) {
+	for (prop in props) {
 		switch (prop) {
 			case 'connectionName': case 'table': case 'columns': case 'primaryKeys':
 				newClass['_' + prop] = props[prop];
