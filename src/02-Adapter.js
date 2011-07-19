@@ -11,6 +11,14 @@ Adapter = Class.extend({
 
 	init: function Adapter(dbFile) {
 		this._dbFile = dbFile;
+		if (typeof Titanium == 'undefined') {
+			this._db = {
+				execute: function(){
+					return null;
+				}
+			};
+			return;
+		}
 		this._db = Titanium.Database.open(dbFile);
 	},
 
@@ -89,17 +97,19 @@ Adapter = Class.extend({
 	},
 
 	quoteIdentifier: function(text) {
-		if (text instanceof Array) {
-			for (var x = 0, len = text.length; x < len; ++x) {
-				text[x] = this.quoteIdentifier(text[x]);
-			}
-			return text;
-		}
-
-		if (text.indexOf('[') != -1 || text.indexOf(' ') != -1 || text.indexOf('(') != -1 || text.indexOf('*') != -1) {
-			return text;
-		}
-		return '[' + text.replace('.', '].[') + ']';
+		// don't do anything right now, but save this code for later if we need it
+		return text;
+//		if (text instanceof Array) {
+//			for (var x = 0, len = text.length; x < len; ++x) {
+//				text[x] = this.quoteIdentifier(text[x]);
+//			}
+//			return text;
+//		}
+//
+//		if (text.indexOf('[') != -1 || text.indexOf(' ') != -1 || text.indexOf('(') != -1 || text.indexOf('*') != -1) {
+//			return text;
+//		}
+//		return '[' + text.replace('.', '].[') + ']';
 	},
 
 	/**
