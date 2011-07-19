@@ -78,7 +78,8 @@ QueryJoin.prototype = {
 	 */
 	setTable : function(tableName) {
 		var space = tableName.lastIndexOf(' '),
-			as = tableName.toUpperCase().lastIndexOf(' AS ');
+			as = space == -1 ? -1 : tableName.toUpperCase().lastIndexOf(' AS ');
+
 		if (as != space - 3) {
 			as = -1;
 		}
