@@ -255,29 +255,25 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 		Migration.dropTable(tableName);
 		Migration.createTable(tableName, newCols);
 
-//		for (var i = 0, len = records.length; i < len; ++i) {
-//
-			// var record = records[i];
-			// switch(options.modification) {
-				// case 'remove':
-					// delete record[columnName];
-					// Migration.save(tableName, newCols, record);
-					// break;
-//
-				// case 'rename':
-					// record[options.newName] = record[columnName];
-					// delete record[columnName];
-					// Migration.save(tableName, newCols, record);
-					// break;
-//
-				// case 'change':
-					// Migration.save(tableName, newCols, record);
-					// break;
-//
-				// default:
-					// throw('MIGRATION_EXCEPTION: Not a valid column modification');
-			// }
-	//	}
+		for (var i = 0, len = records.length; i < len; ++i) {
+			 var record = records[i];
+			 switch(options.modification) {
+				 case 'remove':
+					 delete record[columnName];
+					 Model.insert(tableName, record, Adapter.getConnection());
+					 break;
+				 case 'rename':
+					 record[options.newName] = record[columnName];
+					 delete record[columnName];
+					 Model.insert(tableName, record, Adapter.getConnection());
+					 break;
+				 case 'change':
+					 Model.insert(tableName, record, Adapter.getConnection());
+					 break;
+				 default:
+					 throw('MIGRATION_EXCEPTION: Not a valid column modification');
+			 }
+		}
 	});
 };
 
