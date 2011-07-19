@@ -128,22 +128,19 @@ QueryJoin.prototype = {
 	 * @return QueryStatement
 	 */
 	getQueryStatement : function(conn) {
-		var statement = new QueryStatement(conn),
+		var statement,
 			table = this._table,
 			onClause = this._onClause,
 			joinType = this._joinType,
 			alias = this._alias,
-			tableStatement,
 			onClauseStatement;
 
 		if (table instanceof Query) {
-			tableStatement = table.getQuery(conn);
-			table = '(' + tableStatement.getString() + ')';
-			statement.addParams(tableStatement.getParams());
-			statement.addIdentifiers(tableStatement.getIdentifiers());
+			statement = table.getQuery(conn);
+			table = '(' + statement.getString() + ')';
+			statement.setString('');
 		} else {
-			statement.addIdentifier(table);
-			table = QueryStatement.IDENTIFIER;
+			statement = new QueryStatement(conn);
 		}
 
 		if (alias) {
@@ -151,15 +148,13 @@ QueryJoin.prototype = {
 		}
 
 		if (this._isLikePropel) {
-			statement.addIdentifiers([this._leftColumn, this._rightColumn]);
-			onClause = QueryStatement.IDENTIFIER + ' = ' + QueryStatement.IDENTIFIER;
+			onClause = this._leftColumn + ' = ' + this._rightColumn;
 		} else if (null === onClause) {
 			onClause = '1 = 1';
 		} else if (onClause instanceof Condition) {
 			onClauseStatement = onClause.getQueryStatement();
 			onClause = onClauseStatement.getString();
 			statement.addParams(onClauseStatement.getParams());
-			statement.addIdentifiers(onClauseStatement.getIdentifiers());
 		}
 
 		if ('' !== onClause) {

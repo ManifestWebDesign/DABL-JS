@@ -575,9 +575,8 @@ Query.prototype = {
 			x,
 			len,
 			join,
-			join_statement,
+			joinStatement,
 			whereStatement,
-			clause,
 			havingStatement;
 
 		// the string statement will use
@@ -588,7 +587,6 @@ Query.prototype = {
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
 				columnsStatement = this.getColumnsClause(conn);
-				statement.addIdentifiers(columnsStatement.getIdentifiers());
 				statement.addParams(columnsStatement.getParams());
 				queryS = queryS + 'SELECT ' + columnsStatement.getString();
 				break;
@@ -598,17 +596,15 @@ Query.prototype = {
 		}
 
 		tableStatement = this.getTablesClause(conn);
-		statement.addIdentifiers(tableStatement.getIdentifiers());
 		statement.addParams(tableStatement.getParams());
 		queryS = queryS + "\nFROM " + tableStatement.getString();
 
 		if (this._joins.length > 0) {
 			for (x = 0, len = this._joins.length; x < len; ++x) {
 				join = this._joins[x],
-					join_statement = join.getQueryStatement(conn);
-				queryS = queryS + "\n\t" + join_statement.getString();
-				statement.addParams(join_statement.getParams());
-				statement.addIdentifiers(join_statement.getIdentifiers());
+					joinStatement = join.getQueryStatement(conn);
+				queryS = queryS + "\n\t" + joinStatement.getString();
+				statement.addParams(joinStatement.getParams());
 			}
 		}
 
@@ -617,14 +613,10 @@ Query.prototype = {
 		if (whereStatement) {
 			queryS = queryS + "\nWHERE " + whereStatement.getString();
 			statement.addParams(whereStatement.getParams());
-			statement.addIdentifiers(whereStatement.getIdentifiers());
 		}
 
 		if (this._groups.length > 0) {
-			clause = this.getGroupByClause();
-			statement.addIdentifiers(clause.getIdentifiers());
-			statement.addParams(clause.getParams());
-			queryS = queryS + clause.getString();
+			queryS = queryS + "\nGROUP BY " + this._groups.join(', ');
 		}
 
 		if (null !== this.getHaving()) {
@@ -632,15 +624,11 @@ Query.prototype = {
 			if (havingStatement) {
 				queryS = queryS + "\nHAVING " + havingStatement.getString();
 				statement.addParams(havingStatement.getParams());
-				statement.addIdentifiers(havingStatement.getIdentifiers());
 			}
 		}
 
 		if (this._action != Query.ACTION_COUNT && this._orders.length > 0) {
-			clause = this.getOrderByClause();
-			statement.addIdentifiers(clause.getIdentifiers());
-			statement.addParams(clause.getParams());
-			queryS = queryS + clause.getString();
+			queryS = queryS + "\nORDER BY " + this._orders.join(', ');
 		}
 
 		if (this._limit) {
@@ -688,6 +676,7 @@ Query.prototype = {
 			tableString = '(' + tableStatement.getString() + ')';
 		} else {
 			tableStatement = null;
+			tableString = table;
 		}
 
 		switch (this._action.toUpperCase()) {
@@ -695,16 +684,7 @@ Query.prototype = {
 			case Query.ACTION_SELECT:
 				// setup identifiers for table_string
 				if (null !== tableStatement) {
-					statement.addIdentifiers(tableStatement.getIdentifiers());
 					statement.addParams(tableStatement.getParams());
-				} else {
-					// if table has no spaces, assume it is an identifier
-					if (table.indexOf(' ') === -1) {
-						statement.addIdentifier(table);
-						tableString = QueryStatement.IDENTIFIER;
-					} else {
-						tableString = table;
-					}
 				}
 
 				// append alias, if it's not empty
@@ -720,13 +700,8 @@ Query.prototype = {
 							extraTableStatement = extraTable.getQuery(conn),
 							extraTableString = '(' + extraTableStatement.getString() + ') AS ' + tAlias;
 							statement.addParams(extraTableStatement.getParams());
-							statement.addIdentifiers(extraTableStatement.getIdentifiers());
 						} else {
 							extraTableString = extraTable;
-							if (extraTableString.indexOf(' ') == -1) {
-								extraTableString = QueryStatement.IDENTIFIER;
-								statement.addIdentifier(extraTable);
-							}
 							if (tAlias != extraTable) {
 								extraTableString = extraTableString + ' AS ' + tAlias;
 							}
@@ -738,16 +713,7 @@ Query.prototype = {
 				break;
 			case Query.ACTION_DELETE:
 				if (null !== tableStatement) {
-					statement.addIdentifiers(tableStatement.getIdentifiers());
 					statement.addParams(tableStatement.getParams());
-				} else {
-					// if table has no spaces, assume it is an identifier
-					if (table.indexOf(' ') == -1) {
-						statement.addIdentifier(table);
-						tableString = QueryStatement.IDENTIFIER;
-					} else {
-						tableString = table;
-					}
 				}
 
 				// append alias, if it's not empty
@@ -821,12 +787,7 @@ Query.prototype = {
 			}
 
 			if (this._groups.length > 0) {
-				groups = this._groups.slice(0);
-				for (x = 0, len = groups.length; x < len; ++x) {
-					statement.addIdentifier(groups[x]);
-					groups[x] = QueryStatement.IDENTIFIER;
-				}
-				statement.setString(groups.join(', '));
+				statement.setString(this._groups.join(', '));
 				return statement;
 			}
 
@@ -837,10 +798,9 @@ Query.prototype = {
 					if (column.indexOf('(') == -1) {
 						continue;
 					}
-					statement.addIdentifier(column);
-					columnsToUse.push(QueryStatement.IDENTIFIER);
+					columnsToUse.push(column);
 				}
-				if (columnsToUse) {
+				if (columnsToUse.length > 0) {
 					statement.setString(columnsToUse.join(', '));
 					return statement;
 				}
@@ -849,19 +809,13 @@ Query.prototype = {
 
 		// setup columns_string
 		if (this._columns.length > 0) {
-			columns = this._columns.slice(0);
-			for (x = 0, len = columns.length; x < len; ++x) {
-				statement.addIdentifier(columns[x]);
-				columns[x] = QueryStatement.IDENTIFIER;
-			}
-			columnsString = columns.join(', ');
+			columnsString = this._columns.join(', ');
 		} else if (alias) {
 			// default to selecting only columns from the target table
 			columnsString = alias + '.*';
 		} else {
 			// default to selecting only columns from the target table
-			columnsString = QueryStatement.IDENTIFIER + '.*';
-			statement.addIdentifier(table);
+			columnsString = table + '.*';
 		}
 
 		if (this._distinct) {
@@ -878,51 +832,6 @@ Query.prototype = {
 	 */
 	getWhereClause : function(conn) {
 		return this.getWhere().getQueryStatement();
-	},
-
-	/**
-	 * Protected for now.  Likely to be public in the future.
-	 * @return QueryStatement
-	 */
-	getOrderByClause : function(conn) {
-		var statement = new QueryStatement(conn),
-			orders = this._orders.slice(0),
-			x = 0,
-			len = orders.length,
-			order,
-			orderParts;
-
-		for (x; x < len; ++x) {
-			order = orders[x],
-			orderParts = order.split(' ');
-			if (orderParts.length > 1) {
-				statement.addIdentifier(orderParts[0]);
-				orderParts[0] = QueryStatement.IDENTIFIER;
-			}
-			orders[x] = orderParts.join(' ');
-		}
-		statement.setString("\nORDER BY " + orders.join(', '));
-		return statement;
-	},
-
-	/**
-	 * Protected for now.  Likely to be public in the future.
-	 * @return QueryStatement
-	 */
-	getGroupByClause : function(conn) {
-		var statement = new QueryStatement(conn),
-			groups,
-			x,
-			len;
-		if (this._groups.length > 0) {
-			groups = this._groups.slice(0);
-			for (x = 0, len = groups.length; x < len; ++x) {
-				statement.addIdentifier(groups[x]);
-				groups[x] = QueryStatement.IDENTIFIER;
-			}
-			statement.setString("\nGROUP BY " + groups.join(', '));
-		}
-		return statement;
 	},
 
 	/**

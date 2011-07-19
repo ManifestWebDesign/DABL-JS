@@ -36,15 +36,19 @@ Condition.prototype = {
 	 */
 	_processCondition : function(left, right, operator, quote) {
 
-		if (typeof operator == 'undefined') {
+		if (typeof operator === 'undefined') {
 			operator = Query.EQUAL;
 		}
 
-		if (typeof left == 'undefined') {
+		if (typeof left === 'undefined') {
 			return null;
 		}
 
-		if (arguments.length == 1 && left instanceof QueryStatement) {
+		if (typeof quote === 'undefined') {
+			quote = Condition.QUOTE_RIGHT;
+		}
+
+		if (arguments.length === 1 && left instanceof QueryStatement) {
 			return left;
 		}
 
@@ -65,23 +69,10 @@ Condition.prototype = {
 			return clauseStatement;
 		}
 
-		if (typeof quote == 'undefined') {
-			// You can skip operator and specify quote with parameter 3
-			if (parseInt(operator, 10) === operator) {
-				quote = operator;
-				operator = Query.EQUAL;
-			} else {
-				quote = Condition.QUOTE_RIGHT;
-			}
-		}
-
 		// Escape left
-		if (quote == Condition.QUOTE_LEFT || quote == Condition.QUOTE_BOTH) {
+		if (quote === Condition.QUOTE_LEFT || quote === Condition.QUOTE_BOTH) {
 			statement.addParam(left);
-			left = QueryStatement.PARAM;
-		} else {
-			statement.addIdentifier(left);
-			left = QueryStatement.IDENTIFIER;
+			left = '?';
 		}
 
 		isArray = false;
@@ -92,7 +83,7 @@ Condition.prototype = {
 		// Right can be a Query, if you're trying to nest queries, like "WHERE MyColumn = (SELECT OtherColumn From MyTable LIMIT 1)"
 		if (right instanceof Query) {
 			if (!right.getTable()) {
-				throw new Error("right does not have a table, so it cannot be nested.");
+				throw new Error('right does not have a table, so it cannot be nested.');
 			}
 
 			clauseStatement = right.getQuery();
@@ -102,7 +93,6 @@ Condition.prototype = {
 
 			right = '(' + clauseStatement.getString() + ')';
 			statement.addParams(clauseStatement.getParams());
-			statement.addIdentifiers(clauseStatement.getIdentifiers());
 			if (quote != Condition.QUOTE_LEFT) {
 				quote = Condition.QUOTE_NONE;
 			}
@@ -112,7 +102,7 @@ Condition.prototype = {
 		if (isArray) {
 			// BETWEEN
 			if (right instanceof Array && right.length == 2 && operator == Query.BETWEEN) {
-				statement.setString(left + ' ' + operator + ' ' + QueryStatement.PARAM + ' AND ' + QueryStatement.PARAM);
+				statement.setString(left + ' ' + operator + ' ? AND ?');
 				statement.addParams(right);
 				return statement;
 			}
@@ -140,7 +130,6 @@ Condition.prototype = {
 				if (operator == Query.IN) {
 					statement.setString('(0 = 1)');
 					statement.setParams([]);
-					statement.setIdentifiers([]);
 					return statement;
 				} else if (operator == Query.NOT_IN) {
 					return null;
@@ -152,7 +141,7 @@ Condition.prototype = {
 				statement.addParams(right);
 				placeholders = [];
 				for (x = 0, len = right.length; x < len; ++x) {
-					placeholders.push(QueryStatement.PARAM);
+					placeholders.push('?');
 				}
 				right = '(' + placeholders.join(',') + ')';
 			}
@@ -171,7 +160,7 @@ Condition.prototype = {
 				right = null;
 			} else if (quote == Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
 				statement.addParam(right);
-				right = QueryStatement.PARAM;
+				right = '?';
 			}
 		}
 		statement.setString(left + ' ' + operator + ' ' + right);
@@ -270,7 +259,6 @@ Condition.prototype = {
 			andStatement = this._ands[x];
 			andStrings.push(andStatement.getString());
 			statement.addParams(andStatement.getParams());
-			statement.addIdentifiers(andStatement.getIdentifiers());
 		}
 
 		if (andStrings.length > 0) {
@@ -281,7 +269,6 @@ Condition.prototype = {
 			orStatement = this._ors[x];
 			orStrings.push(orStatement.getString());
 			statement.addParams(orStatement.getParams());
-			statement.addIdentifiers(orStatement.getIdentifiers());
 		}
 		if (orStrings.length > 0) {
 			OR = orStrings.join("\n\tOR ");

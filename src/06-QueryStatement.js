@@ -1,66 +1,47 @@
 function QueryStatement(conn) {
 	this._params = [];
-	this._identifiers = [];
 	if (conn) {
 		this.setConnection(conn);
 	}
 }
 
 /**
- * character to use as a placeholder for a quoted identifier
+ * Emulates a prepared statement.  Should only be used as a last resort.
+ * @param string
+ * @param params
+ * @param conn
+ * @return string
  */
-QueryStatement.IDENTIFIER = '[?]';
-
-/**
- * character to use as a placeholder for an escaped parameter
- */
-QueryStatement.PARAM = '?';
-
-QueryStatement.embed = function(string, array, placeholder) {
-	if (string.split(placeholder).length - 1 != array.length) {
-		throw new Error('The number of occurances of ' + placeholder + ' do not match the number of _identifiers.');
+QueryStatement.embedParams = function(string, params, conn) {
+	if (conn) {
+		params = conn.prepareInput(params);
 	}
 
-	if (array.length == 0) {
+	var p = '?';
+
+	if (string.split(p).length - 1 != params.length) {
+		throw new Error('The number of occurances of ' + p + ' do not match the number of _params.');
+	}
+
+	if (params.length == 0) {
 		return string;
 	}
 
 	var currentIndex = string.length,
-		pLength = placeholder.length,
+		pLength = p.length,
 		x,
 		identifier;
 
-	for (x = array.length - 1; x >= 0; --x) {
-		identifier = array[x];
-		currentIndex = string.lastIndexOf(placeholder, currentIndex);
+	for (x = params.length - 1; x >= 0; --x) {
+		identifier = params[x];
+		currentIndex = string.lastIndexOf(p, currentIndex);
 		if (currentIndex == -1) {
-			throw new Error('The number of occurances of ' + placeholder + ' do not match the number of _identifiers.');
+			throw new Error('The number of occurances of ' + p + ' do not match the number of _params.');
 		}
 		string = string.substring(0, currentIndex) + identifier + string.substr(currentIndex + pLength);
 	}
 
 	return string;
-}
-
-QueryStatement.embedIdentifiers = function(string, _identifiers, conn) {
-	if (conn) {
-		_identifiers = conn.quoteIdentifier(_identifiers);
-	}
-	return this.embed(string, _identifiers, this.IDENTIFIER);
-};
-
-/**
- * Emulates a prepared statement.  Should only be used as a last resort.
- * @param string
- * @param _params
- * @param conn
- * @return string
- */
-QueryStatement.embedParams = function(string, _params, conn) {
-	if (conn) {
-		_params = conn.prepareInput(_params);
-	}
-	return this.embed(string, _params, this.PARAM);
 };
 
 QueryStatement.prototype = {
@@ -73,10 +54,6 @@ QueryStatement.prototype = {
 	 * @var array
 	 */
 	_params : null,
-	/**
-	 * @var array
-	 */
-	_identifiers : null,
 	/**
 	 * @var Adapter
 	 */
@@ -145,42 +122,10 @@ QueryStatement.prototype = {
 	},
 
 	/**
-	 * Merges given array into idents
-	 * @param identifiers
-	 */
-	addIdentifiers : function(identifiers) {
-		this._identifiers = this._identifiers.concat(identifiers);
-	},
-
-	/**
-	 * Replaces idents with given array
-	 * @param identifiers
-	 */
-	setIdentifiers : function(identifiers) {
-		this._identifiers = identifiers.slice(0);
-	},
-
-	/**
-	 * Adds given param to param array
-	 * @param identifier
-	 */
-	addIdentifier : function(identifier) {
-		this._identifiers.push(identifier);
-	},
-
-	/**
-	 * @return array
-	 */
-	getIdentifiers : function() {
-		return this._identifiers.slice(0);
-	},
-
-	/**
 	 * @return string
 	 */
 	toString : function() {
-		var string = QueryStatement.embedIdentifiers(this._queryString, this._identifiers.slice(0), this.connection);
-		return QueryStatement.embedParams(string, this._params.slice(0), this.connection);
+		return QueryStatement.embedParams(this._queryString, this._params.slice(0), this.connection);
 	},
 
 	/**
@@ -189,12 +134,8 @@ QueryStatement.prototype = {
 	 * @return PDOStatement
 	 */
 	bindAndExecute : function() {
-		var conn = this.getConnection(),
-			string = QueryStatement.embedIdentifiers(this._queryString, this._identifiers, conn),
-			params = this.getParams();
-
+		var conn = this.getConnection();
 		conn = conn || Adapter.getConnection();
-
 //		for (var i = 0, len = params.length; i < len; ++i) {
 //			var param = params[i];
 //			if (param === true || param === false) {
@@ -206,7 +147,6 @@ QueryStatement.prototype = {
 //				continue;
 //			}
 //		}
-
-		return conn.execute(string, params);
+		return conn.execute(this._queryString, this.getParams());
 	}
 };
