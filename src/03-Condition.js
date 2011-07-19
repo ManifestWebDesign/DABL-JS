@@ -1,7 +1,6 @@
 function Condition(left, right, operator, quote) {
-	this._ands = [];
-	this._ors = [];
-	if (typeof left != 'undefined') {
+	this._conds = [];
+	if (arguments.length != 0) {
 		this.addAnd.apply(this, arguments);
 	}
 }
@@ -28,28 +27,25 @@ Condition.QUOTE_NONE = 4;
 
 Condition.prototype = {
 
-	_ands : null,
-	_ors : null,
+	_conds : null,
 
 	/**
 	 * @return string
 	 */
 	_processCondition : function(left, right, operator, quote) {
 
-		if (typeof operator === 'undefined') {
-			operator = Query.EQUAL;
-		}
-
-		if (typeof left === 'undefined') {
-			return null;
-		}
-
-		if (typeof quote === 'undefined') {
-			quote = Condition.QUOTE_RIGHT;
-		}
-
-		if (arguments.length === 1 && left instanceof QueryStatement) {
-			return left;
+		switch (arguments.length) {
+			case 0:
+				return null;
+				break;
+			case 1:
+				if (left instanceof QueryStatement) {
+					return left;
+				}
+			case 2:
+				operator = Query.EQUAL;
+			case 3:
+				quote = Condition.QUOTE_RIGHT;
 		}
 
 		var statement = new QueryStatement,
@@ -70,15 +66,12 @@ Condition.prototype = {
 		}
 
 		// Escape left
-		if (quote === Condition.QUOTE_LEFT || quote === Condition.QUOTE_BOTH) {
+		if (quote == Condition.QUOTE_LEFT || quote == Condition.QUOTE_BOTH) {
 			statement.addParam(left);
 			left = '?';
 		}
 
-		isArray = false;
-		if (right instanceof Array || (right instanceof Query && right.getLimit() !== 1)) {
-			isArray = true;
-		}
+		isArray = right instanceof Array || (right instanceof Query && 1 !== right.getLimit());
 
 		// Right can be a Query, if you're trying to nest queries, like "WHERE MyColumn = (SELECT OtherColumn From MyTable LIMIT 1)"
 		if (right instanceof Query) {
@@ -92,7 +85,7 @@ Condition.prototype = {
 			}
 
 			right = '(' + clauseStatement.getString() + ')';
-			statement.addParams(clauseStatement.getParams());
+			statement.addParams(clauseStatement._params);
 			if (quote != Condition.QUOTE_LEFT) {
 				quote = Condition.QUOTE_NONE;
 			}
@@ -101,7 +94,7 @@ Condition.prototype = {
 		// right can be an array
 		if (isArray) {
 			// BETWEEN
-			if (right instanceof Array && right.length == 2 && operator == Query.BETWEEN) {
+			if (right instanceof Array && 2 == right.length && operator == Query.BETWEEN) {
 				statement.setString(left + ' ' + operator + ' ? AND ?');
 				statement.addParams(right);
 				return statement;
@@ -126,33 +119,32 @@ Condition.prototype = {
 			}
 
 			// Handle empty arrays
-			if (right instanceof Array && !right) {
+			if (right instanceof Array && 0 == right.length) {
 				if (operator == Query.IN) {
 					statement.setString('(0 = 1)');
-					statement.setParams([]);
 					return statement;
 				} else if (operator == Query.NOT_IN) {
 					return null;
 				}
-			}
-
-			// IN or NOT_IN
-			if (quote == Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
+			} else if (quote == Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
 				statement.addParams(right);
-				placeholders = [];
+				var rString = '(';
 				for (x = 0, len = right.length; x < len; ++x) {
-					placeholders.push('?');
+					if (0 < x) {
+						rString += ',';
+					}
+					rString += '?';
 				}
-				right = '(' + placeholders.join(',') + ')';
+				right = rString + ')';
 			}
 		} else {
 			// IS NOT NULL
-			if (right === null && (operator == Query.NOT_EQUAL || operator == Query.ALT_NOT_EQUAL)) {
+			if (null === right && (operator == Query.NOT_EQUAL || operator == Query.ALT_NOT_EQUAL)) {
 				operator = Query.IS_NOT_NULL;
 			}
 
 			// IS NULL
-			else if (right === null && operator == Query.EQUAL) {
+			else if (null === right && operator == Query.EQUAL) {
 				operator = Query.IS_NULL;
 			}
 
@@ -187,7 +179,7 @@ Condition.prototype = {
 	addAnd : function(left, right, operator, quote) {
 		var key, condition;
 
-		if (typeof left == 'object') {
+		if (left.constructor === Object) {
 			for (key in left) {
 				this.addAnd(key, left[key]);
 			}
@@ -196,17 +188,11 @@ Condition.prototype = {
 
 		condition = this._processCondition.apply(this, arguments);
 
-		if (condition) {
-			this._ands.push(condition);
+		if (null !== condition) {
+			condition.sep = 'AND';
+			this._conds.push(condition);
 		}
 		return this;
-	},
-
-	/**
-	 * @return QueryStatement[]
-	 */
-	getAnds : function() {
-		return this._ands.slice(0);
 	},
 
 	/**
@@ -220,7 +206,7 @@ Condition.prototype = {
 	addOr : function(left, right, operator, quote) {
 		var key, condition;
 
-		if (typeof left == 'object') {
+		if (left.constructor === Object) {
 			for (key in left) {
 				this.addOr(key, left[key]);
 			}
@@ -229,17 +215,11 @@ Condition.prototype = {
 
 		condition = this._processCondition.apply(this, arguments);
 
-		if (condition) {
-			this._ors.push(condition);
+		if (null !== condition) {
+			condition.sep = 'OR';
+			this._conds.push(condition);
 		}
 		return this;
-	},
-
-	/**
-	 * @return QueryStatement[]
-	 */
-	getOrs : function() {
-		return this._ors.slice();
 	},
 
 	/**
@@ -247,45 +227,29 @@ Condition.prototype = {
 	 * @return QueryStatement
 	 */
 	getQueryStatement : function() {
+
+		if (0 == this._conds.length) {
+			return null;
+		}
+
 		var statement = new QueryStatement,
 			string = '',
-			andStrings = [],
-			orStrings = [],
-			x, len,
-			andStatement,
-			orStatement;
+			x,
+			cond,
+			conds = this._conds,
+			len = conds.length;
 
-		for (x = 0, len = this._ands.length; x < len; ++x) {
-			andStatement = this._ands[x];
-			andStrings.push(andStatement.getString());
-			statement.addParams(andStatement.getParams());
-		}
-
-		if (andStrings.length > 0) {
-			AND = andStrings.join("\n\tAND ");
-		}
-
-		for (x = 0, len = this._ors.length; x < len; ++x) {
-			orStatement = this._ors[x];
-			orStrings.push(orStatement.getString());
-			statement.addParams(orStatement.getParams());
-		}
-		if (orStrings.length > 0) {
-			OR = orStrings.join("\n\tOR ");
-		}
-
-		if (andStrings.length > 0 || orStrings.length > 0) {
-			if (andStrings.length > 0  && orStrings.length > 0 ) {
-				string += "\n\t" + AND + "\n\tOR " + OR;
-			} else if (andStrings.length > 0 ) {
-				string += "\n\t" + AND;
-			} else {
-				string += "\n\t" + OR;
+		for (x = 0; x < len; ++x) {
+			cond = conds[x];
+			string += "\n\t";
+			if (0 != x) {
+				string += ((1 == x && conds[0].sep == 'OR') ? 'OR' : cond.sep) + ' ';
 			}
-			statement.setString(string);
-			return statement;
+			string += cond.getString();
+			statement.addParams(cond._params);
 		}
-		return null;
+		statement.setString(string);
+		return statement;
 	},
 
 	/**

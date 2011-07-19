@@ -1,6 +1,7 @@
+var isIdent = /^\w+\.\w+$/;
 
-function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
-	if (typeof joinType == 'undefined') {
+QueryJoin = function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
+	if (arguments.length < 3) {
 		joinType = Query.JOIN;
 	}
 
@@ -8,19 +9,13 @@ function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
 	if (
 		!(tableOrColumn instanceof Query)
 		&& !(onClauseOrColumn instanceof Condition)
-		&& onClauseOrColumn.indexOf('=') === -1
-		&& onClauseOrColumn.indexOf(' ') === -1
-		&& onClauseOrColumn.indexOf('(') === -1
-		&& onClauseOrColumn.indexOf('.') !== -1 && onClauseOrColumn.indexOf('.') == onClauseOrColumn.lastIndexOf('.')
-		&& tableOrColumn.indexOf(' ') === -1
-		&& tableOrColumn.indexOf('=') === -1
-		&& tableOrColumn.indexOf('(') === -1
-		&& tableOrColumn.indexOf('.') !== -1 && tableOrColumn.indexOf('.') == tableOrColumn.lastIndexOf('.')
-		) {
+		&& isIdent.test(onClauseOrColumn)
+		&& isIdent.test(tableOrColumn)
+	) {
 		this._isLikePropel = true;
 		this._leftColumn = tableOrColumn;
 		this._rightColumn = onClauseOrColumn;
-		this.setTable(this._rightColumn.split('.').shift());
+		this.setTable(onClauseOrColumn.substring(0, onClauseOrColumn.indexOf('.')));
 		this.setJoinType(joinType);
 		return;
 	}

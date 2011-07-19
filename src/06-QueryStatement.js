@@ -1,7 +1,7 @@
 function QueryStatement(conn) {
 	this._params = [];
 	if (conn) {
-		this.setConnection(conn);
+		this._conn = conn;
 	}
 }
 
@@ -57,7 +57,7 @@ QueryStatement.prototype = {
 	/**
 	 * @var Adapter
 	 */
-	connection : null,
+	_conn : null,
 
 	/**
 	 * Sets the PDO connection to be used for preparing and
@@ -65,14 +65,14 @@ QueryStatement.prototype = {
 	 * @param conn
 	 */
 	setConnection : function(conn) {
-		this.connection = conn;
+		this._conn = conn;
 	},
 
 	/**
 	 * @return Adapter
 	 */
 	getConnection : function() {
-		return this.connection;
+		return this._conn;
 	},
 
 	/**
@@ -125,7 +125,7 @@ QueryStatement.prototype = {
 	 * @return string
 	 */
 	toString : function() {
-		return QueryStatement.embedParams(this._queryString, this._params.slice(0), this.connection);
+		return QueryStatement.embedParams(this._queryString, this._params.slice(0), this._conn);
 	},
 
 	/**
@@ -134,7 +134,7 @@ QueryStatement.prototype = {
 	 * @return PDOStatement
 	 */
 	bindAndExecute : function() {
-		var conn = this.getConnection();
+		var conn = this._conn;
 		conn = conn || Adapter.getConnection();
 //		for (var i = 0, len = params.length; i < len; ++i) {
 //			var param = params[i];
