@@ -50,15 +50,15 @@ Condition.prototype = {
 
 		var statement = new QueryStatement,
 			clauseStatement,
-			isArray,
-			placeholders,
 			x,
-			len;
+			isQuery = right instanceof Query,
+			isArray = right instanceof Array,
+			arrayLen;
 
 		// Left can be a Condition
 		if (left instanceof Condition) {
 			clauseStatement = left.getQueryStatement();
-			if (!clauseStatement) {
+			if (null === clauseStatement) {
 				return null;
 			}
 			clauseStatement.setString('(' + clauseStatement.getString() + ')');
@@ -71,81 +71,79 @@ Condition.prototype = {
 			left = '?';
 		}
 
-		isArray = right instanceof Array || (right instanceof Query && 1 !== right.getLimit());
-
-		// Right can be a Query, if you're trying to nest queries, like "WHERE MyColumn = (SELECT OtherColumn From MyTable LIMIT 1)"
-		if (right instanceof Query) {
-			if (!right.getTable()) {
-				throw new Error('right does not have a table, so it cannot be nested.');
-			}
-
-			clauseStatement = right.getQuery();
-			if (!clauseStatement) {
-				return null;
-			}
-
-			right = '(' + clauseStatement.getString() + ')';
-			statement.addParams(clauseStatement._params);
-			if (quote != Condition.QUOTE_LEFT) {
-				quote = Condition.QUOTE_NONE;
-			}
-		}
-
 		// right can be an array
-		if (isArray) {
-			// BETWEEN
-			if (right instanceof Array && 2 == right.length && operator == Query.BETWEEN) {
-				statement.setString(left + ' ' + operator + ' ? AND ?');
-				statement.addParams(right);
-				return statement;
+		if (isArray || isQuery) {
+			if (false == isQuery || 1 !== right.getLimit()) {
+				// Convert any sort of equality operator to something suitable for arrays
+				switch (operator) {
+					// Various forms of equal
+					case Query.IN:
+					case Query.EQUAL:
+						operator = Query.IN;
+						break;
+					// Various forms of not equal
+					case Query.NOT_IN:
+					case Query.NOT_EQUAL:
+					case Query.ALT_NOT_EQUAL:
+						operator = Query.NOT_IN;
+						break;
+					default:
+						throw new Error(operator + ' unknown for comparing an array.');
+				}
 			}
 
-			// Convert any sort of equal operator to something suitable
-			// for arrays
-			switch (operator) {
-				//Various forms of equal
-				case Query.IN:
-				case Query.EQUAL:
-					operator = Query.IN;
-					break;
-				//Various forms of not equal
-				case Query.NOT_IN:
-				case Query.NOT_EQUAL:
-				case Query.ALT_NOT_EQUAL:
-					operator = Query.NOT_IN;
-					break;
-				default:
-					throw new Error(operator + ' unknown for comparing an array.');
-			}
+			// Right can be a Query, if you're trying to nest queries, like "WHERE MyColumn = (SELECT OtherColumn From MyTable LIMIT 1)"
+			if (isQuery) {
+				if (!right.getTable()) {
+					throw new Error('right does not have a table, so it cannot be nested.');
+				}
 
-			// Handle empty arrays
-			if (right instanceof Array && 0 == right.length) {
-				if (operator == Query.IN) {
-					statement.setString('(0 = 1)');
-					return statement;
-				} else if (operator == Query.NOT_IN) {
+				clauseStatement = right.getQuery();
+				if (null === clauseStatement) {
 					return null;
 				}
-			} else if (quote == Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
-				statement.addParams(right);
-				var rString = '(';
-				for (x = 0, len = right.length; x < len; ++x) {
-					if (0 < x) {
-						rString += ',';
-					}
-					rString += '?';
+
+				right = '(' + clauseStatement.getString() + ')';
+				statement.addParams(clauseStatement._params);
+				if (quote != Condition.QUOTE_LEFT) {
+					quote = Condition.QUOTE_NONE;
 				}
-				right = rString + ')';
+			} else if (isArray) {
+				arrayLen = right.length;
+				// BETWEEN
+				if (2 == arrayLen && operator == Query.BETWEEN) {
+					statement.setString(left + ' ' + operator + ' ? AND ?');
+					statement.addParams(right);
+					return statement;
+				} else if (0 == arrayLen) {
+					// Handle empty arrays
+					if (operator == Query.IN) {
+						statement.setString('(0 = 1)');
+						return statement;
+					} else if (operator == Query.NOT_IN) {
+						return null;
+					}
+				} else if (quote == Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
+					statement.addParams(right);
+					var rString = '(';
+					for (x = 0; x < arrayLen; ++x) {
+						if (0 < x) {
+							rString += ',';
+						}
+						rString += '?';
+					}
+					right = rString + ')';
+				}
 			}
 		} else {
-			// IS NOT NULL
-			if (null === right && (operator == Query.NOT_EQUAL || operator == Query.ALT_NOT_EQUAL)) {
-				operator = Query.IS_NOT_NULL;
-			}
-
-			// IS NULL
-			else if (null === right && operator == Query.EQUAL) {
-				operator = Query.IS_NULL;
+			if (null === right) {
+				if (operator == Query.NOT_EQUAL || operator == Query.ALT_NOT_EQUAL) {
+					// IS NOT NULL
+					operator = Query.IS_NOT_NULL;
+				} else if (operator == Query.EQUAL) {
+					// IS NULL
+					operator = Query.IS_NULL;
+				}
 			}
 
 			if (operator == Query.IS_NULL || operator == Query.IS_NOT_NULL) {
