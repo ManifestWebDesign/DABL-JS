@@ -49,7 +49,7 @@ QueryStatement.prototype = {
 	/**
 	 * @var string
 	 */
-	_queryString : '',
+	_qString : '',
 	/**
 	 * @var array
 	 */
@@ -80,14 +80,14 @@ QueryStatement.prototype = {
 	 * @param string string
 	 */
 	setString : function(string) {
-		this._queryString = string;
+		this._qString = string;
 	},
 
 	/**
 	 * @return string
 	 */
 	getString : function() {
-		return this._queryString;
+		return this._qString;
 	},
 
 	/**
@@ -125,7 +125,7 @@ QueryStatement.prototype = {
 	 * @return string
 	 */
 	toString : function() {
-		return QueryStatement.embedParams(this._queryString, this._params.slice(0), this._conn);
+		return QueryStatement.embedParams(this._qString, this._params.slice(0), this._conn);
 	},
 
 	/**
@@ -136,6 +136,6 @@ QueryStatement.prototype = {
 	bindAndExecute : function() {
 		var conn = this._conn;
 		conn = conn || Adapter.getConnection();
-		return conn.execute(this._queryString, this._params);
+		return conn.execute(this._qString, this._params);
 	}
 };

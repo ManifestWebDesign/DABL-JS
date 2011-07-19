@@ -588,7 +588,7 @@ Query.prototype = {
 			case Query.ACTION_SELECT:
 				columnsStatement = this.getColumnsClause(conn);
 				statement.addParams(columnsStatement._params);
-				queryS += 'SELECT ' + columnsStatement.getString();
+				queryS += 'SELECT ' + columnsStatement._qString;
 				break;
 			case Query.ACTION_DELETE:
 				queryS += 'DELETE';
@@ -597,13 +597,13 @@ Query.prototype = {
 
 		tableStatement = this.getTablesClause(conn);
 		statement.addParams(tableStatement._params);
-		queryS += "\nFROM " + tableStatement.getString();
+		queryS += "\nFROM " + tableStatement._qString;
 
 		if (this._joins.length != 0) {
 			for (x = 0, len = this._joins.length; x < len; ++x) {
 				join = this._joins[x],
 				joinStatement = join.getQueryStatement(conn);
-				queryS += "\n\t" + joinStatement.getString();
+				queryS += "\n\t" + joinStatement._qString;
 				statement.addParams(joinStatement._params);
 			}
 		}
@@ -611,7 +611,7 @@ Query.prototype = {
 		whereStatement = this.getWhereClause();
 
 		if (null !== whereStatement) {
-			queryS += "\nWHERE " + whereStatement.getString();
+			queryS += "\nWHERE " + whereStatement._qString;
 			statement.addParams(whereStatement._params);
 		}
 
@@ -622,7 +622,7 @@ Query.prototype = {
 		if (null !== this.getHaving()) {
 			havingStatement = this.getHaving().getQueryStatement();
 			if (havingStatement) {
-				queryS += "\nHAVING " + havingStatement.getString();
+				queryS += "\nHAVING " + havingStatement._qString;
 				statement.addParams(havingStatement._params);
 			}
 		}
@@ -673,7 +673,7 @@ Query.prototype = {
 		// if table is a Query, get its QueryStatement
 		if (table instanceof Query) {
 			tableStatement = table.getQuery(conn),
-			tableString = '(' + tableStatement.getString() + ')';
+			tableString = '(' + tableStatement._qString + ')';
 		} else {
 			tableStatement = null;
 			tableString = table;
@@ -698,7 +698,7 @@ Query.prototype = {
 						extraTable = this._extraTables[tAlias];
 						if (extraTable instanceof Query) {
 							extraTableStatement = extraTable.getQuery(conn),
-							extraTableString = '(' + extraTableStatement.getString() + ') AS ' + tAlias;
+							extraTableString = '(' + extraTableStatement._qString + ') AS ' + tAlias;
 							statement.addParams(extraTableStatement._params);
 						} else {
 							extraTableString = extraTable;

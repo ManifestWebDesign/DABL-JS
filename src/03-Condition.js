@@ -61,7 +61,7 @@ Condition.prototype = {
 			if (null === clauseStatement) {
 				return null;
 			}
-			clauseStatement.setString('(' + clauseStatement.getString() + ')');
+			clauseStatement.setString('(' + clauseStatement._qString + ')');
 			return clauseStatement;
 		}
 
@@ -103,7 +103,7 @@ Condition.prototype = {
 					return null;
 				}
 
-				right = '(' + clauseStatement.getString() + ')';
+				right = '(' + clauseStatement._qString + ')';
 				statement.addParams(clauseStatement._params);
 				if (quote != Condition.QUOTE_LEFT) {
 					quote = Condition.QUOTE_NONE;
@@ -243,7 +243,7 @@ Condition.prototype = {
 			if (0 != x) {
 				string += ((1 == x && conds[0].sep == 'OR') ? 'OR' : cond.sep) + ' ';
 			}
-			string += cond.getString();
+			string += cond._qString;
 			statement.addParams(cond._params);
 		}
 		statement.setString(string);

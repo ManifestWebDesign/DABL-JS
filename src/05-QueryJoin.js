@@ -133,7 +133,7 @@ QueryJoin.prototype = {
 
 		if (table instanceof Query) {
 			statement = table.getQuery(conn);
-			table = '(' + statement.getString() + ')';
+			table = '(' + statement._qString + ')';
 			statement.setString('');
 		} else {
 			statement = new QueryStatement(conn);
@@ -149,7 +149,7 @@ QueryJoin.prototype = {
 			onClause = '1 = 1';
 		} else if (onClause instanceof Condition) {
 			onClauseStatement = onClause.getQueryStatement();
-			onClause = onClauseStatement.getString();
+			onClause = onClauseStatement._qString;
 			statement.addParams(onClauseStatement.getParams());
 		}
 
