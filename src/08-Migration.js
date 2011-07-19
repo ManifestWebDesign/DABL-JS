@@ -248,7 +248,7 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 
 	Adapter.transaction(function() {
 		var records = Adapter.execute('SELECT * FROM ' + tableName);
-		if (records.length > 0) {
+		if (records.length != 0) {
 			throw new Error('Modify column not quite ready yet...');
 		}
 

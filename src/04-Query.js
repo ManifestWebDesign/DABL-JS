@@ -587,59 +587,59 @@ Query.prototype = {
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
 				columnsStatement = this.getColumnsClause(conn);
-				statement.addParams(columnsStatement.getParams());
-				queryS = queryS + 'SELECT ' + columnsStatement.getString();
+				statement.addParams(columnsStatement._params);
+				queryS += 'SELECT ' + columnsStatement.getString();
 				break;
 			case Query.ACTION_DELETE:
-				queryS = queryS + 'DELETE';
+				queryS += 'DELETE';
 				break;
 		}
 
 		tableStatement = this.getTablesClause(conn);
-		statement.addParams(tableStatement.getParams());
-		queryS = queryS + "\nFROM " + tableStatement.getString();
+		statement.addParams(tableStatement._params);
+		queryS += "\nFROM " + tableStatement.getString();
 
-		if (this._joins.length > 0) {
+		if (this._joins.length != 0) {
 			for (x = 0, len = this._joins.length; x < len; ++x) {
 				join = this._joins[x],
-					joinStatement = join.getQueryStatement(conn);
-				queryS = queryS + "\n\t" + joinStatement.getString();
-				statement.addParams(joinStatement.getParams());
+				joinStatement = join.getQueryStatement(conn);
+				queryS += "\n\t" + joinStatement.getString();
+				statement.addParams(joinStatement._params);
 			}
 		}
 
 		whereStatement = this.getWhereClause();
 
-		if (whereStatement) {
-			queryS = queryS + "\nWHERE " + whereStatement.getString();
-			statement.addParams(whereStatement.getParams());
+		if (null !== whereStatement) {
+			queryS += "\nWHERE " + whereStatement.getString();
+			statement.addParams(whereStatement._params);
 		}
 
-		if (this._groups.length > 0) {
-			queryS = queryS + "\nGROUP BY " + this._groups.join(', ');
+		if (this._groups.length != 0) {
+			queryS += "\nGROUP BY " + this._groups.join(', ');
 		}
 
 		if (null !== this.getHaving()) {
 			havingStatement = this.getHaving().getQueryStatement();
 			if (havingStatement) {
-				queryS = queryS + "\nHAVING " + havingStatement.getString();
-				statement.addParams(havingStatement.getParams());
+				queryS += "\nHAVING " + havingStatement.getString();
+				statement.addParams(havingStatement._params);
 			}
 		}
 
-		if (this._action != Query.ACTION_COUNT && this._orders.length > 0) {
-			queryS = queryS + "\nORDER BY " + this._orders.join(', ');
+		if (this._action != Query.ACTION_COUNT && this._orders.length != 0) {
+			queryS += "\nORDER BY " + this._orders.join(', ');
 		}
 
-		if (this._limit) {
+		if (null !== this._limit) {
 			if (conn) {
 				queryS = conn.applyLimit(queryS, this._offset, this._limit);
 			} else {
-				queryS = queryS + "\nLIMIT " + (this._offset ? this._offset + ', ' : '') + this._limit;
+				queryS += "\nLIMIT " + (this._offset ? this._offset + ', ' : '') + this._limit;
 			}
 		}
 
-		if (this.needsComplexCount() && this._action == Query.ACTION_COUNT) {
+		if (this._action == Query.ACTION_COUNT && this.needsComplexCount()) {
 			queryS = "SELECT count(0)\nFROM (" + queryS + ") a";
 		}
 
@@ -684,7 +684,7 @@ Query.prototype = {
 			case Query.ACTION_SELECT:
 				// setup identifiers for table_string
 				if (null !== tableStatement) {
-					statement.addParams(tableStatement.getParams());
+					statement.addParams(tableStatement._params);
 				}
 
 				// append alias, if it's not empty
@@ -699,7 +699,7 @@ Query.prototype = {
 						if (extraTable instanceof Query) {
 							extraTableStatement = extraTable.getQuery(conn),
 							extraTableString = '(' + extraTableStatement.getString() + ') AS ' + tAlias;
-							statement.addParams(extraTableStatement.getParams());
+							statement.addParams(extraTableStatement._params);
 						} else {
 							extraTableString = extraTable;
 							if (tAlias != extraTable) {
@@ -713,7 +713,7 @@ Query.prototype = {
 				break;
 			case Query.ACTION_DELETE:
 				if (null !== tableStatement) {
-					statement.addParams(tableStatement.getParams());
+					statement.addParams(tableStatement._params);
 				}
 
 				// append alias, if it's not empty
@@ -734,7 +734,7 @@ Query.prototype = {
 	 * @return bool
 	 */
 	hasAggregates : function() {
-		if (this._groups.length > 0) {
+		if (this._groups.length != 0) {
 			return true;
 		}
 		for (var c = 0, clen = this._columns.length; c < clen; ++c) {
@@ -765,19 +765,17 @@ Query.prototype = {
 			statement = new QueryStatement(conn),
 			alias = this.getAlias(),
 			action = this._action.toUpperCase(),
-			groups,
 			x,
 			len,
 			columnsToUse,
-			columnsString,
-			columns;
-
-		if (!table) {
-			throw new Error('No table specified.');
-		}
+			columnsString;
 
 		if (action == Query.ACTION_DELETE) {
 			return statement;
+		}
+
+		if (!table) {
+			throw new Error('No table specified.');
 		}
 
 		if (action == Query.ACTION_COUNT) {
@@ -786,12 +784,12 @@ Query.prototype = {
 				return statement;
 			}
 
-			if (this._groups.length > 0) {
+			if (this._groups.length != 0) {
 				statement.setString(this._groups.join(', '));
 				return statement;
 			}
 
-			if (!this._distinct && null === this.getHaving() && this._columns.length > 0) {
+			if (!this._distinct && null === this.getHaving() && this._columns.length != 0) {
 				columnsToUse = [];
 				for (x = 0, len = this._columns.length; x < len; ++x) {
 					column = this._columns[x];
@@ -800,7 +798,7 @@ Query.prototype = {
 					}
 					columnsToUse.push(column);
 				}
-				if (columnsToUse.length > 0) {
+				if (columnsToUse.length != 0) {
 					statement.setString(columnsToUse.join(', '));
 					return statement;
 				}
@@ -808,7 +806,7 @@ Query.prototype = {
 		}
 
 		// setup columns_string
-		if (this._columns.length > 0) {
+		if (this._columns.length != 0) {
 			columnsString = this._columns.join(', ');
 		} else if (alias) {
 			// default to selecting only columns from the target table
@@ -831,7 +829,7 @@ Query.prototype = {
 	 * @return QueryStatement
 	 */
 	getWhereClause : function(conn) {
-		return this.getWhere().getQueryStatement();
+		return this._where.getQueryStatement();
 	},
 
 	/**

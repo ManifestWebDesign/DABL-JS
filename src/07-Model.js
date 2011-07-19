@@ -66,7 +66,7 @@ Model = Class.extend({
 	 * @return bool
 	 */
 	isModified: function() {
-		return this.getModifiedColumns().length > 0;
+		return this.getModifiedColumns().length != 0;
 	},
 
 	/**
