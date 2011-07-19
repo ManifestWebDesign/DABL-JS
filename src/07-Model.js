@@ -340,38 +340,23 @@ Model = Class.extend({
 	insert: function() {
 		var conn = this.constructor.getConnection(),
 			pk = this.constructor.getPrimaryKey(),
-			fields = [],
-			values = [],
-			placeholders = [],
-			quotedTable = conn.quoteIdentifier(this.constructor.getTableName()),
-			statement = new QueryStatement(conn),
+			tableName = this.constructor.getTableName(),
 			column,
 			value,
-			queryString,
 			result,
 			count,
+			data = {},
 			id;
 
 		for (column in this.constructor._columns) {
 			value = this['_' + column];
-
 			if ((value === null || typeof value == 'undefined') && !this.isColumnModified(column)) {
 				continue;
 			}
-
-			fields.push(conn.quoteIdentifier(column));
-			values.push(value);
-			placeholders.push('?');
+			data[column] = value;
 		}
 
-		queryString = 'INSERT INTO ' +
-			quotedTable + ' (' + fields.join(', ') + ') VALUES (' +
-			placeholders.join(', ') + ') ';
-
-		statement.setString(queryString);
-		statement.setParams(values);
-
-		result = statement.bindAndExecute();
+		result = this.constructor.insert(tableName, data, conn);
 		count = result.rowsAffected;
 
 		if (pk && this.constructor.isAutoIncrement()) {
@@ -543,6 +528,31 @@ Model.isIntegerType = function(type) {
  */
 Model.isBlobType = function(type) {
 	return (type in Model.BLOB_TYPES);
+}
+
+Model.insert = function(tableName, data, conn) {
+	var fields = [],
+		values = [],
+		placeholders = [],
+		statement = new QueryStatement(conn),
+		column,
+		value,
+		queryString;
+
+	for (column in data) {
+		value = data[column];
+		fields.push(column);
+		values.push(value);
+		placeholders.push('?');
+	}
+
+	queryString = 'INSERT INTO ' +
+		tableName + ' (' + fields.join(',') + ') VALUES (' + placeholders.join(',') + ') ';
+
+	statement.setString(queryString);
+	statement.setParams(values);
+
+	return statement.bindAndExecute();
 }
 
 /**

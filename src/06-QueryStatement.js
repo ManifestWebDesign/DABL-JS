@@ -136,17 +136,6 @@ QueryStatement.prototype = {
 	bindAndExecute : function() {
 		var conn = this._conn;
 		conn = conn || Adapter.getConnection();
-//		for (var i = 0, len = params.length; i < len; ++i) {
-//			var param = params[i];
-//			if (param === true || param === false) {
-//				params[i] = param ? 1 : 0;
-//				continue;
-//			}
-//			if (param === null) {
-//				params[i] = 'NULL';
-//				continue;
-//			}
-//		}
-		return conn.execute(this._queryString, this.getParams());
+		return conn.execute(this._queryString, this._params);
 	}
 };
