@@ -104,6 +104,8 @@ Model = Class.extend({
 			columnType = this.constructor.getColumnType(columnName);
 		}
 
+		value = typeof value == 'undefined' ? null : value;
+
 		var temporal = Model.isTemporalType(columnType),
 			numeric = Model.isNumericType(columnType),
 			intVal,
@@ -117,14 +119,14 @@ Model = Class.extend({
 					if (Model.isIntegerType(columnType)) {
 						// validate and cast
 						intVal = parseInt(value, 10);
-						if (typeof value == 'undefined' || intVal.toString() != value.toString()) {
+						if (intVal.toString() != value.toString()) {
 							throw new Error(value + ' is not a valid integer');
 						}
 						value = intVal;
 					} else {
 						// only validates, doesn't cast...yet
 						floatVal = parseFloat(value, 10);
-						if (typeof value == 'undefined' || floatVal.toString() != value.toString()) {
+						if (floatVal.toString() != value.toString()) {
 							throw new Error(value + ' is not a valid float');
 						}
 					}
@@ -170,7 +172,7 @@ Model = Class.extend({
 		var array = {},
 			column;
 		for (column in this.constructor._columns) {
-			array[column] = this['_' + column];
+			array[column] = this[column];
 		}
 		return array;
 	},
@@ -189,7 +191,7 @@ Model = Class.extend({
 		}
 		for (x = 0, len = pks.length; x < len; ++x) {
 			pk = pks[x];
-			if (this['_' + pk] === null) {
+			if (this[pk] === null) {
 				return false;
 			}
 		}
@@ -210,7 +212,7 @@ Model = Class.extend({
 
 		for (x = 0, len = pks.length; x < len; ++x) {
 			pk = pks[x];
-			arr.push(this['_' + pk]);
+			arr.push(this[pk]);
 		}
 		return arr;
 	},
@@ -256,7 +258,7 @@ Model = Class.extend({
 
 		for (x = 0, len = pks.length; x < len; ++x) {
 			pk = pks[x];
-			pkVal = this['_' + pk];
+			pkVal = this[pk];
 			if (pkVal === null) {
 				throw new Error('Cannot delete using NULL primary key.');
 			}
@@ -349,8 +351,8 @@ Model = Class.extend({
 			id;
 
 		for (column in this.constructor._columns) {
-			value = this['_' + column];
-			if ((value === null || typeof value == 'undefined') && !this.isColumnModified(column)) {
+			value = this[column];
+			if (value === null && !this.isColumnModified(column)) {
 				continue;
 			}
 			data[column] = value;
@@ -404,7 +406,7 @@ Model = Class.extend({
 		for (x = 0, len = modColumns.length; x < len; ++x) {
 			modCol = modColumns[x];
 			fields.push(conn.quoteIdentifier(modCol) + ' = ?');
-			values.push(this['_' + modCol]);
+			values.push(this[modCol]);
 		}
 
 		//If array is empty there is nothing to update
@@ -414,8 +416,8 @@ Model = Class.extend({
 
 		for (x = 0, len = pks.length; x < len; ++x) {
 			pk = pks[x],
-				pkVal = this['_' + pk];
-			if (pkVal === null || typeof pkVal == 'undefined')
+				pkVal = this[pk];
+			if (pkVal === null)
 				throw new Error('Cannot update with NULL primary key.');
 			pkWhere.push(conn.quoteIdentifier(pk) + ' = ?');
 			values.push(pkVal);
