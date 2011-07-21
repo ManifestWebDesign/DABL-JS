@@ -19,7 +19,7 @@ Model = Class.extend({
 	/**
 	 * Array to contain names of modified columns
 	 */
-	_modifiedColumns: {},
+	_modifiedColumns: null,
 
 	/**
 	 * Whether or not this is a new object
@@ -29,7 +29,7 @@ Model = Class.extend({
 	/**
 	 * Errors from the validate() step of saving
 	 */
-	_validationErrors: [],
+	_validationErrors: null,
 
 	init : function Model() {
 		this._modifiedColumns = {};
@@ -66,7 +66,10 @@ Model = Class.extend({
 	 * @return bool
 	 */
 	isModified: function() {
-		return this.getModifiedColumns().length != 0;
+		for (var i in this._modifiedColumns) {
+			return true;
+		}
+		return false;
 	},
 
 	/**
@@ -86,7 +89,7 @@ Model = Class.extend({
 
 	/**
 	 * Returns an array of the names of modified columns
-	 * @return array
+	 * @return object
 	 */
 	getModifiedColumns: function() {
 		return this._modifiedColumns;
@@ -100,7 +103,7 @@ Model = Class.extend({
 	 * @return Model
 	 */
 	coerceColumnValue: function(columnName, value, columnType) {
-		if (null === columnType) {
+		if (null === columnType || typeof columnType == 'undefined') {
 			columnType = this.constructor.getColumnType(columnName);
 		}
 
@@ -169,8 +172,7 @@ Model = Class.extend({
 	 * @return array
 	 */
 	toArray: function() {
-		var array = {},
-			column;
+		var array = {}, column;
 		for (column in this.constructor._columns) {
 			array[column] = this[column];
 		}
@@ -266,7 +268,7 @@ Model = Class.extend({
 		}
 
 		q.setTable(this.constructor.getTableName());
-		result = this.constructor.doDelete(q, false);
+		result = this.constructor.destroy(q, false);
 		return result;
 	},
 
@@ -291,11 +293,11 @@ Model = Class.extend({
 		}
 
 		if (this.isNew() && this.constructor.hasColumn('created') && !this.isColumnModified('created')) {
-			this.created = CURRENT_TIMESTAMP;
+			this.created = new Date();
 		}
 
 		if ((this.isNew() || this.isModified()) && this.constructor.hasColumn('updated') && !this.isColumnModified('updated')) {
-			this.updated = CURRENT_TIMESTAMP;
+			this.updated = new Date();
 		}
 
 		if (this.isNew()) {
@@ -313,7 +315,7 @@ Model = Class.extend({
 			throw new Error('This ' + this.constructor.getClassName() + ' is already archived.');
 		}
 
-		this.archived = CURRENT_TIMESTAMP;
+		this.archived = new Date();
 		return this.save();
 	},
 
@@ -394,7 +396,7 @@ Model = Class.extend({
 			pkWhere = [],
 			statement = new QueryStatement(conn),
 			pks = this.constructor._primaryKeys,
-			modColumns = this.getModifiedColumns(),
+			modColumns = this._modifiedColumns,
 			x,
 			len,
 			modCol,
@@ -403,7 +405,7 @@ Model = Class.extend({
 			queryString,
 			result;
 
-		for (x = 0, len = modColumns.length; x < len; ++x) {
+		for (x in modColumns) {
 			modCol = modColumns[x];
 			fields.push(conn.quoteIdentifier(modCol) + ' = ?');
 			values.push(this[modCol]);
@@ -530,31 +532,6 @@ Model.isIntegerType = function(type) {
  */
 Model.isBlobType = function(type) {
 	return (type in Model.BLOB_TYPES);
-}
-
-Model.insert = function(tableName, data, conn) {
-	var fields = [],
-		values = [],
-		placeholders = [],
-		statement = new QueryStatement(conn),
-		column,
-		value,
-		queryString;
-
-	for (column in data) {
-		value = data[column];
-		fields.push(column);
-		values.push(value);
-		placeholders.push('?');
-	}
-
-	queryString = 'INSERT INTO ' +
-		tableName + ' (' + fields.join(',') + ') VALUES (' + placeholders.join(',') + ') ';
-
-	statement.setString(queryString);
-	statement.setParams(values);
-
-	return statement.bindAndExecute();
 }
 
 /**
@@ -705,93 +682,90 @@ Model.retrieveByPKs = function() {
 		}
 		q.add(pk, pkVal);
 	}
-	return this.doSelect(q, true).shift();
+	return this.select(q, true).shift();
 }
 
 Model.retrieveByColumn = function(field, value) {
 	var q = new Query()
 		.add(field, value)
-		.setLimit(1)
-	return this.doSelect(q).shift();
+		.setLimit(1);
+	return this.select(q).shift();
 }
 
 Model.findBy = Model.retrieveByColumn;
 
-/**
- * Populates and returns an instance of Model with the
- * first result of a query.  If the query returns no results,
- * returns null.
- * @return Model
- */
-Model.fetchSingle = function(queryString) {
-	return this.fetch(queryString).shift();
-}
-
-/**
- * Populates and returns an array of Model objects with the
- * results of a query.  If the query returns no results,
- * returns an empty Array.
- * @return Model[]
- */
-Model.fetch = function(queryString) {
-	var result = this.getConnection().query(queryString);
-	return this.fromResult(result);
-}
-
-/**
- * Returns an array of all Model objects in the database.
- * extra SQL can be appended to the query to LIMIT, SORT, and/or GROUP results.
- * If there are no results, returns an empty Array.
- * @param extra string
- * @return Model[]
- */
-Model.getAll = function(extra) {
-	var conn = this.getConnection(),
-		tableQuoted = conn.quoteIdentifier(this.getTableName());
-	return this.fetch('SELECT * FROM ' + tableQuoted + ' ' + extra);
+Model.findAllBy = function(field, value) {
+	var q = new Query().add(field, value);
+	return this.select(q);
 }
 
 /**
  * @return int
  */
-Model.doCount = function(q) {
-	q = q || new Query;
+Model.count = function(q) {
+	q = q instanceof Query ? q : new Query(q);
 	var conn = this.getConnection();
 	if (!q.getTable() || this.getTableName() != q.getTable()) {
 		q.setTable(this.getTableName());
 	}
-	return q.doCount(conn);
+	return q.count(conn);
 }
 
 /**
  * @param q
  * @return int
  */
-Model.doDelete = function(q) {
+Model.destroy = function(q) {
 	if (!q.getTable() || this.getTableName() != q.getTable()) {
 		q.setTable(this.getTableName());
 	}
-	return q.doDelete(this.getConnection());
+	return q.destroy(this.getConnection());
 }
 
 /**
  * @param q The Query object that creates the SELECT query string
  * @return Model[]
  */
-Model.doSelect = function(q) {
-	return this.fromResult(this.doSelectRS(q));
+Model.select = function(q) {
+	q = q instanceof Query ? q : new Query(q);
+	return this.fromResult(this.selectRS(q));
+}
+
+Model.insert = function(tableName, data, conn) {
+	var fields = [],
+		values = [],
+		placeholders = [],
+		statement = new QueryStatement(conn),
+		column,
+		value,
+		queryString;
+
+	for (column in data) {
+		value = data[column];
+		fields.push(column);
+		values.push(value);
+		placeholders.push('?');
+	}
+
+	queryString = 'INSERT INTO ' +
+		tableName + ' (' + fields.join(',') + ') VALUES (' + placeholders.join(',') + ') ';
+
+	statement.setString(queryString);
+	statement.setParams(values);
+
+	return statement.bindAndExecute();
 }
 
 /**
  * Executes a select query and returns the PDO result
  * @return PDOStatement
  */
-Model.doSelectRS = function(q) {
+Model.selectRS = function(q) {
 	q = q || new Query;
 	if (!q.getTable() || this.getTableName() != q.getTable()) {
 		q.setTable(this.getTableName());
 	}
-	return q.doSelect(this.getConnection());
+	return q.select(this.getConnection());
 }
 
 Model.models = {};

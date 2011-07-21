@@ -33,12 +33,32 @@ Adapter = Class.extend({
 			return sql.bindAndExecute();
 		}
 
-		var rs = params ? this._db.execute(sql, params) : this._db.execute(sql),
+		var rs,
 			rows = [],
 			row,
 			i,
 			j,
-			field;
+			field,
+			value;
+
+		if (params && (j = params.length) != 0) {
+			for (i = 0; i < j; ++i) {
+				value = params[i];
+				if (value instanceof Date) {
+					if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+						params[i] = this.formatDate(value); // just a date
+					} else {
+						params[i] = this.formatDateTime(value);
+					}
+				}
+			}
+			rs = this._db.execute(sql, params);
+		} else {
+			rs = this._db.execute(sql);
+		}
+
+		console.log(sql);
+		console.log(params);
 
 		rows.rowsAffected = this._db.rowsAffected;
 
@@ -79,6 +99,7 @@ Adapter = Class.extend({
 	},
 
 	lastInsertId: function() {
+		return 47;
 		return this._db.lastInsertRowId;
 	},
 

@@ -11,6 +11,13 @@ function Query (table, alias) {
 	this._orders = [];
 	this._groups = [];
 	this._where = new Condition;
+
+	if (typeof table == 'object' && !(table instanceof Query)) {
+		for (var i in table) {
+			this.addAnd(i, table[i]);
+		}
+	}
+
 	if (table) {
 		this.setTable(table, alias);
 	}
