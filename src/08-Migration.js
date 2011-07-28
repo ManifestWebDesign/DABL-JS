@@ -280,33 +280,30 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 
 // used in actual migrations
 
-Migration.createTable = function(name, columns, primaryKeys) {
+Migration.createTable = function(name, columns) {
 	if(!name || !columns) {
 		return;
 	}
-	primaryKeys = primaryKeys || {};
 	var sql = 'CREATE TABLE IF NOT EXISTS ' + name,
 		colName,
 		colType,
-		createPK;
-	if(columns) {
-		sql += '(';
-		for (colName in columns) {
-			colType = columns[colName];
-			createPK = '';
+		i = 0;
 
-			if (colName in primaryKeys || colName === 'id') {
-				createPK += ' PRIMARY KEY';
-				if (primaryKeys[colName] === true || colName === 'id') {
-					createPK += ' AUTOINCREMENT';
-				}
-			}
-			sql += (colName + ' ' + colType.toString().toUpperCase() + createPK + ', ');
+	sql += '(';
+	for (colName in columns) {
+		colType = columns[colName];
+		if (0 !== i) {
+			sql += ', ';
 		}
-		sql = sql.substr(0, sql.length - 2);
-		sql += ')';
-		Adapter.execute(sql);
+		sql += (colName + ' ' + colType);
+		if (colName === 'id') {
+			sql += ' PRIMARY KEY AUTOINCREMENT';
+		}
+		++i;
 	}
+	sql += ')';
+	Adapter.execute(sql);
+
 	Migration.writeSchema(name, columns);
 };
 
