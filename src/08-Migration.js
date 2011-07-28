@@ -280,21 +280,28 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 
 // used in actual migrations
 
-Migration.createTable = function(name, columns) {
+Migration.createTable = function(name, columns, primaryKeys) {
 	if(!name || !columns) {
 		return;
 	}
+	primaryKeys = primaryKeys || {};
 	var sql = 'CREATE TABLE IF NOT EXISTS ' + name,
 		colName,
-		colType;
+		colType,
+		createPK;
 	if(columns) {
 		sql += '(';
 		for (colName in columns) {
 			colType = columns[colName];
-			if(colName === 'id')
-				sql += 'id INTEGER PRIMARY KEY AUTOINCREMENT, ';
-			else
-				sql += (colName + ' ' + colType.toString().toUpperCase() + ', ');
+			createPK = '';
+
+			if (colName in primaryKeys || colName === 'id') {
+				createPK += ' PRIMARY KEY';
+				if (primaryKeys[colName] === true || colName === 'id') {
+					createPK += ' AUTOINCREMENT';
+				}
+			}
+			sql += (colName + ' ' + colType.toString().toUpperCase() + createPK + ', ');
 		}
 		sql = sql.substr(0, sql.length - 2);
 		sql += ')';
@@ -351,8 +358,8 @@ Migration.changeColumn = function(tableName, columnName, type) {
 	Migration.modifyColumn(tableName, columnName, options);
 };
 
-Migration.addIndex = function(tableName, columnName) {
-	var sql = 'CREATE INDEX IF NOT EXISTS ' + tableName + '_' + columnName + '_index ON ' + tableName + ' (' + columnName + ')';
+Migration.addIndex = function(tableName, columnName, unique) {
+	var sql = 'CREATE' + (unique ? ' UNIQUE ' : ' ') + 'INDEX IF NOT EXISTS ' + tableName + '_' + columnName + '_index ON ' + tableName + ' (' + columnName + ')';
 	Adapter.execute(sql);
 };
 

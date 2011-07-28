@@ -363,7 +363,7 @@ Model = Class.extend({
 		result = this.constructor.insert(tableName, data, conn);
 		count = result.rowsAffected;
 
-		if (pk && this.constructor.isAutoIncrement()) {
+		if (pk && this.constructor._isAutoIncrement) {
 			id = conn.lastInsertId();
 			if (null !== id) {
 				this[pk] = id;
@@ -805,7 +805,7 @@ Model.create = function(props){
 
 	for (prop in props) {
 		switch (prop) {
-			case 'connectionName': case 'table': case 'columns': case 'primaryKeys':
+			case 'connectionName': case 'table': case 'columns': case 'primaryKeys': case 'isAutoIncrement':
 				newClass['_' + prop] = props[prop];
 				break;
 			default:
