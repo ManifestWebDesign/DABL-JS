@@ -284,7 +284,7 @@ Migration.createTable = function(name, columns) {
 	if(!name || !columns) {
 		return;
 	}
-	var sql = 'CREATE TABLE IF NOT EXISTS ' + name,
+	var sql = 'CREATE TABLE IF NOT EXISTS ' + name + "\n",
 		colName,
 		colType,
 		i = 0;
@@ -293,7 +293,7 @@ Migration.createTable = function(name, columns) {
 	for (colName in columns) {
 		colType = columns[colName];
 		if (0 !== i) {
-			sql += ', ';
+			sql += ",\n";
 		}
 		sql += (colName + ' ' + colType);
 		if (colName === 'id') {

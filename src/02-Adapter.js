@@ -11,14 +11,6 @@ Adapter = Class.extend({
 
 	init: function Adapter(dbFile) {
 		this._dbFile = dbFile;
-		if (typeof Titanium == 'undefined') {
-			this._db = {
-				execute: function(){
-					return null;
-				}
-			};
-			return;
-		}
 		this._db = Titanium.Database.open(dbFile);
 	},
 
@@ -56,9 +48,6 @@ Adapter = Class.extend({
 		} else {
 			rs = this._db.execute(sql);
 		}
-
-		console.log(sql);
-		console.log(params);
 
 		rows.rowsAffected = this._db.rowsAffected;
 
@@ -99,7 +88,6 @@ Adapter = Class.extend({
 	},
 
 	lastInsertId: function() {
-		return 47;
 		return this._db.lastInsertRowId;
 	},
 

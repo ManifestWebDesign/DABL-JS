@@ -853,7 +853,7 @@ Query.prototype = {
 	 * @return int
 	 * @param conn PDO[optional]
 	 */
-	doCount : function(conn) {
+	count : function(conn) {
 		if (!this.getTable()) {
 			throw new Error('No table specified.');
 		}
@@ -868,7 +868,7 @@ Query.prototype = {
 	 * @return int
 	 * @param conn PDO[optional]
 	 */
-	doDelete : function(conn) {
+	destroy : function(conn) {
 		if (!this.getTable()) {
 			throw new Error('No table specified.');
 		}
@@ -882,7 +882,7 @@ Query.prototype = {
 	 * @return PDOStatement
 	 * @param conn PDO[optional]
 	 */
-	doSelect : function(conn) {
+	select : function(conn) {
 		if (!this.getTable()) {
 			throw new Error('No table specified.');
 		}
