@@ -15,8 +15,8 @@ QueryJoin = function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
 		this._isLikePropel = true;
 		this._leftColumn = tableOrColumn;
 		this._rightColumn = onClauseOrColumn;
-		this.setTable(onClauseOrColumn.substring(0, onClauseOrColumn.indexOf('.')));
-		this.setJoinType(joinType);
+		this._table = onClauseOrColumn.substring(0, onClauseOrColumn.indexOf('.'));
+		this._joinType = joinType;
 		return;
 	}
 
