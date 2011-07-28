@@ -31,9 +31,12 @@ Model = Class.extend({
 	 */
 	_validationErrors: null,
 
-	init : function Model() {
+	init : function Model(values) {
 		this._modifiedColumns = {};
 		this._validationErrors = [];
+		if (values) {
+			this.fromArray(values);
+		}
 	},
 
 	toString: function() {
@@ -77,10 +80,8 @@ Model = Class.extend({
 	 * @return bool
 	 */
 	isColumnModified: function(columnName) {
-		var key, modifiedColumn;
-		for (key in this._modifiedColumns) {
-			modifiedColumn = this._modifiedColumns[key];
-			if (columnName.toLowerCase() == modifiedColumn.toLowerCase()) {
+		for (var key in this._modifiedColumns) {
+			if (columnName == this._modifiedColumns[key]) {
 				return true;
 			}
 		}
@@ -618,9 +619,8 @@ Model.getColumnType = function(columnName) {
  * @return bool
  */
 Model.hasColumn = function(columnName) {
-	columnName = columnName.toLowerCase();
 	for (var colName in this._columns) {
-		if (colName.toLowerCase() == columnName) {
+		if (colName == columnName) {
 			return true;
 		}
 	}
