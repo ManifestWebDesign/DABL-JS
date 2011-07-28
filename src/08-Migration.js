@@ -325,7 +325,7 @@ Migration.renameTable = function(oldName, newName) {
 };
 
 Migration.addColumn = function(tableName, columnName, dataType) {
-	var sql = 'ALTER TABLE ' + tableName + ' ADD COLUMN ' + columnName + ' ' + dataType.toUpperCase(),
+	var sql = 'ALTER TABLE ' + tableName + ' ADD COLUMN ' + columnName + ' ' + dataType,
 		cols;
 	Adapter.execute(sql);
 	cols = Migration.readSchema(tableName);

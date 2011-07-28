@@ -516,10 +516,6 @@ Query.prototype = {
 	 */
 	orderBy : function(column, dir) {
 		if (null !== dir && typeof dir != 'undefined') {
-			dir = dir.toUpperCase();
-			if (dir != Query.ASC && dir != Query.DESC) {
-				throw new Error(dir + ' is not a valid sorting direction.');
-			}
 			column = column + ' ' + dir;
 		}
 		this._orders.push(column);
@@ -589,7 +585,7 @@ Query.prototype = {
 		// the string statement will use
 		queryS = '';
 
-		switch (this._action.toUpperCase()) {
+		switch (this._action) {
 			default:
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
@@ -686,7 +682,7 @@ Query.prototype = {
 			tableString = table;
 		}
 
-		switch (this._action.toUpperCase()) {
+		switch (this._action) {
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
 				// setup identifiers for table_string
@@ -771,7 +767,7 @@ Query.prototype = {
 			column,
 			statement = new QueryStatement(conn),
 			alias = this.getAlias(),
-			action = this._action.toUpperCase(),
+			action = this._action,
 			x,
 			len,
 			columnsToUse,
