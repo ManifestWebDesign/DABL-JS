@@ -585,10 +585,8 @@ Model._isAutoIncrement = true;
 
 Model._columns = null;
 
-Model._connectionName = 'default_connection';
-
 Model.getConnection = function(){
-	return Adapter.getConnection(this._connectionName);
+	return Adapter.getConnection();
 }
 
 /**
@@ -776,13 +774,6 @@ Model.models = {};
 Model.create = function(props){
 	var conn, newClass, column, type, prop;
 
-	if (typeof props.connectionName == 'undefined') {
-		conn = Adapter.getConnection();
-		if (!conn) {
-			throw new Error('No database specified or found.');
-		}
-		props.connectionName = conn._dbFile;
-	}
 	if (typeof props.table == 'undefined') {
 		throw new Error('Must provide a table when exending Model');
 	}

@@ -10,6 +10,7 @@ Adapter = Class.extend({
 	_dbFile: null,
 
 	init: function Adapter(dbFile) {
+		dbFile = dbFile || 'dabl.db';
 		this._dbFile = dbFile;
 		this._db = Titanium.Database.open(dbFile);
 	},
@@ -175,26 +176,13 @@ Adapter = Class.extend({
 	}
 });
 
-Adapter.connections = {};
+Adapter.connections = [];
 
-Adapter.addConnection = function(name) {
-	this.connections[name] = new this(name);
-}
-
-Adapter.getConnection = function(name) {
-
-	// if no name is provided, return the first connection, if it exists
-	if (!name) {
-		for (name in this.connections) {
-			return this.connections[name];
-		}
-	} else {
-		if (name in this.connections) {
-			return this.connections[name];
-		}
+Adapter.getConnection = function() {
+	if (0 === this.connections.length) {
+		this.connections.push(new this);
 	}
-
-	return new this(name);
+	return this.connections[0];
 };
 
 Adapter.execute = function() {
