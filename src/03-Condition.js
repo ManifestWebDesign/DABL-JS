@@ -220,6 +220,110 @@ Condition.prototype = {
 		return this;
 	},
 
+	andNot : function(column, value) {
+		return this.addAnd(column, value, Query.NOT_EQUAL);
+	},
+
+	andLike : function(column, value) {
+		return this.addAnd(column, value, Query.LIKE);
+	},
+
+	andNotLike : function(column, value) {
+		return this.addAnd(column, value, Query.NOT_LIKE);
+	},
+
+	andGreater : function(column, value) {
+		return this.addAnd(column, value, Query.GREATER_THAN);
+	},
+
+	andGreaterEqual : function(column, value) {
+		return this.addAnd(column, value, Query.GREATER_EQUAL);
+	},
+
+	andLess : function(column, value) {
+		return this.addAnd(column, value, Query.LESS_THAN);
+	},
+
+	andLessEqual : function(column, value) {
+		return this.addAnd(column, value, Query.LESS_EQUAL);
+	},
+
+	andNull : function(column) {
+		return this.addAnd(column, null);
+	},
+
+	andNotNull : function(column) {
+		return this.addAnd(column, null, Query.NOT_EQUAL);
+	},
+
+	andBetween : function(column, from, to) {
+		return this.addAnd(column, array(from, to), Query.BETWEEN);
+	},
+
+	andBeginsWith : function(column, value) {
+		return this.addAnd(column, value, Query.BEGINS_WITH);
+	},
+
+	andEndsWith : function(column, value) {
+		return this.addAnd(column, value, Query.ENDS_WITH);
+	},
+
+	andContains : function(column, value) {
+		return this.addAnd(column, value, Query.CONTAINS);
+	},
+
+	orNot : function(column, value) {
+		return this.addOr(column, value, Query.NOT_EQUAL);
+	},
+
+	orLike : function(column, value) {
+		return this.addOr(column, value, Query.LIKE);
+	},
+
+	orNotLike : function(column, value) {
+		return this.addOr(column, value, Query.NOT_LIKE);
+	},
+
+	orGreater : function(column, value) {
+		return this.addOr(column, value, Query.GREATER_THAN);
+	},
+
+	orGreaterEqual : function(column, value) {
+		return this.addOr(column, value, Query.GREATER_EQUAL);
+	},
+
+	orLess : function(column, value) {
+		return this.addOr(column, value, Query.LESS_THAN);
+	},
+
+	orLessEqual : function(column, value) {
+		return this.addOr(column, value, Query.LESS_EQUAL);
+	},
+
+	orNull : function(column) {
+		return this.addOr(column, null);
+	},
+
+	orNotNull : function(column) {
+		return this.addOr(column, null, Query.NOT_EQUAL);
+	},
+
+	orBetween : function(column, from, to) {
+		return this.addOr(column, array(from, to), Query.BETWEEN);
+	},
+
+	orBeginsWith : function(column, value) {
+		return this.addOr(column, value, Query.BEGINS_WITH);
+	},
+
+	orEndsWith : function(column, value) {
+		return this.addOr(column, value, Query.ENDS_WITH);
+	},
+
+	orContains : function(column, value) {
+		return this.addOr(column, value, Query.CONTAINS);
+	},
+
 	/**
 	 * Builds and returns a string representation of this Condition
 	 * @return QueryStatement

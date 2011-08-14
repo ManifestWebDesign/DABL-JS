@@ -37,6 +37,9 @@ Query.LESS_THAN = '<';
 Query.GREATER_EQUAL = '>=';
 Query.LESS_EQUAL = '<=';
 Query.LIKE = 'LIKE';
+Query.BEGINS_WITH = 'BEGINS_WITH';
+Query.ENDS_WITH = 'ENDS_WITH';
+Query.CONTAINS = 'CONTAINS';
 Query.NOT_LIKE = 'NOT LIKE';
 Query.CUSTOM = 'CUSTOM';
 Query.DISTINCT = 'DISTINCT';
@@ -387,46 +390,6 @@ Query.prototype = {
 		return this.addAnd.apply(this, arguments);
 	},
 
-	andNot : function(column, value) {
-		return this.addAnd(column, value, Query.NOT_EQUAL);
-	},
-
-	andLike : function(column, value) {
-		return this.addAnd(column, value, Query.LIKE);
-	},
-
-	andNotLike : function(column, value) {
-		return this.addAnd(column, value, Query.NOT_LIKE);
-	},
-
-	andGreater : function(column, value) {
-		return this.addAnd(column, value, Query.GREATER_THAN);
-	},
-
-	andGreaterEqual : function(column, value) {
-		return this.addAnd(column, value, Query.GREATER_EQUAL);
-	},
-
-	andLess : function(column, value) {
-		return this.addAnd(column, value, Query.LESS_THAN);
-	},
-
-	andLessEqual : function(column, value) {
-		return this.addAnd(column, value, Query.LESS_EQUAL);
-	},
-
-	andNull : function(column) {
-		return this.addAnd(column, null);
-	},
-
-	andNotNull : function(column) {
-		return this.addAnd(column, null, Query.NOT_EQUAL);
-	},
-
-	andBetween : function(column, from, to) {
-		return this.addAnd(column, [from, to], Query.BETWEEN);
-	},
-
 	/**
 	 * Shortcut to adding an OR statement to the Query's WHERE Condition.
 	 * @return Query
@@ -440,44 +403,134 @@ Query.prototype = {
 		return this;
 	},
 
+	andNot : function(column, value) {
+		this._where.andNot(column, value);
+		return this;
+	},
+
+	andLike : function(column, value) {
+		this._where.andLike(column, value);
+		return this;
+	},
+
+	andNotLike : function(column, value) {
+		this._where.andNotLike(column, value);
+		return this;
+	},
+
+	andGreater : function(column, value) {
+		this._where.andGreater(column, value);
+		return this;
+	},
+
+	andGreaterEqual : function(column, value) {
+		this._where.andGreaterEqual(column, value);
+		return this;
+	},
+
+	andLess : function(column, value) {
+		this._where.andLess(column, value);
+		return this;
+	},
+
+	andLessEqual : function(column, value) {
+		this._where.andLessEqual(column, value);
+		return this;
+	},
+
+	andNull : function(column) {
+		this._where.andNull(column);
+		return this;
+	},
+
+	andNotNull : function(column) {
+		this._where.andNotNull(column);
+		return this;
+	},
+
+	andBetween : function(column, from, to) {
+		this._where.andBetween(column, from, to);
+		return this;
+	},
+
+	andBeginsWith : function(column, value) {
+		this._where.andBeginsWith(column, value);
+		return this;
+	},
+
+	andEndsWith : function(column, value) {
+		this._where.andEndsWith(column, value);
+		return this;
+	},
+
+	andContains : function(column, value) {
+		this._where.andContains(column, value);
+		return this;
+	},
+
 	orNot : function(column, value) {
-		return this.addOr(column, value, Query.NOT_EQUAL);
+		this._where.orNot(column, value);
+		return this;
 	},
 
 	orLike : function(column, value) {
-		return this.addOr(column, value, Query.LIKE);
+		this._where.orLike(column, value);
+		return this;
 	},
 
 	orNotLike : function(column, value) {
-		return this.addOr(column, value, Query.NOT_LIKE);
+		this._where.orNotLike(column, value);
+		return this;
 	},
 
 	orGreater : function(column, value) {
-		return this.addOr(column, value, Query.GREATER_THAN);
+		this._where.orGreater(column, value);
+		return this;
 	},
 
 	orGreaterEqual : function(column, value) {
-		return this.addOr(column, value, Query.GREATER_EQUAL);
+		this._where.orGreaterEqual(column, value);
+		return this;
 	},
 
 	orLess : function(column, value) {
-		return this.addOr(column, value, Query.LESS_THAN);
+		this._where.orLess(column, value);
+		return this;
 	},
 
 	orLessEqual : function(column, value) {
-		return this.addOr(column, value, Query.LESS_EQUAL);
+		this._where.orLessEqual(column, value);
+		return this;
 	},
 
 	orNull : function(column) {
-		return this.addOr(column, null);
+		this._where.orNull(column);
+		return this;
 	},
 
 	orNotNull : function(column) {
-		return this.addOr(column, null, Query.NOT_EQUAL);
+		this._where.orNotNull(column);
+		return this;
 	},
 
 	orBetween : function(column, from, to) {
-		return this.addOr(column, [from, to], Query.BETWEEN);
+		this._where.orBetween(column, from, to);
+		return this;
+	},
+
+	orBeginsWith : function(column, value) {
+		this._where.orBeginsWith(column, value);
+		return this;
+	},
+
+	orEndsWith : function(column, value) {
+		this._where.orEndsWith(column, value);
+		return this;
+	},
+
+	orContains : function(column, value) {
+		this._where.orContains(column, value);
+		return this;
 	},
 
 	/**
