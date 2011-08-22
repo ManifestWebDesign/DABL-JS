@@ -772,7 +772,7 @@ Model.models = {};
  * @return Model
  */
 Model.create = function(props){
-	var conn, newClass, column, type, prop;
+	var newClass, column, type, prop;
 
 	if (typeof props.table == 'undefined') {
 		throw new Error('Must provide a table when exending Model');
