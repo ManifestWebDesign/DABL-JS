@@ -328,13 +328,13 @@ Condition.prototype = {
 	 * Builds and returns a string representation of this Condition
 	 * @return QueryStatement
 	 */
-	getQueryStatement : function() {
+	getQueryStatement : function(conn) {
 
 		if (0 == this._conds.length) {
 			return null;
 		}
 
-		var statement = new QueryStatement,
+		var statement = new QueryStatement(conn),
 			string = '',
 			x,
 			cond,

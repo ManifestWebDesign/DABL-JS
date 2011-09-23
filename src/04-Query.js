@@ -613,13 +613,40 @@ Query.prototype = {
 	},
 
 	/**
+	 * Returns true if this Query uses aggregate functions in either a GROUP BY clause or in the
+	 * select columns
+	 * @return bool
+	 */
+	hasAggregates : function() {
+		if (this._groups.length != 0) {
+			return true;
+		}
+		for (var c = 0, clen = this._columns.length; c < clen; ++c) {
+			if (this._columns[c].indexOf('(') != -1) {
+				return true;
+			}
+		}
+		return false;
+	},
+
+	/**
+	 * Returns true if this Query requires a complex count
+	 * @return bool
+	 */
+	needsComplexCount : function() {
+		return this.hasAggregates()
+		|| null !== this._having
+		|| this._distinct;
+	},
+
+	/**
 	 * Builds and returns the query string
 	 *
 	 * @param conn Database connection to use
 	 * @return QueryStatement
 	 */
 	getQuery : function(conn) {
-		if (!conn) {
+		if (typeof conn == 'undefined') {
 			conn = new Adapter;
 		}
 
@@ -785,33 +812,6 @@ Query.prototype = {
 	},
 
 	/**
-	 * Returns true if this Query uses aggregate functions in either a GROUP BY clause or in the
-	 * select columns
-	 * @return bool
-	 */
-	hasAggregates : function() {
-		if (this._groups.length != 0) {
-			return true;
-		}
-		for (var c = 0, clen = this._columns.length; c < clen; ++c) {
-			if (this._columns[c].indexOf('(') != -1) {
-				return true;
-			}
-		}
-		return false;
-	},
-
-	/**
-	 * Returns true if this Query requires a complex count
-	 * @return bool
-	 */
-	needsComplexCount : function() {
-		return this.hasAggregates()
-		|| null !== this._having
-		|| this._distinct;
-	},
-
-	/**
 	 * Protected for now.  Likely to be public in the future.
 	 * @return QueryStatement
 	 */
@@ -885,7 +885,7 @@ Query.prototype = {
 	 * @return QueryStatement
 	 */
 	getWhereClause : function(conn) {
-		return this._where.getQueryStatement();
+		return this._where.getQueryStatement(conn);
 	},
 
 	/**
