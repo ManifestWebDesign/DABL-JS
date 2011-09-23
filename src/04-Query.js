@@ -340,33 +340,53 @@ Query.prototype = {
 
 	/**
 	 * Alias of {@link addJoin()}.
+	 * @return Query
 	 */
 	join : function(tableOrColumn, onClauseOrColumn, joinType) {
 		return this.addJoin(tableOrColumn, onClauseOrColumn, joinType);
 	},
 
+	/**
+	 * @return Query
+	 */
 	innerJoin : function(tableOrColumn, onClauseOrColumn) {
 		return this.addJoin(tableOrColumn, onClauseOrColumn, Query.INNER_JOIN);
 	},
 
+	/**
+	 * @return Query
+	 */
 	leftJoin : function(tableOrColumn, onClauseOrColumn) {
 		return this.addJoin(tableOrColumn, onClauseOrColumn, Query.LEFT_JOIN);
 	},
 
+	/**
+	 * @return Query
+	 */
 	rightJoin : function(tableOrColumn, onClauseOrColumn) {
 		return this.addJoin(tableOrColumn, onClauseOrColumn, Query.RIGHT_JOIN);
 	},
 
+	/**
+	 * @return Query
+	 */
 	outerJoin : function(tableOrColumn, onClauseOrColumn) {
 		return this.addJoin(tableOrColumn, onClauseOrColumn, Query.OUTER_JOIN);
 	},
 
+	/**
+	 * @return QueryJoin[]
+	 */
 	getJoins : function() {
 		return this._joins;
 	},
 
+	/**
+	 * @return Query
+	 */
 	setJoins : function(joins) {
 		this._joins = joins;
+		return this;
 	},
 
 	/**
@@ -403,131 +423,209 @@ Query.prototype = {
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andNot : function(column, value) {
 		this._where.andNot(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andLike : function(column, value) {
 		this._where.andLike(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andNotLike : function(column, value) {
 		this._where.andNotLike(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andGreater : function(column, value) {
 		this._where.andGreater(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andGreaterEqual : function(column, value) {
 		this._where.andGreaterEqual(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andLess : function(column, value) {
 		this._where.andLess(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andLessEqual : function(column, value) {
 		this._where.andLessEqual(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andNull : function(column) {
 		this._where.andNull(column);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andNotNull : function(column) {
 		this._where.andNotNull(column);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andBetween : function(column, from, to) {
 		this._where.andBetween(column, from, to);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andBeginsWith : function(column, value) {
 		this._where.andBeginsWith(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andEndsWith : function(column, value) {
 		this._where.andEndsWith(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	andContains : function(column, value) {
 		this._where.andContains(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orNot : function(column, value) {
 		this._where.orNot(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orLike : function(column, value) {
 		this._where.orLike(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orNotLike : function(column, value) {
 		this._where.orNotLike(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orGreater : function(column, value) {
 		this._where.orGreater(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orGreaterEqual : function(column, value) {
 		this._where.orGreaterEqual(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orLess : function(column, value) {
 		this._where.orLess(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orLessEqual : function(column, value) {
 		this._where.orLessEqual(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orNull : function(column) {
 		this._where.orNull(column);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orNotNull : function(column) {
 		this._where.orNotNull(column);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orBetween : function(column, from, to) {
 		this._where.orBetween(column, from, to);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orBeginsWith : function(column, value) {
 		this._where.orBeginsWith(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orEndsWith : function(column, value) {
 		this._where.orEndsWith(column, value);
 		return this;
 	},
 
+	/**
+	 * @return Query
+	 */
 	orContains : function(column, value) {
 		this._where.orContains(column, value);
 		return this;
