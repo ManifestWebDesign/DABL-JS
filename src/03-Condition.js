@@ -343,6 +343,11 @@ Condition.prototype = {
 
 		for (x = 0; x < len; ++x) {
 			cond = conds[x];
+
+			if (null === cond) {
+				continue;
+			}
+
 			string += "\n\t";
 			if (0 != x) {
 				string += ((1 == x && conds[0].sep == 'OR') ? 'OR' : cond.sep) + ' ';
