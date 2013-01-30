@@ -268,7 +268,6 @@ Model = Class.extend({
 			q.addAnd(pk, pkVal);
 		}
 
-		q.setTable(this.constructor.getTableName());
 		result = this.constructor.destroy(q, false);
 		return result;
 	},
@@ -345,7 +344,6 @@ Model = Class.extend({
 	insert: function() {
 		var conn = this.constructor.getConnection(),
 			pk = this.constructor.getPrimaryKey(),
-			tableName = this.constructor.getTableName(),
 			column,
 			value,
 			result,
@@ -361,7 +359,7 @@ Model = Class.extend({
 			data[column] = value;
 		}
 
-		result = this.constructor.insert(tableName, data, conn);
+		result = this.constructor.insert(data, conn);
 		count = result.rowsAffected;
 
 		if (pk && this.constructor._isAutoIncrement) {
@@ -383,54 +381,43 @@ Model = Class.extend({
 	 */
 	update: function(hash) {
 		if (typeof hash == 'object') {
-			this.fromaArray(hash);
+			this.fromArray(hash);
 		}
 
 		if (this.constructor._primaryKeys.length == 0) {
 			throw new Error('This table has no primary keys');
 		}
 
-		var conn = this.constructor.getConnection(),
-			quotedTable = conn.quoteIdentifier(this.constructor.getTableName()),
-			fields = [],
-			values = [],
-			pkWhere = [],
-			statement = new QueryStatement(conn),
+		if (!this.isModified()) {
+			return 0;
+		}
+
+		var data = {},
+			result,
+			q = new Query,
 			pks = this.constructor._primaryKeys,
 			modColumns = this._modifiedColumns,
 			x,
 			len,
 			modCol,
 			pk,
-			pkVal,
-			queryString,
-			result;
+			pkVal;
 
 		for (x in modColumns) {
 			modCol = modColumns[x];
-			fields.push(conn.quoteIdentifier(modCol) + ' = ?');
-			values.push(this[modCol]);
-		}
-
-		//If array is empty there is nothing to update
-		if (fields.length == 0) {
-			return 0;
+			data[modCol] = this[modCol];
 		}
 
 		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x],
-				pkVal = this[pk];
-			if (pkVal === null)
-				throw new Error('Cannot update with NULL primary key.');
-			pkWhere.push(conn.quoteIdentifier(pk) + ' = ?');
-			values.push(pkVal);
+			pk = pks[x];
+			pkVal = this[pk];
+			if (pkVal === null) {
+				throw new Error('Cannot delete using NULL primary key.');
+			}
+			q.addAnd(pk, pkVal);
 		}
 
-		queryString = 'UPDATE ' + quotedTable + ' SET ' + fields.join(', ') + ' WHERE ' + pkWhere.join(' AND ');
-
-		statement.setString(queryString);
-		statement.setParams(values);
-		result = statement.bindAndExecute();
+		result = this.constructor.update(data, q);
 		this.resetModified();
 		return result.rowsAffected;
 	}
@@ -535,33 +522,6 @@ Model.isBlobType = function(type) {
 	return (type in Model.BLOB_TYPES);
 }
 
-/**
- * Returns an array of objects of class class from
- * the rows of a PDOStatement(query result)
- *
- * @param result
- * @return Model[]
- */
-Model.fromResult = function(result) {
-	var objects = [],
-		i,
-		len,
-		object,
-		row,
-		fieldName;
-	for (i = 0, len = result.length; i < len; ++i) {
-		object = new this,
-		row = result[i];
-
-		for (fieldName in row) {
-			object[fieldName] = row[fieldName];
-		}
-		object.setNew(false);
-		objects.push(object);
-	}
-	return objects;
-}
-
 Model.coerceTemporalValue = function(value, columnType) {
 	var x, date;
 	if (value instanceof Array) {
@@ -650,51 +610,30 @@ Model.isAutoIncrement = function() {
 }
 
 /**
- * Searches the database for a row with the ID(primary key) that matches
- * the one input.
- * @return Model
+ * Returns an array of objects of class class from
+ * the rows of a PDOStatement(query result)
+ *
+ * @param result
+ * @return Model[]
  */
-Model.retrieveByPK = function(thePK) {
-	return this.retrieveByPKs(thePK);
-}
-
-/**
- * Searches the database for a row with the primary keys that match
- * the ones input.
- * @return Model
- */
-Model.retrieveByPKs = function() {
-	var pks = this._primaryKeys,
-		q = new Query,
-		x,
+Model.fromResult = function(result) {
+	var objects = [],
+		i,
 		len,
-		pk,
-		pkVal;
+		object,
+		row,
+		fieldName;
+	for (i = 0, len = result.length; i < len; ++i) {
+		object = new this,
+		row = result[i];
 
-	for (x = 0, len = pks.length; x < len; ++x) {
-		pk = pks[x],
-		pkVal = arguments[x];
-
-		if (pkVal === null || typeof pkVal == 'undefined') {
-			return null;
+		for (fieldName in row) {
+			object[fieldName] = row[fieldName];
 		}
-		q.add(pk, pkVal);
+		object.setNew(false);
+		objects.push(object);
 	}
-	return this.select(q, true).shift();
-}
-
-Model.retrieveByColumn = function(field, value) {
-	var q = new Query()
-		.add(field, value)
-		.setLimit(1);
-	return this.select(q).shift();
-}
-
-Model.findBy = Model.retrieveByColumn;
-
-Model.findAllBy = function(field, value) {
-	var q = new Query().add(field, value);
-	return this.select(q);
+	return objects;
 }
 
 /**
@@ -729,8 +668,93 @@ Model.select = function(q) {
 	return this.fromResult(this.selectRS(q));
 }
 
-Model.insert = function(tableName, data, conn) {
-	var fields = [],
+/**
+ * @return Query
+ */
+Model.findQuery = function() {
+	var a = arguments,
+		q = new Query().setTable(this.getTableName()),
+		len = a.length;
+
+	if (len == 0) {
+		return q;
+	}
+	if (len == 1) {
+		if (!isNaN(parseInt(a[0], 10))) {
+			q.add(this.getPrimaryKey(), a[0]);
+		} else if (typeof a[0] == 'object') {
+			if (a[0] instanceof Query) {
+				q = a[0];
+			} else {
+				// hash
+			}
+		} else if (typeof a[0] == 'string') {
+			// where clause string
+			if (a[1] instanceof Array) {
+				// arguments
+			}
+		}
+	} else if (len == 2 && typeof a[0] == 'string') {
+		q.add(a[0], a[1]);
+	} else {
+		// if arguments list is greater than 1 and the first argument is not a string
+		var pks = this._primaryKeys;
+		if (len == pks.len) {
+			for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
+				var pk = pks[x],
+				pkVal = arguments[x];
+
+				if (pkVal === null || typeof pkVal == 'undefined') {
+					return null;
+				}
+				q.add(pk, pkVal);
+			}
+		} else {
+			throw new Error('Find called with ' + len + ' arguments');
+		}
+	}
+	return q;
+}
+
+Model.findAll = function() {
+	return this.select(this.findQuery.apply(this, arguments));
+}
+
+Model.find = function() {
+	var q = this.findQuery
+		.apply(this, arguments)
+		.setLimit(1);
+	return  this.select(q).shift();
+}
+
+/**
+ * @return Model
+ */
+Model.findBy = Model.find;
+
+/**
+ * @return Model
+ */
+Model.retrieveByColumn = Model.find;
+
+/**
+ * @return Model
+ */
+Model.retrieveByPK = Model.find;
+
+/**
+ * @return Model
+ */
+Model.retrieveByPKs = Model.find;
+
+/**
+ * @return Model
+ */
+Model.findByPKs = Model.retrieveByPKs;
+
+Model.insert = function(data, conn) {
+	var tableName = this.getTableName(),
+		fields = [],
 		values = [],
 		placeholders = [],
 		statement = new QueryStatement(conn),
@@ -750,6 +774,35 @@ Model.insert = function(tableName, data, conn) {
 
 	statement.setString(queryString);
 	statement.setParams(values);
+
+	return statement.bindAndExecute();
+}
+
+Model.update = function (data, q) {
+	var conn = this.getConnection(),
+		quotedTable = conn.quoteIdentifier(this.getTableName()),
+		fields = [],
+		values = [],
+		statement = new QueryStatement(conn),
+		x,
+		queryString,
+		whereClause = q.getWhereClause(conn);
+
+	for (x in data) {
+		fields.push(conn.quoteIdentifier(x) + ' = ?');
+		values.push(data[x]);
+	}
+
+	//If array is empty there is nothing to update
+	if (fields.length == 0) {
+		return 0;
+	}
+
+	queryString = 'UPDATE ' + quotedTable + ' SET ' + fields.join(', ') + ' WHERE ' + whereClause.getString();
+
+	statement.setString(queryString);
+	statement.setParams(values);
+	statement.addParams(whereClause.getParams());
 
 	return statement.bindAndExecute();
 }
