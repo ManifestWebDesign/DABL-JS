@@ -1,6 +1,6 @@
 function Condition(left, right, operator, quote) {
 	this._conds = [];
-	if (arguments.length != 0) {
+	if (arguments.length !== 0) {
 		this.addAnd.apply(this, arguments);
 	}
 }
@@ -66,14 +66,14 @@ Condition.prototype = {
 		}
 
 		// Escape left
-		if (quote == Condition.QUOTE_LEFT || quote == Condition.QUOTE_BOTH) {
+		if (quote === Condition.QUOTE_LEFT || quote === Condition.QUOTE_BOTH) {
 			statement.addParam(left);
 			left = '?';
 		}
 
 		// right can be an array
 		if (isArray || isQuery) {
-			if (false == isQuery || 1 !== right.getLimit()) {
+			if (false === isQuery || 1 !== right.getLimit()) {
 				// Convert any sort of equality operator to something suitable for arrays
 				switch (operator) {
 					// Various forms of equal
@@ -105,25 +105,25 @@ Condition.prototype = {
 
 				right = '(' + clauseStatement._qString + ')';
 				statement.addParams(clauseStatement._params);
-				if (quote != Condition.QUOTE_LEFT) {
+				if (quote !== Condition.QUOTE_LEFT) {
 					quote = Condition.QUOTE_NONE;
 				}
 			} else if (isArray) {
 				arrayLen = right.length;
 				// BETWEEN
-				if (2 == arrayLen && operator == Query.BETWEEN) {
+				if (2 === arrayLen && operator === Query.BETWEEN) {
 					statement.setString(left + ' ' + operator + ' ? AND ?');
 					statement.addParams(right);
 					return statement;
-				} else if (0 == arrayLen) {
+				} else if (0 === arrayLen) {
 					// Handle empty arrays
-					if (operator == Query.IN) {
+					if (operator === Query.IN) {
 						statement.setString('(0 = 1)');
 						return statement;
-					} else if (operator == Query.NOT_IN) {
+					} else if (operator === Query.NOT_IN) {
 						return null;
 					}
-				} else if (quote == Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
+				} else if (quote === Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
 					statement.addParams(right);
 					var rString = '(';
 					for (x = 0; x < arrayLen; ++x) {
@@ -137,18 +137,18 @@ Condition.prototype = {
 			}
 		} else {
 			if (null === right) {
-				if (operator == Query.NOT_EQUAL || operator == Query.ALT_NOT_EQUAL) {
+				if (operator === Query.NOT_EQUAL || operator === Query.ALT_NOT_EQUAL) {
 					// IS NOT NULL
 					operator = Query.IS_NOT_NULL;
-				} else if (operator == Query.EQUAL) {
+				} else if (operator === Query.EQUAL) {
 					// IS NULL
 					operator = Query.IS_NULL;
 				}
 			}
 
-			if (operator == Query.IS_NULL || operator == Query.IS_NOT_NULL) {
+			if (operator === Query.IS_NULL || operator === Query.IS_NOT_NULL) {
 				right = null;
-			} else if (quote == Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
+			} else if (quote === Condition.QUOTE_RIGHT || quote === Condition.QUOTE_BOTH) {
 				statement.addParam(right);
 				right = '?';
 			}
@@ -408,7 +408,7 @@ Condition.prototype = {
 	 */
 	getQueryStatement : function(conn) {
 
-		if (0 == this._conds.length) {
+		if (0 === this._conds.length) {
 			return null;
 		}
 
@@ -427,8 +427,8 @@ Condition.prototype = {
 			}
 
 			string += "\n\t";
-			if (0 != x) {
-				string += ((1 == x && conds[0].sep == 'OR') ? 'OR' : cond.sep) + ' ';
+			if (0 !== x) {
+				string += ((1 === x && conds[0].sep === 'OR') ? 'OR' : cond.sep) + ' ';
 			}
 			string += cond._qString;
 			statement.addParams(cond._params);
@@ -445,4 +445,4 @@ Condition.prototype = {
 		return this.getQueryStatement().toString();
 	}
 
-}
+};

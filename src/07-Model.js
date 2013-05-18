@@ -1,7 +1,7 @@
 function addGetterAndSetter(object, colName, colType) {
 	object.__defineGetter__(colName, function() {
 		var value = this['_' +  colName];
-		return typeof value == 'undefined' ? null : value;
+		return typeof value === 'undefined' ? null : value;
 	});
 
 	object.__defineSetter__(colName, function(value) {
@@ -81,7 +81,7 @@ Model = Class.extend({
 	 */
 	isColumnModified: function(columnName) {
 		for (var key in this._modifiedColumns) {
-			if (columnName == this._modifiedColumns[key]) {
+			if (columnName === this._modifiedColumns[key]) {
 				return true;
 			}
 		}
@@ -104,11 +104,11 @@ Model = Class.extend({
 	 * @return Model
 	 */
 	coerceColumnValue: function(columnName, value, columnType) {
-		if (null === columnType || typeof columnType == 'undefined') {
+		if (null === columnType || typeof columnType === 'undefined') {
 			columnType = this.constructor.getColumnType(columnName);
 		}
 
-		value = typeof value == 'undefined' ? null : value;
+		value = typeof value === 'undefined' ? null : value;
 
 		var temporal = Model.isTemporalType(columnType),
 			numeric = Model.isNumericType(columnType),
@@ -123,14 +123,14 @@ Model = Class.extend({
 					if (Model.isIntegerType(columnType)) {
 						// validate and cast
 						intVal = parseInt(value, 10);
-						if (intVal.toString() != value.toString()) {
+						if (intVal.toString() !== value.toString()) {
 							throw new Error(value + ' is not a valid integer');
 						}
 						value = intVal;
 					} else {
 						// only validates, doesn't cast...yet
 						floatVal = parseFloat(value, 10);
-						if (floatVal.toString() != value.toString()) {
+						if (floatVal.toString() !== value.toString()) {
 							throw new Error(value + ' is not a valid float');
 						}
 					}
@@ -189,7 +189,7 @@ Model = Class.extend({
 			x,
 			len,
 			pk;
-		if (pks.length == 0) {
+		if (pks.length === 0) {
 			return false;
 		}
 		for (x = 0, len = pks.length; x < len; ++x) {
@@ -255,7 +255,7 @@ Model = Class.extend({
 			pkVal,
 			result;
 
-		if (pks.length == 0) {
+		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 
@@ -288,7 +288,7 @@ Model = Class.extend({
 			throw new Error('Cannot save ' + this.constructor.getClassName() + ' with validation errors.');
 		}
 
-		if (this.constructor._primaryKeys.length == 0) {
+		if (this.constructor._primaryKeys.length === 0) {
 			throw new Error('Cannot save without primary keys');
 		}
 
@@ -311,7 +311,7 @@ Model = Class.extend({
 			throw new Error('Cannot call archive on models without "archived" column');
 		}
 
-		if (null !== this.archived && typeof this.archived != 'undefined') {
+		if (null !== this.archived && typeof this.archived !== 'undefined') {
 			throw new Error('This ' + this.constructor.getClassName() + ' is already archived.');
 		}
 
@@ -333,7 +333,7 @@ Model = Class.extend({
 	 * @return Model
 	 */
 	setNew: function (bool) {
-		this._isNew = (bool == true);
+		this._isNew = (bool === true);
 		return this;
 	},
 
@@ -380,11 +380,11 @@ Model = Class.extend({
 	 * @return Int
 	 */
 	update: function(hash) {
-		if (typeof hash == 'object') {
+		if (typeof hash === 'object') {
 			this.fromArray(hash);
 		}
 
-		if (this.constructor._primaryKeys.length == 0) {
+		if (this.constructor._primaryKeys.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 
@@ -470,7 +470,7 @@ Model.NUMERIC_TYPES = {
 
 Model.isColumnType = function(type) {
 	return (type in Model.COLUMN_TYPES);
-}
+};
 
 /**
  * Whether passed type is a temporal (date/time/timestamp) type.
@@ -480,7 +480,7 @@ Model.isColumnType = function(type) {
  */
 Model.isTemporalType = function(type) {
 	return (type in this.TEMPORAL_TYPES);
-}
+};
 
 /**
  * Returns true if values for the type need to be quoted.
@@ -490,7 +490,7 @@ Model.isTemporalType = function(type) {
  */
 Model.isTextType = function(type) {
 	return (type in this.TEXT_TYPES);
-}
+};
 
 /**
  * Returns true if values for the type are numeric.
@@ -500,7 +500,7 @@ Model.isTextType = function(type) {
  */
 Model.isNumericType = function(type) {
 	return (type in this.NUMERIC_TYPES);
-}
+};
 
 /**
  * Returns true if values for the type are integer.
@@ -510,7 +510,7 @@ Model.isNumericType = function(type) {
  */
 Model.isIntegerType = function(type) {
 	return (type in this.INTEGER_TYPES);
-}
+};
 
 /**
  * Returns true if values for the type are blob.
@@ -520,7 +520,7 @@ Model.isIntegerType = function(type) {
  */
 Model.isBlobType = function(type) {
 	return (type in Model.BLOB_TYPES);
-}
+};
 
 Model.coerceTemporalValue = function(value, columnType) {
 	var x, date;
@@ -535,7 +535,7 @@ Model.coerceTemporalValue = function(value, columnType) {
 		throw new Error(value + ' is not a valid date');
 	}
 	return date;
-}
+};
 
 Model._table = null;
 
@@ -547,7 +547,7 @@ Model._columns = null;
 
 Model.getConnection = function(){
 	return Adapter.getConnection();
-}
+};
 
 /**
  * Returns string representation of table name
@@ -555,7 +555,7 @@ Model.getConnection = function(){
  */
 Model.getTableName = function() {
 	return this._table;
-}
+};
 
 /**
  * Access to array of column types, indexed by column name
@@ -563,7 +563,7 @@ Model.getTableName = function() {
  */
 Model.getColumns = function() {
 	return this._columns.slice(0);
-}
+};
 
 /**
  * Get the type of a column
@@ -571,19 +571,19 @@ Model.getColumns = function() {
  */
 Model.getColumnType = function(columnName) {
 	return this._columns[columnName];
-}
+};
 
 /**
  * @return bool
  */
 Model.hasColumn = function(columnName) {
 	for (var colName in this._columns) {
-		if (colName == columnName) {
+		if (colName === columnName) {
 			return true;
 		}
 	}
 	return false;
-}
+};
 
 /**
  * Access to array of primary keys
@@ -591,15 +591,15 @@ Model.hasColumn = function(columnName) {
  */
 Model.getPrimaryKeys = function() {
 	return this._primaryKeys.slice(0);
-}
+};
 
 /**
  * Access to name of primary key
  * @return array
  */
 Model.getPrimaryKey = function() {
-	return this._primaryKeys.length == 1 ? this._primaryKeys[0] : null;
-}
+	return this._primaryKeys.length === 1 ? this._primaryKeys[0] : null;
+};
 
 /**
  * Returns true if the primary key column for this table is auto-increment
@@ -607,7 +607,7 @@ Model.getPrimaryKey = function() {
  */
 Model.isAutoIncrement = function() {
 	return this._isAutoIncrement;
-}
+};
 
 /**
  * Returns an array of objects of class class from
@@ -634,7 +634,7 @@ Model.fromResult = function(result) {
 		objects.push(object);
 	}
 	return objects;
-}
+};
 
 /**
  * @return int
@@ -642,22 +642,22 @@ Model.fromResult = function(result) {
 Model.count = function(q) {
 	q = q instanceof Query ? q : new Query(q);
 	var conn = this.getConnection();
-	if (!q.getTable() || this.getTableName() != q.getTable()) {
+	if (!q.getTable() || this.getTableName() !== q.getTable()) {
 		q.setTable(this.getTableName());
 	}
 	return q.count(conn);
-}
+};
 
 /**
  * @param q
  * @return int
  */
 Model.destroy = function(q) {
-	if (!q.getTable() || this.getTableName() != q.getTable()) {
+	if (!q.getTable() || this.getTableName() !== q.getTable()) {
 		q.setTable(this.getTableName());
 	}
 	return q.destroy(this.getConnection());
-}
+};
 
 /**
  * @param q The Query object that creates the SELECT query string
@@ -666,7 +666,7 @@ Model.destroy = function(q) {
 Model.select = function(q) {
 	q = q instanceof Query ? q : new Query(q);
 	return this.fromResult(this.selectRS(q));
-}
+};
 
 /**
  * @return Query
@@ -676,35 +676,35 @@ Model.findQuery = function() {
 		q = new Query().setTable(this.getTableName()),
 		len = a.length;
 
-	if (len == 0) {
+	if (len === 0) {
 		return q;
 	}
-	if (len == 1) {
+	if (len === 1) {
 		if (!isNaN(parseInt(a[0], 10))) {
 			q.add(this.getPrimaryKey(), a[0]);
-		} else if (typeof a[0] == 'object') {
+		} else if (typeof a[0] === 'object') {
 			if (a[0] instanceof Query) {
 				q = a[0];
 			} else {
 				// hash
 			}
-		} else if (typeof a[0] == 'string') {
+		} else if (typeof a[0] === 'string') {
 			// where clause string
 			if (a[1] instanceof Array) {
 				// arguments
 			}
 		}
-	} else if (len == 2 && typeof a[0] == 'string') {
+	} else if (len === 2 && typeof a[0] === 'string') {
 		q.add(a[0], a[1]);
 	} else {
 		// if arguments list is greater than 1 and the first argument is not a string
 		var pks = this._primaryKeys;
-		if (len == pks.len) {
+		if (len === pks.len) {
 			for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
 				var pk = pks[x],
 				pkVal = arguments[x];
 
-				if (pkVal === null || typeof pkVal == 'undefined') {
+				if (pkVal === null || typeof pkVal === 'undefined') {
 					return null;
 				}
 				q.add(pk, pkVal);
@@ -714,18 +714,18 @@ Model.findQuery = function() {
 		}
 	}
 	return q;
-}
+};
 
 Model.findAll = function() {
 	return this.select(this.findQuery.apply(this, arguments));
-}
+};
 
 Model.find = function() {
 	var q = this.findQuery
 		.apply(this, arguments)
 		.setLimit(1);
 	return  this.select(q).shift();
-}
+};
 
 /**
  * @return Model
@@ -776,7 +776,7 @@ Model.insert = function(data, conn) {
 	statement.setParams(values);
 
 	return statement.bindAndExecute();
-}
+};
 
 Model.update = function (data, q) {
 	var conn = this.getConnection(),
@@ -794,7 +794,7 @@ Model.update = function (data, q) {
 	}
 
 	//If array is empty there is nothing to update
-	if (fields.length == 0) {
+	if (fields.length === 0) {
 		return 0;
 	}
 
@@ -805,7 +805,7 @@ Model.update = function (data, q) {
 	statement.addParams(whereClause.getParams());
 
 	return statement.bindAndExecute();
-}
+};
 
 /**
  * Executes a select query and returns the PDO result
@@ -813,11 +813,11 @@ Model.update = function (data, q) {
  */
 Model.selectRS = function(q) {
 	q = q || new Query;
-	if (!q.getTable() || this.getTableName() != q.getTable()) {
+	if (!q.getTable() || this.getTableName() !== q.getTable()) {
 		q.setTable(this.getTableName());
 	}
 	return q.select(this.getConnection());
-}
+};
 
 Model.models = {};
 
@@ -827,13 +827,13 @@ Model.models = {};
 Model.create = function(props){
 	var newClass, column, type, prop;
 
-	if (typeof props.table == 'undefined') {
+	if (typeof props.table === 'undefined') {
 		throw new Error('Must provide a table when exending Model');
 	}
-	if (typeof props.columns == 'undefined') {
+	if (typeof props.columns === 'undefined') {
 		throw new Error('Must provide columns when exending Model');
 	}
-	if (typeof props.primaryKeys == 'undefined') {
+	if (typeof props.primaryKeys === 'undefined') {
 		throw new Error('Must provide primaryKeys when exending Model');
 	}
 

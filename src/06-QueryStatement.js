@@ -19,11 +19,11 @@ QueryStatement.embedParams = function(string, params, conn) {
 
 	var p = '?';
 
-	if (string.split(p).length - 1 != params.length) {
+	if (string.split(p).length - 1 !== params.length) {
 		throw new Error('The number of occurances of ' + p + ' do not match the number of _params.');
 	}
 
-	if (params.length == 0) {
+	if (params.length === 0) {
 		return string;
 	}
 
@@ -35,7 +35,7 @@ QueryStatement.embedParams = function(string, params, conn) {
 	for (x = params.length - 1; x >= 0; --x) {
 		identifier = params[x];
 		currentIndex = string.lastIndexOf(p, currentIndex);
-		if (currentIndex == -1) {
+		if (currentIndex === -1) {
 			throw new Error('The number of occurances of ' + p + ' do not match the number of _params.');
 		}
 		string = string.substring(0, currentIndex) + identifier + string.substr(currentIndex + pLength);

@@ -1,6 +1,6 @@
 function _sPad(value) {
 	value = value + '';
-	return value.length == 2 ? value : '0' + value;
+	return value.length === 2 ? value : '0' + value;
 }
 
 Adapter = Class.extend({
@@ -18,6 +18,8 @@ Adapter = Class.extend({
 	/**
 	 * Executes the SQL and returns an Array of Objects.  The Array has a
 	 * rowsAffected property added to it
+	 * @param {String} sql
+	 * @param {Array} params
 	 * @returns Array of Objects
 	 */
 	execute: function(sql, params) {
@@ -34,11 +36,11 @@ Adapter = Class.extend({
 			field,
 			value;
 
-		if (params && (j = params.length) != 0) {
+		if (params && (j = params.length) !== 0) {
 			for (i = 0; i < j; ++i) {
 				value = params[i];
 				if (value instanceof Date) {
-					if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+					if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 						params[i] = this.formatDate(value); // just a date
 					} else {
 						params[i] = this.formatDateTime(value);
@@ -106,6 +108,9 @@ Adapter = Class.extend({
 		return this.formatDate(value) + ' ' + _sPad(value.getHours()) + ':' + _sPad(value.getMinutes()) + ':' + _sPad(value.getSeconds());
 	},
 
+	/**
+	 * @param {String} text
+	 */
 	quoteIdentifier: function(text) {
 		// don't do anything right now, but save this code for later if we need it
 		return text;
@@ -123,6 +128,9 @@ Adapter = Class.extend({
 	},
 
 	/**
+	 * @param {String} sql
+	 * @param {Number} offset
+	 * @param {Number} limit
 	 * @see		DABLPDO::applyLimit()
 	 */
 	applyLimit: function(sql, offset, limit) {
@@ -135,7 +143,7 @@ Adapter = Class.extend({
 	},
 
 	/**
-	 * @param mixed $value
+	 * @param {mixed} value
 	 * @return mixed
 	 */
 	prepareInput: function(value) {
@@ -151,7 +159,7 @@ Adapter = Class.extend({
 			return value ? 1 : 0;
 		}
 
-		if (value === null || typeof value == 'undefined') {
+		if (value === null || typeof value === 'undefined') {
 			return 'NULL';
 		}
 
@@ -160,7 +168,7 @@ Adapter = Class.extend({
 		}
 
 		if (value instanceof Date) {
-			if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+			if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 				// just a date
 				value = this.formatDate(value);
 			} else {
@@ -188,14 +196,14 @@ Adapter.getConnection = function() {
 Adapter.execute = function() {
 	var con = this.getConnection();
 	return con.execute.apply(con, arguments);
-}
+};
 
 Adapter.transaction = function() {
 	var con = this.getConnection();
 	return con.transaction.apply(con, arguments);
-}
+};
 
 Adapter.count = function() {
 	var con = this.getConnection();
 	return con.count.apply(con, arguments);
-}
+};
