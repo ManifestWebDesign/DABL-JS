@@ -43,7 +43,7 @@ Migration.migrate = function(options) {
 		targetVersion = Infinity;
 
 		// did user specify a migration number?
-		if(options.number !== null && typeof options.number != 'undefined')
+		if(options.number !== null && typeof options.number !== 'undefined')
 			targetVersion = options.number;
 		else if(typeof options === 'number')
 			targetVersion = options;
@@ -60,7 +60,7 @@ Migration.migrate = function(options) {
 			// migrate up
 			else if(i < targetVersion) {
 				i += 1;
-				if(migrations[i] !== null && typeof migrations[i] != 'undefined')
+				if(migrations[i] !== null && typeof migrations[i] !== 'undefined')
 					migrations[i].up();
 				else
 					break;
@@ -248,7 +248,7 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 
 	Adapter.transaction(function() {
 		var records = Adapter.execute('SELECT * FROM ' + tableName);
-		if (records.length != 0) {
+		if (records.length !== 0) {
 			throw new Error('Modify column not quite ready yet...');
 		}
 

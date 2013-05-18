@@ -12,7 +12,7 @@ function Query (table, alias) {
 	this._groups = [];
 	this._where = new Condition;
 
-	if (typeof table == 'object' && !(table instanceof Query)) {
+	if (typeof table === 'object' && !(table instanceof Query)) {
 		for (var i in table) {
 			this.addAnd(i, table[i]);
 		}
@@ -146,10 +146,10 @@ Query.prototype = {
 	 * @param bool
 	 */
 	setDistinct : function(bool) {
-		if (typeof bool == 'undefined') {
+		if (typeof bool === 'undefined') {
 			bool = true;
 		}
-		this._distinct = bool == true;
+		this._distinct = bool === true;
 	},
 
 	/**
@@ -278,11 +278,11 @@ Query.prototype = {
 			if (!alias) {
 				throw new Error('The nested query must have an alias.');
 			}
-		} else if (typeof alias == 'undefined') {
+		} else if (typeof alias === 'undefined') {
 			alias = tableName;
 		}
 
-		if (this._extraTables == null) {
+		if (this._extraTables === null) {
 			this._extraTables = {};
 		}
 		this._extraTables[alias] = tableName;
@@ -327,7 +327,7 @@ Query.prototype = {
 		}
 
 		if (null === onClauseOrColumn) {
-			if (joinType == Query.JOIN || joinType == Query.INNER_JOIN) {
+			if (joinType === Query.JOIN || joinType === Query.INNER_JOIN) {
 				this.addTable(tableOrColumn);
 				return this;
 			}
@@ -666,7 +666,7 @@ Query.prototype = {
 	 * @param dir String
 	 */
 	orderBy : function(column, dir) {
-		if (null !== dir && typeof dir != 'undefined') {
+		if (null !== dir && typeof dir !== 'undefined') {
 			column = column + ' ' + dir;
 		}
 		this._orders.push(column);
@@ -716,11 +716,11 @@ Query.prototype = {
 	 * @return bool
 	 */
 	hasAggregates : function() {
-		if (this._groups.length != 0) {
+		if (this._groups.length !== 0) {
 			return true;
 		}
 		for (var c = 0, clen = this._columns.length; c < clen; ++c) {
-			if (this._columns[c].indexOf('(') != -1) {
+			if (this._columns[c].indexOf('(') !== -1) {
 				return true;
 			}
 		}
@@ -744,7 +744,7 @@ Query.prototype = {
 	 * @return QueryStatement
 	 */
 	getQuery : function(conn) {
-		if (typeof conn == 'undefined') {
+		if (typeof conn === 'undefined') {
 			conn = new Adapter;
 		}
 
@@ -780,7 +780,7 @@ Query.prototype = {
 		statement.addParams(tableStatement._params);
 		queryS += "\nFROM " + tableStatement._qString;
 
-		if (this._joins.length != 0) {
+		if (this._joins.length !== 0) {
 			for (x = 0, len = this._joins.length; x < len; ++x) {
 				join = this._joins[x],
 				joinStatement = join.getQueryStatement(conn);
@@ -796,7 +796,7 @@ Query.prototype = {
 			statement.addParams(whereStatement._params);
 		}
 
-		if (this._groups.length != 0) {
+		if (this._groups.length !== 0) {
 			queryS += "\nGROUP BY " + this._groups.join(', ');
 		}
 
@@ -808,7 +808,7 @@ Query.prototype = {
 			}
 		}
 
-		if (this._action != Query.ACTION_COUNT && this._orders.length != 0) {
+		if (this._action !== Query.ACTION_COUNT && this._orders.length !== 0) {
 			queryS += "\nORDER BY " + this._orders.join(', ');
 		}
 
@@ -820,7 +820,7 @@ Query.prototype = {
 			}
 		}
 
-		if (this._action == Query.ACTION_COUNT && this.needsComplexCount()) {
+		if (this._action === Query.ACTION_COUNT && this.needsComplexCount()) {
 			queryS = "SELECT count(0)\nFROM (" + queryS + ") a";
 		}
 
@@ -874,7 +874,7 @@ Query.prototype = {
 				}
 
 				// setup identifiers for any additional tables
-				if (this._extraTables != null) {
+				if (this._extraTables !== null) {
 					for (tAlias in this._extraTables) {
 						extraTable = this._extraTables[tAlias];
 						if (extraTable instanceof Query) {
@@ -883,7 +883,7 @@ Query.prototype = {
 							statement.addParams(extraTableStatement._params);
 						} else {
 							extraTableString = extraTable;
-							if (tAlias != extraTable) {
+							if (tAlias !== extraTable) {
 								extraTableString = extraTableString + ' AS ' + tAlias;
 							}
 						}
@@ -924,7 +924,7 @@ Query.prototype = {
 			columnsToUse,
 			columnsString;
 
-		if (action == Query.ACTION_DELETE) {
+		if (action === Query.ACTION_DELETE) {
 			return statement;
 		}
 
@@ -932,27 +932,27 @@ Query.prototype = {
 			throw new Error('No table specified.');
 		}
 
-		if (action == Query.ACTION_COUNT) {
+		if (action === Query.ACTION_COUNT) {
 			if (!this.needsComplexCount()) {
 				statement.setString('count(0)');
 				return statement;
 			}
 
-			if (this._groups.length != 0) {
+			if (this._groups.length !== 0) {
 				statement.setString(this._groups.join(', '));
 				return statement;
 			}
 
-			if (!this._distinct && null === this.getHaving() && this._columns.length != 0) {
+			if (!this._distinct && null === this.getHaving() && this._columns.length !== 0) {
 				columnsToUse = [];
 				for (x = 0, len = this._columns.length; x < len; ++x) {
 					column = this._columns[x];
-					if (column.indexOf('(') == -1) {
+					if (column.indexOf('(') === -1) {
 						continue;
 					}
 					columnsToUse.push(column);
 				}
-				if (columnsToUse.length != 0) {
+				if (columnsToUse.length !== 0) {
 					statement.setString(columnsToUse.join(', '));
 					return statement;
 				}
@@ -960,7 +960,7 @@ Query.prototype = {
 		}
 
 		// setup columns_string
-		if (this._columns.length != 0) {
+		if (this._columns.length !== 0) {
 			columnsString = this._columns.join(', ');
 		} else if (alias) {
 			// default to selecting only columns from the target table
