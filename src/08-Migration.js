@@ -1,4 +1,6 @@
-Migration = {};
+(function(){
+
+var Migration = {};
 
 Migration.schema = Model.create({
 	table: 'schema_definitions',
@@ -20,7 +22,7 @@ Migration.migrate = function(options) {
 	var tableName, migrations = {}, startVersion, targetVersion, i;
 
 	// Drop tables
-	if(options.refresh) {
+	if (options.refresh) {
 		for (tableName in Model.models){
 			Adapter.execute('DROP TABLE IF EXISTS ' + tableName);
 //				Migration.each(model.options.hasAndBelongsToMany, function(assocTable) {
@@ -34,11 +36,11 @@ Migration.migrate = function(options) {
 		Migration.setupSchema();
 	}
 
-	if(Migration.migrations)
+	if (Migration.migrations)
 		migrations = Migration.migrations;
 
 	// test for apparently-valid obj literal based on migration 1 being present
-	if(migrations[1] && migrations[1].constructor === Object) {
+	if (migrations[1] && migrations[1].constructor === Object) {
 		startVersion = Migration.currentSchemaVersion();
 		targetVersion = Infinity;
 
@@ -143,7 +145,7 @@ Migration.setupSchema = function(force) {
 		column_names: 'TEXT',
 		column_types: 'TEXT'
 	});
-};
+}
 
 Migration.writeSchema = function(tableName, cols) {
 	if(tableName === 'schema_definitions' || tableName === 'schema_migrations')
@@ -174,7 +176,7 @@ Migration.writeSchema = function(tableName, cols) {
 		});
 		table.save();
 	}
-};
+}
 
 Migration.readSchema = function(tableName) {
 	if(tableName === 'schema_definitions' || tableName === 'schema_migrations')
@@ -191,18 +193,18 @@ Migration.readSchema = function(tableName) {
 		cols[col] = column_types[i];
 	}
 	return cols;
-};
+}
 
 Migration.currentSchemaVersion = function() {
 	var sql = 'SELECT version FROM schema_migrations LIMIT 1';
 
 	return parseInt(Adapter.execute(sql)[0].version, 10);
-};
+}
 
 Migration.updateSchemaVersion = function(number) {
 	var sql = 'UPDATE schema_migrations SET version = ' + number;
 	Adapter.execute(sql);
-};
+}
 
 Migration.modifyColumn = function(tableName, columnName, options) {
 //
@@ -275,7 +277,7 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 			 }
 		}
 	});
-};
+}
 
 
 // used in actual migrations
@@ -305,7 +307,7 @@ Migration.createTable = function(name, columns) {
 	Adapter.execute(sql);
 
 	Migration.writeSchema(name, columns);
-};
+}
 
 Migration.dropTable = function(name) {
 	var sql = 'DROP TABLE IF EXISTS ' + name,
@@ -313,7 +315,7 @@ Migration.dropTable = function(name) {
 	Adapter.execute(sql);
 	schemaTable = Migration.schema.findBy('table_name', name);
 	schemaTable.destroy();
-};
+}
 
 Migration.renameTable = function(oldName, newName) {
 	var sql = 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName,
@@ -322,7 +324,7 @@ Migration.renameTable = function(oldName, newName) {
 	schemaTable = Migration.schema.findBy('table_name', oldName);
 	schemaTable.table_name = newName;
 	schemaTable.save();
-};
+}
 
 Migration.addColumn = function(tableName, columnName, dataType) {
 	var sql = 'ALTER TABLE ' + tableName + ' ADD COLUMN ' + columnName + ' ' + dataType,
@@ -331,13 +333,13 @@ Migration.addColumn = function(tableName, columnName, dataType) {
 	cols = Migration.readSchema(tableName);
 	cols[columnName] = dataType;
 	Migration.writeSchema(tableName, cols);
-};
+}
 
 Migration.removeColumn = function(tableName, columnName) {
 	Migration.modifyColumn(tableName, columnName, {
 		modification: 'remove'
 	});
-};
+}
 
 Migration.renameColumn = function(tableName, columnName, newColumnName) {
 	var options = {
@@ -345,7 +347,7 @@ Migration.renameColumn = function(tableName, columnName, newColumnName) {
 		newName: newColumnName
 	};
 	Migration.modifyColumn(tableName, columnName, options);
-};
+}
 
 Migration.changeColumn = function(tableName, columnName, type) {
 	var options = {
@@ -353,14 +355,17 @@ Migration.changeColumn = function(tableName, columnName, type) {
 		newType: type
 	};
 	Migration.modifyColumn(tableName, columnName, options);
-};
+}
 
 Migration.addIndex = function(tableName, columnName, unique) {
 	var sql = 'CREATE' + (unique ? ' UNIQUE ' : ' ') + 'INDEX IF NOT EXISTS ' + tableName + '_' + columnName + '_index ON ' + tableName + ' (' + columnName + ')';
 	Adapter.execute(sql);
-};
+}
 
 Migration.removeIndex = function(tableName, columnName) {
 	var sql = 'DROP INDEX IF EXISTS ' + tableName + '_' + columnName + '_index';
 	Adapter.execute(sql);
-};
+}
+
+this.Migration = Migration;
+})();

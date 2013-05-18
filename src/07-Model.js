@@ -1,25 +1,17 @@
-function addGetterAndSetter(object, colName, colType) {
-	object.__defineGetter__(colName, function() {
-		var value = this['_' +  colName];
-		return typeof value == 'undefined' ? null : value;
-	});
+(function(){
 
-	object.__defineSetter__(colName, function(value) {
-		value = this.coerceColumnValue(colName, value, colType);
-		if (this['_' +  colName] === value) {
-			return;
-		}
-		this._modifiedColumns[colName] = colName;
-		this['_' +  colName] = value;
-	});
-}
-
-Model = Class.extend({
+var Model = Class.extend({
+	/**
+	 * This will contain the column values IF __defineGetter__ and __defineSetter__
+	 * are supported by the JavaScript engine, otherwise the properties will be
+	 * set and accessed directly on the object
+	 */
+	_privateValues: null,
 
 	/**
 	 * Array to contain names of modified columns
 	 */
-	_modifiedColumns: null,
+	_originalValues: null,
 
 	/**
 	 * Whether or not this is a new object
@@ -32,8 +24,9 @@ Model = Class.extend({
 	_validationErrors: null,
 
 	init : function Model(values) {
-		this._modifiedColumns = {};
 		this._validationErrors = [];
+		this._privateValues = {};
+		this.resetModified();
 		if (values) {
 			this.fromArray(values);
 		}
@@ -41,6 +34,15 @@ Model = Class.extend({
 
 	toString: function() {
 		return this.constructor.name + ':' + this.getPrimaryKeyValues().join('-');
+	},
+
+	get: function(column) {
+		return this[column];
+	},
+
+	set: function(column, value) {
+		this[column] = value;
+		return this;
 	},
 
 	/**
@@ -69,8 +71,10 @@ Model = Class.extend({
 	 * @return bool
 	 */
 	isModified: function() {
-		for (var i in this._modifiedColumns) {
-			return true;
+		for (var column in this.constructor._columns) {
+			if (this[column] !== this._originalValues[column]) {
+				return true;
+			}
 		}
 		return false;
 	},
@@ -80,12 +84,7 @@ Model = Class.extend({
 	 * @return bool
 	 */
 	isColumnModified: function(columnName) {
-		for (var key in this._modifiedColumns) {
-			if (columnName == this._modifiedColumns[key]) {
-				return true;
-			}
-		}
-		return false;
+		return this[columnName] !== this._originalValues[columnName];
 	},
 
 	/**
@@ -93,7 +92,25 @@ Model = Class.extend({
 	 * @return object
 	 */
 	getModifiedColumns: function() {
-		return this._modifiedColumns;
+		var modifiedColumns = {};
+		for (var column in this.constructor._columns) {
+			if (this[column] !== this._originalValues[column]) {
+				modifiedColumns[column] = true;
+			}
+		}
+		return modifiedColumns;
+	},
+
+	/**
+	 * Clears the array of modified column names
+	 * @return Model
+	 */
+	resetModified: function() {
+		this._originalValues = {};
+		for (var columnName in this.constructor._columns) {
+			this._originalValues[columnName] = this[columnName];
+		}
+		return this;
 	},
 
 	/**
@@ -104,7 +121,7 @@ Model = Class.extend({
 	 * @return Model
 	 */
 	coerceColumnValue: function(columnName, value, columnType) {
-		if (null === columnType || typeof columnType == 'undefined') {
+		if (!columnType) {
 			columnType = this.constructor.getColumnType(columnName);
 		}
 
@@ -135,20 +152,11 @@ Model = Class.extend({
 						}
 					}
 				} else if (temporal) {
-					value = Model.coerceTemporalValue(value, columnType, this.constructor.getConnection());
+					value = Model.coerceTemporalValue(value, columnType, this.constructor.getAdapter());
 				}
 			}
 		}
 		return value;
-	},
-
-	/**
-	 * Clears the array of modified column names
-	 * @return Model
-	 */
-	resetModified: function() {
-		this._modifiedColumns = {};
-		return this;
 	},
 
 	/**
@@ -221,6 +229,24 @@ Model = Class.extend({
 	},
 
 	/**
+	 * Returns true if this has not yet been saved to the database
+	 * @return bool
+	 */
+	isNew: function() {
+		return this._isNew;
+	},
+
+	/**
+	 * Indicate whether this object has been saved to the database
+	 * @param bool bool
+	 * @return Model
+	 */
+	setNew: function (bool) {
+		this._isNew = (bool == true);
+		return this;
+	},
+
+	/**
 	 * Returns true if the column values validate.
 	 * @return bool
 	 */
@@ -235,41 +261,6 @@ Model = Class.extend({
 	 */
 	getValidationErrors: function() {
 		return this._validationErrors;
-	},
-
-	/**
-	 * Creates and executess DELETE Query for this object
-	 * Deletes any database rows with a primary key(s) that match this
-	 * NOTE/BUG: If you alter pre-existing primary key(s) before deleting, then you will be
-	 * deleting based on the new primary key(s) and not the originals,
-	 * leaving the original row unchanged(if it exists).  Also, since NULL isn't an accurate way
-	 * to look up a row, I return if one of the primary keys is null.
-	 * @return int number of records deleted
-	 */
-	destroy: function() {
-		var pks = this.constructor._primaryKeys,
-			q = new Query,
-			x,
-			len,
-			pk,
-			pkVal,
-			result;
-
-		if (pks.length == 0) {
-			throw new Error('This table has no primary keys');
-		}
-
-		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x];
-			pkVal = this[pk];
-			if (pkVal === null) {
-				throw new Error('Cannot delete using NULL primary key.');
-			}
-			q.addAnd(pk, pkVal);
-		}
-
-		result = this.constructor.destroy(q, false);
-		return result;
 	},
 
 	/**
@@ -302,8 +293,9 @@ Model = Class.extend({
 
 		if (this.isNew()) {
 			return this.insert();
+		} else {
+			return this.update();
 		}
-		return this.update();
 	},
 
 	archive: function() {
@@ -320,108 +312,39 @@ Model = Class.extend({
 	},
 
 	/**
-	 * Returns true if this has not yet been saved to the database
-	 * @return bool
-	 */
-	isNew: function() {
-		return this._isNew;
-	},
-
-	/**
-	 * Indicate whether this object has been saved to the database
-	 * @param bool bool
-	 * @return Model
-	 */
-	setNew: function (bool) {
-		this._isNew = (bool == true);
-		return this;
-	},
-
-	/**
-	 * Creates and executes INSERT query string for this object
-	 * @return int
+	 * Stores a new record with that values in this object
 	 */
 	insert: function() {
-		var conn = this.constructor.getConnection(),
-			pk = this.constructor.getPrimaryKey(),
-			column,
-			value,
-			result,
-			count,
-			data = {},
-			id;
-
-		for (column in this.constructor._columns) {
-			value = this[column];
-			if (value === null && !this.isColumnModified(column)) {
-				continue;
-			}
-			data[column] = value;
-		}
-
-		result = this.constructor.insert(data, conn);
-		count = result.rowsAffected;
-
-		if (pk && this.constructor._isAutoIncrement) {
-			id = conn.lastInsertId();
-			if (null !== id) {
-				this[pk] = id;
-			}
-		}
-
-		this.resetModified();
-		this.setNew(false);
-		return count;
+		return this.constructor._adapter.insert(this);
 	},
 
 	/**
-	 * Creates and executes UPDATE query string for this object.  Returns
-	 * the number of affected rows.
-	 * @return Int
+	 * Updates the stored record representing this object.
 	 */
-	update: function(hash) {
-		if (typeof hash == 'object') {
-			this.fromArray(hash);
-		}
-
-		if (this.constructor._primaryKeys.length == 0) {
-			throw new Error('This table has no primary keys');
+	update: function(values) {
+		if (typeof onSuccess == 'object') {
+			this.fromArray(values);
 		}
 
 		if (!this.isModified()) {
-			return 0;
+			var d = new Deferred();
+			d.resolve();
+			return d.promise();
 		}
+		return this.constructor._adapter.update(this);
+	},
 
-		var data = {},
-			result,
-			q = new Query,
-			pks = this.constructor._primaryKeys,
-			modColumns = this._modifiedColumns,
-			x,
-			len,
-			modCol,
-			pk,
-			pkVal;
-
-		for (x in modColumns) {
-			modCol = modColumns[x];
-			data[modCol] = this[modCol];
-		}
-
-		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x];
-			pkVal = this[pk];
-			if (pkVal === null) {
-				throw new Error('Cannot delete using NULL primary key.');
-			}
-			q.addAnd(pk, pkVal);
-		}
-
-		result = this.constructor.update(data, q);
-		this.resetModified();
-		return result.rowsAffected;
+	/**
+	 * Creates and executess DELETE Query for this object
+	 * Deletes any database rows with a primary key(s) that match this
+	 * NOTE/BUG: If you alter pre-existing primary key(s) before deleting, then you will be
+	 * deleting based on the new primary key(s) and not the originals,
+	 * leaving the original row unchanged(if it exists).  Also, since NULL isn't an accurate way
+	 * to look up a row, I return if one of the primary keys is null.
+	 */
+	destroy: function(onSuccess, onError) {
+		return this.constructor._adapter.destroy(this, onSuccess, onError);
 	}
-
 });
 
 Model.COLUMN_TYPE_TEXT = 'TEXT';
@@ -523,7 +446,7 @@ Model.isBlobType = function(type) {
 }
 
 Model.coerceTemporalValue = function(value, columnType) {
-	var x, date;
+	var x, date, len;
 	if (value instanceof Array) {
 		for (x = 0, len = value; x < len; ++x) {
 			value[x] = this.coerceTemporalValue(value[x], columnType);
@@ -545,8 +468,13 @@ Model._isAutoIncrement = true;
 
 Model._columns = null;
 
-Model.getConnection = function(){
-	return Adapter.getConnection();
+Model.getAdapter = function(){
+	return this._adapter;
+}
+
+Model.setAdapter = function(adapter){
+	this._adapter = adapter;
+	return this;
 }
 
 /**
@@ -609,217 +537,108 @@ Model.isAutoIncrement = function() {
 	return this._isAutoIncrement;
 }
 
-/**
- * Returns an array of objects of class class from
- * the rows of a PDOStatement(query result)
- *
- * @param result
- * @return Model[]
- */
-Model.fromResult = function(result) {
-	var objects = [],
-		i,
-		len,
-		object,
-		row,
-		fieldName;
-	for (i = 0, len = result.length; i < len; ++i) {
-		object = new this,
-		row = result[i];
+Model.prototype.toJSON = Model.prototype.toArray;
+Model.prototype.fromJSON = Model.prototype.fromArray;
 
-		for (fieldName in row) {
-			object[fieldName] = row[fieldName];
-		}
-		object.setNew(false);
-		objects.push(object);
-	}
-	return objects;
-}
+var adapterMethods = ['count', 'findAll', 'find'];
 
-/**
- * @return int
- */
-Model.count = function(q) {
-	q = q instanceof Query ? q : new Query(q);
-	var conn = this.getConnection();
-	if (!q.getTable() || this.getTableName() != q.getTable()) {
-		q.setTable(this.getTableName());
-	}
-	return q.count(conn);
-}
-
-/**
- * @param q
- * @return int
- */
-Model.destroy = function(q) {
-	if (!q.getTable() || this.getTableName() != q.getTable()) {
-		q.setTable(this.getTableName());
-	}
-	return q.destroy(this.getConnection());
-}
-
-/**
- * @param q The Query object that creates the SELECT query string
- * @return Model[]
- */
-Model.select = function(q) {
-	q = q instanceof Query ? q : new Query(q);
-	return this.fromResult(this.selectRS(q));
-}
-
-/**
- * @return Query
- */
-Model.findQuery = function() {
-	var a = arguments,
-		q = new Query().setTable(this.getTableName()),
-		len = a.length;
-
-	if (len == 0) {
-		return q;
-	}
-	if (len == 1) {
-		if (!isNaN(parseInt(a[0], 10))) {
-			q.add(this.getPrimaryKey(), a[0]);
-		} else if (typeof a[0] == 'object') {
-			if (a[0] instanceof Query) {
-				q = a[0];
-			} else {
-				// hash
+for (var i = 0, l = adapterMethods.length; i < l; ++i) {
+	var method = adapterMethods[i];
+	Model[method] = (function(method){
+		return function() {
+			var newArgs = [this];
+			for (var i = 0; i < arguments.length; i++) {
+				newArgs.push(arguments[i]);
 			}
-		} else if (typeof a[0] == 'string') {
-			// where clause string
-			if (a[1] instanceof Array) {
-				// arguments
-			}
+			var con = this.getAdapter();
+			return con[method].apply(con, newArgs);
 		}
-	} else if (len == 2 && typeof a[0] == 'string') {
-		q.add(a[0], a[1]);
-	} else {
-		// if arguments list is greater than 1 and the first argument is not a string
-		var pks = this._primaryKeys;
-		if (len == pks.len) {
-			for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
-				var pk = pks[x],
-				pkVal = arguments[x];
+	})(method);
+}
 
-				if (pkVal === null || typeof pkVal == 'undefined') {
-					return null;
-				}
-				q.add(pk, pkVal);
-			}
-		} else {
-			throw new Error('Find called with ' + len + ' arguments');
+var findAliases = ['findBy', 'retrieveByColumn', 'retrieveByPK', 'retrieveByPKs', 'findByPKs'];
+
+for (var x = 0, len = findAliases.length; x < len; ++x) {
+	Model[findAliases[x]] = Model.find;
+}
+
+Model.addGetterAndSetter = function(object, colName, colType) {
+	if (!object.__defineGetter__) {
+		return;
+	}
+	object.__defineGetter__(colName, function() {
+		var value = this._privateValues[colName];
+		return typeof value == 'undefined' ? null : value;
+	});
+
+	object.__defineSetter__(colName, function(value) {
+		value = this.coerceColumnValue(colName, value, colType);
+		if (this._privateValues[colName] === value) {
+			return;
 		}
-	}
-	return q;
-}
-
-Model.findAll = function() {
-	return this.select(this.findQuery.apply(this, arguments));
-}
-
-Model.find = function() {
-	var q = this.findQuery
-		.apply(this, arguments)
-		.setLimit(1);
-	return  this.select(q).shift();
-}
-
-/**
- * @return Model
- */
-Model.findBy = Model.find;
-
-/**
- * @return Model
- */
-Model.retrieveByColumn = Model.find;
-
-/**
- * @return Model
- */
-Model.retrieveByPK = Model.find;
-
-/**
- * @return Model
- */
-Model.retrieveByPKs = Model.find;
-
-/**
- * @return Model
- */
-Model.findByPKs = Model.retrieveByPKs;
-
-Model.insert = function(data, conn) {
-	var tableName = this.getTableName(),
-		fields = [],
-		values = [],
-		placeholders = [],
-		statement = new QueryStatement(conn),
-		column,
-		value,
-		queryString;
-
-	for (column in data) {
-		value = data[column];
-		fields.push(column);
-		values.push(value);
-		placeholders.push('?');
-	}
-
-	queryString = 'INSERT INTO ' +
-		tableName + ' (' + fields.join(',') + ') VALUES (' + placeholders.join(',') + ') ';
-
-	statement.setString(queryString);
-	statement.setParams(values);
-
-	return statement.bindAndExecute();
-}
-
-Model.update = function (data, q) {
-	var conn = this.getConnection(),
-		quotedTable = conn.quoteIdentifier(this.getTableName()),
-		fields = [],
-		values = [],
-		statement = new QueryStatement(conn),
-		x,
-		queryString,
-		whereClause = q.getWhereClause(conn);
-
-	for (x in data) {
-		fields.push(conn.quoteIdentifier(x) + ' = ?');
-		values.push(data[x]);
-	}
-
-	//If array is empty there is nothing to update
-	if (fields.length == 0) {
-		return 0;
-	}
-
-	queryString = 'UPDATE ' + quotedTable + ' SET ' + fields.join(', ') + ' WHERE ' + whereClause.getString();
-
-	statement.setString(queryString);
-	statement.setParams(values);
-	statement.addParams(whereClause.getParams());
-
-	return statement.bindAndExecute();
-}
-
-/**
- * Executes a select query and returns the PDO result
- * @return PDOStatement
- */
-Model.selectRS = function(q) {
-	q = q || new Query;
-	if (!q.getTable() || this.getTableName() != q.getTable()) {
-		q.setTable(this.getTableName());
-	}
-	return q.select(this.getConnection());
+		this._privateValues[colName] = value;
+	});
 }
 
 Model.models = {};
+
+function encodeUriSegment(val) {
+	return encodeUriQuery(val, true).
+	replace(/%26/gi, '&').
+	replace(/%3D/gi, '=').
+	replace(/%2B/gi, '+');
+}
+
+function encodeUriQuery(val, pctEncodeSpaces) {
+	return encodeURIComponent(val).
+	replace(/%40/gi, '@').
+	replace(/%3A/gi, ':').
+	replace(/%24/g, '$').
+	replace(/%2C/gi, ',').
+	replace((pctEncodeSpaces ? null : /%20/g), '+');
+}
+
+function Route(template, defaults) {
+	this.template = template = template + '#';
+	this.defaults = defaults || {};
+	var urlParams = this.urlParams = {},
+		parts = template.split(/\W/);
+	for (var i = 0, l = parts.length; i < l; ++i) {
+		var param = parts[i];
+		if (param && template.match(new RegExp("[^\\\\]:" + param + "\\W"))) {
+			urlParams[param] = true;
+		}
+	}
+	this.template = template.replace(/\\:/g, ':');
+}
+
+Route.prototype = {
+	url: function(params) {
+		var self = this,
+		url = this.template,
+		val,
+		encodedVal;
+
+		params = params || {};
+		for (var urlParam in this.urlParams) {
+			val = typeof params[urlParam] != 'undefined' || params.hasOwnProperty(urlParam) ? params[urlParam] : self.defaults[urlParam];
+			if (typeof val != 'undefined' && val !== null) {
+				encodedVal = encodeUriSegment(val);
+				url = url.replace(new RegExp(":" + urlParam + "(\\W)", "g"), encodedVal + "$1");
+			} else {
+				url = url.replace(new RegExp("(\/?):" + urlParam + "(\\W)", "g"), function(match,
+					leadingSlashes, tail) {
+					if (tail.charAt(0) == '/') {
+						return tail;
+					} else {
+						return leadingSlashes + tail;
+					}
+				});
+			}
+		}
+		return url;
+	}
+};
 
 /**
  * @return Model
@@ -844,12 +663,15 @@ Model.create = function(props){
 		if (!Model.isColumnType(type)) {
 			throw new Error(type + ' is not a valide DABL/SQLite column type');
 		}
-		addGetterAndSetter(newClass.prototype, column, type);
+		Model.addGetterAndSetter(newClass.prototype, column, type);
 	}
 
 	for (prop in props) {
 		switch (prop) {
-			case 'connectionName': case 'table': case 'columns': case 'primaryKeys': case 'isAutoIncrement':
+			case 'url':
+				newClass._route = new Route(props[prop]);
+				break;
+			case 'adapter': case 'table': case 'columns': case 'primaryKeys': case 'isAutoIncrement':
 				newClass['_' + prop] = props[prop];
 				break;
 			default:
@@ -860,5 +682,9 @@ Model.create = function(props){
 
 	Model.models[props.table] = newClass;
 
+	newClass.name = 'Foo';
 	return newClass;
 };
+
+this.Model = Model;
+})();
