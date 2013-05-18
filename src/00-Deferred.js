@@ -245,7 +245,7 @@
 			notify: function() {
 				return this.notifyWith(this, arguments);
 			}
-		}
+		};
 
 		var obj = promise.promise(deferred);
 
@@ -275,7 +275,7 @@
 
 				for (var i = 0; i < args.length; i++) {
 					(function(j) {
-						args[j].done(function() { rp[j] = (arguments.length < 2) ? arguments[0] : arguments; if (++done == size) { df.resolve.apply(df, rp); }})
+						args[j].done(function() { rp[j] = (arguments.length < 2) ? arguments[0] : arguments; if (++done === size) { df.resolve.apply(df, rp); }})
 						.fail(function() { df.reject(arguments); });
 					})(i);
 				}
@@ -283,7 +283,7 @@
 				return df.promise();
 			})(arguments);
 		}
-	}
+	};
 
 	global.Deferred = D;
 })(window);

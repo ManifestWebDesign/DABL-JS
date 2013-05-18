@@ -29,11 +29,11 @@ var SQLAdapter = Adapter.extend({
 			field,
 			value;
 
-		if (params && (j = params.length) != 0) {
+		if (params && (j = params.length) !== 0) {
 			for (i = 0; i < j; ++i) {
 				value = params[i];
 				if (value instanceof Date) {
-					if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+					if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 						params[i] = this.formatDate(value); // just a date
 					} else {
 						params[i] = this.formatDateTime(value);
@@ -133,7 +133,7 @@ var SQLAdapter = Adapter.extend({
 			return value ? 1 : 0;
 		}
 
-		if (value === null || typeof value == 'undefined') {
+		if (value === null || typeof value === 'undefined') {
 			return 'NULL';
 		}
 
@@ -142,7 +142,7 @@ var SQLAdapter = Adapter.extend({
 		}
 
 		if (value instanceof Date) {
-			if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+			if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 				// just a date
 				value = this.formatDate(value);
 			} else {
@@ -163,35 +163,35 @@ var SQLAdapter = Adapter.extend({
 		a.shift();
 		var len = a.length;
 
-		if (len == 0) {
+		if (len === 0) {
 			return q;
 		}
-		if (len == 1) {
+		if (len === 1) {
 			if (!isNaN(parseInt(a[0], 10))) {
 				q.add(model.getPrimaryKey(), a[0]);
-			} else if (typeof a[0] == 'object') {
+			} else if (typeof a[0] === 'object') {
 				if (a[0] instanceof Query) {
 					q = a[0];
 				} else {
 					// hash
 				}
-			} else if (typeof a[0] == 'string') {
+			} else if (typeof a[0] === 'string') {
 				// where clause string
 				if (a[1] instanceof Array) {
 					// arguments
 				}
 			}
-		} else if (len == 2 && typeof a[0] == 'string') {
+		} else if (len === 2 && typeof a[0] === 'string') {
 			q.add(a[0], a[1]);
 		} else {
 			// if arguments list is greater than 1 and the first argument is not a string
 			var pks = model.getPrimaryKeys();
-			if (len == pks.len) {
+			if (len === pks.len) {
 				for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
 					var pk = pks[x],
 					pkVal = arguments[x];
 
-					if (pkVal === null || typeof pkVal == 'undefined') {
+					if (pkVal === null || typeof pkVal === 'undefined') {
 						return null;
 					}
 					q.add(pk, pkVal);
@@ -220,7 +220,7 @@ var SQLAdapter = Adapter.extend({
 	 */
 	selectRS: function(model, q) {
 		q = q || new Query;
-		if (!q.getTable() || model.getTableName() != q.getTable()) {
+		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
 		return q.select(this);
@@ -259,7 +259,7 @@ var SQLAdapter = Adapter.extend({
 	 */
 	countAll: function(model, q) {
 		q = q instanceof Query ? q : new Query(q);
-		if (!q.getTable() || model.getTableName() != q.getTable()) {
+		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
 		return q.count(this);
@@ -269,10 +269,10 @@ var SQLAdapter = Adapter.extend({
 	 * @param q
 	 */
 	destroyAll: function(model, q) {
-		if (!q.getTable() || model.getTableName() != q.getTable()) {
+		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
-		var def = new Deferred()
+		var def = new Deferred();
 		q.destroy(this);
 		def.resolve();
 		return def.promise();
@@ -303,7 +303,7 @@ var SQLAdapter = Adapter.extend({
 		}
 
 		//If array is empty there is nothing to update
-		if (fields.length == 0) {
+		if (fields.length === 0) {
 			def.resolve();
 			return def.promise();
 		}
@@ -341,7 +341,7 @@ var SQLAdapter = Adapter.extend({
 					continue;
 				}
 			} else if (value instanceof Date) {
-				if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 					value = this.formatDate(value);
 				} else {
 					value = this.formatDateTime(value);
@@ -388,14 +388,14 @@ var SQLAdapter = Adapter.extend({
 			pkVal,
 			value;
 
-		if (pks.length == 0) {
+		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 
 		for (modCol in modColumns) {
 			value = instance[modCol];
 			if (value instanceof Date) {
-				if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 					value = this.formatDate(value);
 				} else {
 					value = this.formatDateTime(value);
@@ -416,7 +416,7 @@ var SQLAdapter = Adapter.extend({
 		var promise = this.updateAll(model, data, q);
 		promise.then(function(){
 			instance.resetModified();
-		})
+		});
 		return promise;
 	},
 
@@ -428,7 +428,7 @@ var SQLAdapter = Adapter.extend({
 			pk,
 			pkVal;
 
-		if (pks.length == 0) {
+		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 

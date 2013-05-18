@@ -18,7 +18,7 @@ var RESTAdapter = Adapter.extend({
 					value = '';
 				}
 			} else if (value instanceof Date) {
-				if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 					value = this.formatDate(value);
 				} else {
 					value = this.formatDateTime(value);
@@ -58,11 +58,11 @@ var RESTAdapter = Adapter.extend({
 			value,
 			def = new Deferred();
 
-		if (pks.length == 0) {
+		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 
-		if (instance[pks[0]] === null || instance[pks[0]] == 'undefined') {
+		if (instance[pks[0]] === null || instance[pks[0]] === 'undefined') {
 			def.reject({
 				errors: ['No ' + pks[0] + ' provided']
 			});
@@ -75,7 +75,7 @@ var RESTAdapter = Adapter.extend({
 			if (value === null) {
 				value = '';
 			} else if (value instanceof Date) {
-				if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 					value = this.formatDate(value);
 				} else {
 					value = this.formatDateTime(value);
@@ -110,7 +110,7 @@ var RESTAdapter = Adapter.extend({
 			route = model._route,
 			def = new Deferred();
 
-		if (pks.length == 0) {
+		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 
@@ -118,7 +118,7 @@ var RESTAdapter = Adapter.extend({
 			throw new Error('Cannot save using REST if there is more than one primary key!');
 		}
 
-		if (instance[pks[0]] === null || instance[pks[0]] == 'undefined') {
+		if (instance[pks[0]] === null || instance[pks[0]] === 'undefined') {
 			def.reject({
 				errors: ['No ' + pks[0] + ' provided']
 			});
@@ -150,7 +150,7 @@ var RESTAdapter = Adapter.extend({
 			data = {},
 			def = new Deferred();
 
-		if (id === null || typeof id == 'undefined') {
+		if (id === null || typeof id === 'undefined') {
 			def.reject({
 				errors: ['No ' + pk + ' provided']
 			});

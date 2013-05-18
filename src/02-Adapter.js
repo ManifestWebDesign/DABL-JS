@@ -2,7 +2,7 @@
 
 function _sPad(value) {
 	value = value + '';
-	return value.length == 2 ? value : '0' + value;
+	return value.length === 2 ? value : '0' + value;
 }
 
 var Adapter = Class.extend({
