@@ -13,7 +13,7 @@
 
 	// Create a new Class that inherits from this class
 	Class.extend = function(prop) {
-		if (typeof prop == 'undefined') {
+		if (typeof prop === 'undefined') {
 			prop = {};
 		}
 
@@ -31,8 +31,8 @@
 		// Copy the properties over onto the new prototype
 		for (name in prop) {
 			// Check if we're overwriting an existing function
-			prototype[name] = typeof prop[name] == 'function' &&
-			typeof _super[name] == 'function' && fnTest.test(prop[name]) ?
+			prototype[name] = typeof prop[name] === 'function' &&
+			typeof _super[name] === 'function' && fnTest.test(prop[name]) ?
 			(function(name, fn){
 				return function() {
 					var tmp = this._super,
