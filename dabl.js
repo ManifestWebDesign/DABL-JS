@@ -247,7 +247,7 @@
 			notify: function() {
 				return this.notifyWith(this, arguments);
 			}
-		}
+		};
 
 		var obj = promise.promise(deferred);
 
@@ -277,7 +277,7 @@
 
 				for (var i = 0; i < args.length; i++) {
 					(function(j) {
-						args[j].done(function() { rp[j] = (arguments.length < 2) ? arguments[0] : arguments; if (++done == size) { df.resolve.apply(df, rp); }})
+						args[j].done(function() { rp[j] = (arguments.length < 2) ? arguments[0] : arguments; if (++done === size) { df.resolve.apply(df, rp); }})
 						.fail(function() { df.reject(arguments); });
 					})(i);
 				}
@@ -285,7 +285,7 @@
 				return df.promise();
 			})(arguments);
 		}
-	}
+	};
 
 	global.Deferred = D;
 })(window);
@@ -377,7 +377,7 @@
 
 function _sPad(value) {
 	value = value + '';
-	return value.length == 2 ? value : '0' + value;
+	return value.length === 2 ? value : '0' + value;
 }
 
 var Adapter = Class.extend({
@@ -436,47 +436,109 @@ var Adapter = Class.extend({
 	}
 });
 
-Adapter.adapters = [];
-
-Adapter.getAdapter = function() {
-	if (0 === this.adapters.length) {
-		this.adapters.push(new this);
-	}
-	return this.adapters[0];
-};
-
 this.Adapter = Adapter;
 
 })();
 
 /* 03-RESTAdapter.js */
 (function($){
+
+function encodeUriSegment(val) {
+	return encodeUriQuery(val, true).
+	replace(/%26/gi, '&').
+	replace(/%3D/gi, '=').
+	replace(/%2B/gi, '+');
+}
+
+function encodeUriQuery(val, pctEncodeSpaces) {
+	return encodeURIComponent(val).
+	replace(/%40/gi, '@').
+	replace(/%3A/gi, ':').
+	replace(/%24/g, '$').
+	replace(/%2C/gi, ',').
+	replace((pctEncodeSpaces ? null : /%20/g), '+');
+}
+
+function Route(template, defaults) {
+	this.template = template = template + '#';
+	this.defaults = defaults || {};
+	var urlParams = this.urlParams = {},
+		parts = template.split(/\W/);
+	for (var i = 0, l = parts.length; i < l; ++i) {
+		var param = parts[i];
+		if (param && template.match(new RegExp("[^\\\\]:" + param + "\\W"))) {
+			urlParams[param] = true;
+		}
+	}
+	this.template = template.replace(/\\:/g, ':');
+}
+
+Route.prototype = {
+	url: function(params) {
+		var self = this,
+		url = this.template,
+		val,
+		encodedVal;
+
+		params = params || {};
+		for (var urlParam in this.urlParams) {
+			val = typeof params[urlParam] !== 'undefined' || params.hasOwnProperty(urlParam) ? params[urlParam] : self.defaults[urlParam];
+			if (typeof val !== 'undefined' && val !== null) {
+				encodedVal = encodeUriSegment(val);
+				url = url.replace(new RegExp(":" + urlParam + "(\\W)", "g"), encodedVal + "$1");
+			} else {
+				url = url.replace(new RegExp("(\/?):" + urlParam + "(\\W)", "g"), function(match,
+					leadingSlashes, tail) {
+					if (tail.charAt(0) === '/') {
+						return tail;
+					} else {
+						return leadingSlashes + tail;
+					}
+				});
+			}
+		}
+		return url;
+	}
+};
+
 var RESTAdapter = Adapter.extend({
 
+	routes: {},
+
+	route: function(url) {
+		if (!url) {
+			throw new Error('Cannot create RESTful route for empty url.');
+		}
+		if (this.routes[url]) {
+			return this.routes[url];
+		}
+		return this.routes[url] = new Route(url);
+	},
+
 	insert: function(instance) {
-		var column,
+		var field,
 			model = instance.constructor,
 			value,
-			route = model._route,
+			route = this.route(model._url),
 			data = {},
 			def = new Deferred();
 
-		for (column in model._columns) {
-			value = instance[column];
+		for (field in model._fields) {
+			value = instance[field];
 			if (value === null) {
-				if (!instance.isColumnModified(column)) {
+				if (!instance.isModified(field)) {
 					continue;
 				} else {
 					value = '';
 				}
 			} else if (value instanceof Date) {
-				if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 					value = this.formatDate(value);
 				} else {
 					value = this.formatDateTime(value);
 				}
 			}
-			data[column] = value;
+			data[field] = value;
 		}
 
 		$.post(route.url(this), data, function(r){
@@ -501,33 +563,38 @@ var RESTAdapter = Adapter.extend({
 
 	update: function(instance) {
 		var data = {},
-			modColumns = instance.getModifiedColumns(),
+			modFields = instance.getModified(),
 			model = instance.constructor,
-			route = model._route,
+			route = this.route(model._url),
 			x,
 			pks = model.getPrimaryKeys(),
 			modCol,
 			value,
 			def = new Deferred();
 
-		if (pks.length == 0) {
+		if (!instance.isModified()) {
+			def.resolve();
+			return def.promise();
+		}
+
+		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 
-		if (instance[pks[0]] === null || instance[pks[0]] == 'undefined') {
+		if (instance[pks[0]] === null || instance[pks[0]] === 'undefined') {
 			def.reject({
 				errors: ['No ' + pks[0] + ' provided']
 			});
 			return def.promise();
 		}
 
-		for (x in modColumns) {
-			modCol = modColumns[x];
+		for (x in modFields) {
+			modCol = modFields[x];
 			value = this[modCol];
 			if (value === null) {
 				value = '';
 			} else if (value instanceof Date) {
-				if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 					value = this.formatDate(value);
 				} else {
 					value = this.formatDateTime(value);
@@ -559,10 +626,10 @@ var RESTAdapter = Adapter.extend({
 	destroy: function(instance) {
 		var model = instance.constructor,
 			pks = model.getPrimaryKeys(),
-			route = model._route,
+			route = this.route(model._url),
 			def = new Deferred();
 
-		if (pks.length == 0) {
+		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 
@@ -570,7 +637,7 @@ var RESTAdapter = Adapter.extend({
 			throw new Error('Cannot save using REST if there is more than one primary key!');
 		}
 
-		if (instance[pks[0]] === null || instance[pks[0]] == 'undefined') {
+		if (instance[pks[0]] === null || instance[pks[0]] === 'undefined') {
 			def.reject({
 				errors: ['No ' + pks[0] + ' provided']
 			});
@@ -598,11 +665,11 @@ var RESTAdapter = Adapter.extend({
 
 	find: function(model, id) {
 		var pk = model.getPrimaryKey(),
-			route = model._route,
+			route = this.route(model._url),
 			data = {},
 			def = new Deferred();
 
-		if (id === null || typeof id == 'undefined') {
+		if (id === null || typeof id === 'undefined') {
 			def.reject({
 				errors: ['No ' + pk + ' provided']
 			});
@@ -616,7 +683,6 @@ var RESTAdapter = Adapter.extend({
 			}
 			var instance = null;
 			if (r !== null) {
-//				console.log(r);
 				instance = new model;
 				instance.fromJSON(r);
 				instance.setNew(false);
@@ -635,7 +701,7 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	findAll: function(model) {
-		var route = model._route,
+		var route = this.route(model._url),
 			data = {},
 			def = new Deferred();
 		$.get(route.url(data), function(r) {
@@ -650,9 +716,6 @@ var RESTAdapter = Adapter.extend({
 				}
 			}
 			def.resolve(collection);
-//				var instance = new model;
-//				instance.fromJSON(r[model.getTableName()]);
-//				onSuccess.apply(model, [instance]);
 		})
 		.fail(function(jqXHR, textStatus, errorThrown){
 			def.reject({
@@ -686,8 +749,6 @@ var SQLAdapter = Adapter.extend({
 	 * @returns Array of Objects
 	 */
 	execute: function(sql, params) {
-		return [];
-
 		if (!params && sql instanceof QueryStatement) {
 			sql = sql.setConnection(this);
 			return sql.bindAndExecute();
@@ -701,11 +762,11 @@ var SQLAdapter = Adapter.extend({
 			field,
 			value;
 
-		if (params && (j = params.length) != 0) {
+		if (params && (j = params.length) !== 0) {
 			for (i = 0; i < j; ++i) {
 				value = params[i];
 				if (value instanceof Date) {
-					if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+					if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 						params[i] = this.formatDate(value); // just a date
 					} else {
 						params[i] = this.formatDateTime(value);
@@ -723,7 +784,7 @@ var SQLAdapter = Adapter.extend({
 			return rows;
 		}
 
-		while(rs.isValidRow()) {
+		while (rs.isValidRow()) {
 			row = {};
 			for(i = 0, j = rs.getFieldCount(); i < j; ++i) {
 				field = rs.getFieldName(i);
@@ -756,7 +817,6 @@ var SQLAdapter = Adapter.extend({
 	},
 
 	lastInsertId: function() {
-		return 1;
 		return this._db.lastInsertRowId;
 	},
 
@@ -805,7 +865,7 @@ var SQLAdapter = Adapter.extend({
 			return value ? 1 : 0;
 		}
 
-		if (value === null || typeof value == 'undefined') {
+		if (value === null || typeof value === 'undefined') {
 			return 'NULL';
 		}
 
@@ -814,7 +874,7 @@ var SQLAdapter = Adapter.extend({
 		}
 
 		if (value instanceof Date) {
-			if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+			if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 				// just a date
 				value = this.formatDate(value);
 			} else {
@@ -830,40 +890,40 @@ var SQLAdapter = Adapter.extend({
 	},
 
 	findQuery: function(model) {
-		var a = arguments,
+		var a = Array.prototype.slice.call(arguments),
 			q = new Query().setTable(model.getTableName());
 		a.shift();
 		var len = a.length;
 
-		if (len == 0) {
+		if (len === 0) {
 			return q;
 		}
-		if (len == 1) {
+		if (len === 1) {
 			if (!isNaN(parseInt(a[0], 10))) {
 				q.add(model.getPrimaryKey(), a[0]);
-			} else if (typeof a[0] == 'object') {
+			} else if (typeof a[0] === 'object') {
 				if (a[0] instanceof Query) {
 					q = a[0];
 				} else {
 					// hash
 				}
-			} else if (typeof a[0] == 'string') {
+			} else if (typeof a[0] === 'string') {
 				// where clause string
 				if (a[1] instanceof Array) {
 					// arguments
 				}
 			}
-		} else if (len == 2 && typeof a[0] == 'string') {
+		} else if (len === 2 && typeof a[0] === 'string') {
 			q.add(a[0], a[1]);
 		} else {
 			// if arguments list is greater than 1 and the first argument is not a string
 			var pks = model.getPrimaryKeys();
-			if (len == pks.len) {
+			if (len === pks.len) {
 				for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
 					var pk = pks[x],
-					pkVal = arguments[x];
+					pkVal = a[x];
 
-					if (pkVal === null || typeof pkVal == 'undefined') {
+					if (pkVal === null || typeof pkVal === 'undefined') {
 						return null;
 					}
 					q.add(pk, pkVal);
@@ -875,15 +935,15 @@ var SQLAdapter = Adapter.extend({
 		return q;
 	},
 
-	find: function(model){
+	find: function(model) {
 		var q = this.findQuery
 			.apply(this, arguments)
 			.setLimit(1);
-		return this.select(q).shift();
+		return this.select(model, q).shift() || null;
 	},
 
 	findAll: function(model) {
-		return this.select(this.findQuery.apply(this, arguments));
+		return this.select(model, this.findQuery.apply(this, arguments));
 	},
 
 	/**
@@ -892,7 +952,7 @@ var SQLAdapter = Adapter.extend({
 	 */
 	selectRS: function(model, q) {
 		q = q || new Query;
-		if (!q.getTable() || model.getTableName() != q.getTable()) {
+		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
 		return q.select(this);
@@ -931,7 +991,7 @@ var SQLAdapter = Adapter.extend({
 	 */
 	countAll: function(model, q) {
 		q = q instanceof Query ? q : new Query(q);
-		if (!q.getTable() || model.getTableName() != q.getTable()) {
+		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
 		return q.count(this);
@@ -941,10 +1001,10 @@ var SQLAdapter = Adapter.extend({
 	 * @param q
 	 */
 	destroyAll: function(model, q) {
-		if (!q.getTable() || model.getTableName() != q.getTable()) {
+		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
-		var def = new Deferred()
+		var def = new Deferred();
 		q.destroy(this);
 		def.resolve();
 		return def.promise();
@@ -975,7 +1035,7 @@ var SQLAdapter = Adapter.extend({
 		}
 
 		//If array is empty there is nothing to update
-		if (fields.length == 0) {
+		if (fields.length === 0) {
 			def.resolve();
 			return def.promise();
 		}
@@ -1000,26 +1060,26 @@ var SQLAdapter = Adapter.extend({
 			placeholders = [],
 			statement = new QueryStatement(this),
 			queryString,
-			column,
+			field,
 			value,
 			result,
 			id,
 			def = new Deferred();
 
-		for (column in model._columns) {
-			value = instance[column];
+		for (field in model._fields) {
+			value = instance[field];
 			if (value === null) {
-				if (!instance.isColumnModified(column)) {
+				if (!instance.isModified(field)) {
 					continue;
 				}
 			} else if (value instanceof Date) {
-				if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 					value = this.formatDate(value);
 				} else {
 					value = this.formatDateTime(value);
 				}
 			}
-			fields.push(column);
+			fields.push(field);
 			values.push(value);
 			placeholders.push('?');
 		}
@@ -1052,7 +1112,7 @@ var SQLAdapter = Adapter.extend({
 			q = new Query,
 			model = instance.constructor,
 			pks = model._primaryKeys,
-			modColumns = instance.getModifiedColumns(),
+			modFields = instance.getModified(),
 			x,
 			len,
 			modCol,
@@ -1060,14 +1120,20 @@ var SQLAdapter = Adapter.extend({
 			pkVal,
 			value;
 
-		if (pks.length == 0) {
+		if (!instance.isModified()) {
+			var def = new Deferred();
+			def.resolve();
+			return def.promise();
+		}
+
+		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 
-		for (modCol in modColumns) {
+		for (modCol in modFields) {
 			value = instance[modCol];
 			if (value instanceof Date) {
-				if (value.getSeconds() == 0 && value.getMinutes() == 0 && value.getHours() == 0) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 					value = this.formatDate(value);
 				} else {
 					value = this.formatDateTime(value);
@@ -1080,7 +1146,7 @@ var SQLAdapter = Adapter.extend({
 			pk = pks[x];
 			pkVal = instance[pk];
 			if (pkVal === null) {
-				throw new Error('Cannot delete using NULL primary key.');
+				throw new Error('Cannot destroy using NULL primary key.');
 			}
 			q.addAnd(pk, pkVal);
 		}
@@ -1088,7 +1154,7 @@ var SQLAdapter = Adapter.extend({
 		var promise = this.updateAll(model, data, q);
 		promise.then(function(){
 			instance.resetModified();
-		})
+		});
 		return promise;
 	},
 
@@ -1100,7 +1166,7 @@ var SQLAdapter = Adapter.extend({
 			pk,
 			pkVal;
 
-		if (pks.length == 0) {
+		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 
@@ -1108,7 +1174,7 @@ var SQLAdapter = Adapter.extend({
 			pk = pks[x];
 			pkVal = instance[pk];
 			if (pkVal === null) {
-				throw new Error('Cannot delete using NULL primary key.');
+				throw new Error('Cannot destroy using NULL primary key.');
 			}
 			q.addAnd(pk, pkVal);
 		}
@@ -1125,7 +1191,7 @@ this.SQLAdapter = SQLAdapter;
 
 function Condition(left, right, operator, quote) {
 	this._conds = [];
-	if (arguments.length != 0) {
+	if (arguments.length !== 0) {
 		this.addAnd.apply(this, arguments);
 	}
 }
@@ -1191,14 +1257,14 @@ Condition.prototype = {
 		}
 
 		// Escape left
-		if (quote == Condition.QUOTE_LEFT || quote == Condition.QUOTE_BOTH) {
+		if (quote === Condition.QUOTE_LEFT || quote === Condition.QUOTE_BOTH) {
 			statement.addParam(left);
 			left = '?';
 		}
 
 		// right can be an array
 		if (isArray || isQuery) {
-			if (false == isQuery || 1 !== right.getLimit()) {
+			if (false === isQuery || 1 !== right.getLimit()) {
 				// Convert any sort of equality operator to something suitable for arrays
 				switch (operator) {
 					// Various forms of equal
@@ -1230,25 +1296,25 @@ Condition.prototype = {
 
 				right = '(' + clauseStatement._qString + ')';
 				statement.addParams(clauseStatement._params);
-				if (quote != Condition.QUOTE_LEFT) {
+				if (quote !== Condition.QUOTE_LEFT) {
 					quote = Condition.QUOTE_NONE;
 				}
 			} else if (isArray) {
 				arrayLen = right.length;
 				// BETWEEN
-				if (2 == arrayLen && operator == Query.BETWEEN) {
+				if (2 === arrayLen && operator === Query.BETWEEN) {
 					statement.setString(left + ' ' + operator + ' ? AND ?');
 					statement.addParams(right);
 					return statement;
-				} else if (0 == arrayLen) {
+				} else if (0 === arrayLen) {
 					// Handle empty arrays
-					if (operator == Query.IN) {
+					if (operator === Query.IN) {
 						statement.setString('(0 = 1)');
 						return statement;
-					} else if (operator == Query.NOT_IN) {
+					} else if (operator === Query.NOT_IN) {
 						return null;
 					}
-				} else if (quote == Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
+				} else if (quote === Condition.QUOTE_RIGHT || quote === Condition.QUOTE_BOTH) {
 					statement.addParams(right);
 					var rString = '(';
 					for (x = 0; x < arrayLen; ++x) {
@@ -1262,18 +1328,18 @@ Condition.prototype = {
 			}
 		} else {
 			if (null === right) {
-				if (operator == Query.NOT_EQUAL || operator == Query.ALT_NOT_EQUAL) {
+				if (operator === Query.NOT_EQUAL || operator === Query.ALT_NOT_EQUAL) {
 					// IS NOT NULL
 					operator = Query.IS_NOT_NULL;
-				} else if (operator == Query.EQUAL) {
+				} else if (operator === Query.EQUAL) {
 					// IS NULL
 					operator = Query.IS_NULL;
 				}
 			}
 
-			if (operator == Query.IS_NULL || operator == Query.IS_NOT_NULL) {
+			if (operator === Query.IS_NULL || operator === Query.IS_NOT_NULL) {
 				right = null;
-			} else if (quote == Condition.QUOTE_RIGHT || quote == Condition.QUOTE_BOTH) {
+			} else if (quote === Condition.QUOTE_RIGHT || quote === Condition.QUOTE_BOTH) {
 				statement.addParam(right);
 				right = '?';
 			}
@@ -1533,7 +1599,7 @@ Condition.prototype = {
 	 */
 	getQueryStatement : function(conn) {
 
-		if (0 == this._conds.length) {
+		if (0 === this._conds.length) {
 			return null;
 		}
 
@@ -1552,8 +1618,8 @@ Condition.prototype = {
 			}
 
 			string += "\n\t";
-			if (0 != x) {
-				string += ((1 == x && conds[0].sep == 'OR') ? 'OR' : cond.sep) + ' ';
+			if (0 !== x) {
+				string += ((1 === x && conds[0].sep === 'OR') ? 'OR' : cond.sep) + ' ';
 			}
 			string += cond._qString;
 			statement.addParams(cond._params);
@@ -1570,7 +1636,7 @@ Condition.prototype = {
 		return this.getQueryStatement().toString();
 	}
 
-}
+};
 
 /**
  * Creates new instance of Query, parameters will be passed to the
@@ -2639,7 +2705,7 @@ QueryJoin = function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
 	this.setTable(tableOrColumn)
 	.setOnClause(onClauseOrColumn)
 	.setJoinType(joinType);
-}
+};
 
 QueryJoin.prototype = {
 
@@ -2694,12 +2760,12 @@ QueryJoin.prototype = {
 	 */
 	setTable : function(tableName) {
 		var space = tableName.lastIndexOf(' '),
-			as = space == -1 ? -1 : tableName.toUpperCase().lastIndexOf(' AS ');
+			as = space === -1 ? -1 : tableName.toUpperCase().lastIndexOf(' AS ');
 
-		if (as != space - 3) {
+		if (as !== space - 3) {
 			as = -1;
 		}
-		if (space != -1) {
+		if (space !== -1) {
 			this.setAlias(tableName.substr(space + 1));
 			tableName = tableName.substring(0, as === -1 ? space : as);
 		}
@@ -2831,11 +2897,11 @@ QueryStatement.embedParams = function(string, params, conn) {
 
 	var p = '?';
 
-	if (string.split(p).length - 1 != params.length) {
+	if (string.split(p).length - 1 !== params.length) {
 		throw new Error('The number of occurances of ' + p + ' do not match the number of _params.');
 	}
 
-	if (params.length == 0) {
+	if (params.length === 0) {
 		return string;
 	}
 
@@ -2847,7 +2913,7 @@ QueryStatement.embedParams = function(string, params, conn) {
 	for (x = params.length - 1; x >= 0; --x) {
 		identifier = params[x];
 		currentIndex = string.lastIndexOf(p, currentIndex);
-		if (currentIndex == -1) {
+		if (currentIndex === -1) {
 			throw new Error('The number of occurances of ' + p + ' do not match the number of _params.');
 		}
 		string = string.substring(0, currentIndex) + identifier + string.substr(currentIndex + pLength);
@@ -2959,20 +3025,19 @@ this.QueryJoin = QueryJoin;
 
 })();
 
-
 /* 07-Model.js */
 (function(){
 
 var Model = Class.extend({
 	/**
-	 * This will contain the column values IF __defineGetter__ and __defineSetter__
+	 * This will contain the field values IF __defineGetter__ and __defineSetter__
 	 * are supported by the JavaScript engine, otherwise the properties will be
 	 * set and accessed directly on the object
 	 */
-	_privateValues: null,
+	_values: null,
 
 	/**
-	 * Array to contain names of modified columns
+	 * Array to contain names of modified fields
 	 */
 	_originalValues: null,
 
@@ -2988,10 +3053,10 @@ var Model = Class.extend({
 
 	init : function Model(values) {
 		this._validationErrors = [];
-		this._privateValues = {};
+		this._values = {};
 		this.resetModified();
 		if (values) {
-			this.fromArray(values);
+			this.setValues(values);
 		}
 	},
 
@@ -2999,12 +3064,12 @@ var Model = Class.extend({
 		return this.constructor.name + ':' + this.getPrimaryKeyValues().join('-');
 	},
 
-	get: function(column) {
-		return this[column];
+	get: function(field) {
+		return this[field];
 	},
 
-	set: function(column, value) {
-		this[column] = value;
+	set: function(field, value) {
+		this[field] = value;
 		return this;
 	},
 
@@ -3020,7 +3085,7 @@ var Model = Class.extend({
 			len,
 			pk;
 
-		newObject.fromArray(this.toArray());
+		newObject.setValues(this.getValues());
 
 		for (x = 0, len = pks.length; x < len; ++x) {
 			pk = pks[x];
@@ -3030,12 +3095,18 @@ var Model = Class.extend({
 	},
 
 	/**
-	 * Checks whether any of the columns have been modified from the database values.
+	 * If field is provided, checks whether that field has been modified
+	 * If no field is provided, checks whether any of the fields have been modified from the database values.
+	 *
+	 * @param {String} field
 	 * @return bool
 	 */
-	isModified: function() {
-		for (var column in this.constructor._columns) {
-			if (this[column] !== this._originalValues[column]) {
+	isModified: function(field) {
+		if (field) {
+			return this[field] !== this._originalValues[field];
+		}
+		for (var field in this.constructor._fields) {
+			if (this[field] !== this._originalValues[field]) {
 				return true;
 			}
 		}
@@ -3043,55 +3114,47 @@ var Model = Class.extend({
 	},
 
 	/**
-	 * Checks whether the given column is in the modified array
-	 * @return bool
-	 */
-	isColumnModified: function(columnName) {
-		return this[columnName] !== this._originalValues[columnName];
-	},
-
-	/**
-	 * Returns an array of the names of modified columns
+	 * Returns an array of the names of modified fields
 	 * @return object
 	 */
-	getModifiedColumns: function() {
-		var modifiedColumns = {};
-		for (var column in this.constructor._columns) {
-			if (this[column] !== this._originalValues[column]) {
-				modifiedColumns[column] = true;
+	getModified: function() {
+		var modified = {};
+		for (var field in this.constructor._fields) {
+			if (this[field] !== this._originalValues[field]) {
+				modified[field] = true;
 			}
 		}
-		return modifiedColumns;
+		return modified;
 	},
 
 	/**
-	 * Clears the array of modified column names
+	 * Clears the array of modified field names
 	 * @return Model
 	 */
 	resetModified: function() {
 		this._originalValues = {};
-		for (var columnName in this.constructor._columns) {
-			this._originalValues[columnName] = this[columnName];
+		for (var field in this.constructor._fields) {
+			this._originalValues[field] = this[field];
 		}
 		return this;
 	},
 
 	/**
-	 * Sets the value of a property/column
-	 * @param string columnName
+	 * Sets the value of a field
+	 * @param String field
 	 * @param mixed value
-	 * @param string columnType
+	 * @param string fieldType
 	 * @return Model
 	 */
-	coerceColumnValue: function(columnName, value, columnType) {
-		if (!columnType) {
-			columnType = this.constructor.getColumnType(columnName);
+	coerceValue: function(field, value, fieldType) {
+		if (!fieldType) {
+			fieldType = this.constructor.getFieldType(field);
 		}
 
-		value = typeof value == 'undefined' ? null : value;
+		value = typeof value === 'undefined' ? null : value;
 
-		var temporal = Model.isTemporalType(columnType),
-			numeric = Model.isNumericType(columnType),
+		var temporal = Model.isTemporalType(fieldType),
+			numeric = Model.isNumericType(fieldType),
 			intVal,
 			floatVal;
 
@@ -3100,22 +3163,22 @@ var Model = Class.extend({
 				value = null;
 			} else if (null !== value) {
 				if (numeric) {
-					if (Model.isIntegerType(columnType)) {
+					if (Model.isIntegerType(fieldType)) {
 						// validate and cast
 						intVal = parseInt(value, 10);
-						if (intVal.toString() != value.toString()) {
+						if (intVal.toString() !== value.toString()) {
 							throw new Error(value + ' is not a valid integer');
 						}
 						value = intVal;
 					} else {
 						// only validates, doesn't cast...yet
 						floatVal = parseFloat(value, 10);
-						if (floatVal.toString() != value.toString()) {
+						if (floatVal.toString() !== value.toString()) {
 							throw new Error(value + ' is not a valid float');
 						}
 					}
 				} else if (temporal) {
-					value = Model.coerceTemporalValue(value, columnType, this.constructor.getAdapter());
+					value = Model.coerceTemporalValue(value, fieldType, this.constructor.getAdapter());
 				}
 			}
 		}
@@ -3124,29 +3187,29 @@ var Model = Class.extend({
 
 	/**
 	 * Populates this with the values of an associative Array.
-	 * Array keys must match column names to be used.
+	 * Array keys must match field names to be used.
 	 * @param array array
 	 * @return Model
 	 */
-	fromArray: function(object) {
-		for (var column in this.constructor._columns) {
-			if (!(column in object)) {
+	setValues: function(object) {
+		for (var field in this.constructor._fields) {
+			if (!(field in object)) {
 				continue;
 			}
-			this[column] = object[column];
+			this[field] = object[field];
 		}
 		return this;
 	},
 
 	/**
 	 * Returns an associative Array with the values of this.
-	 * Array keys match column names.
+	 * Array keys match field names.
 	 * @return array
 	 */
-	toArray: function() {
-		var array = {}, column;
-		for (column in this.constructor._columns) {
-			array[column] = this[column];
+	getValues: function() {
+		var array = {}, field;
+		for (field in this.constructor._fields) {
+			array[field] = this[field];
 		}
 		return array;
 	},
@@ -3160,7 +3223,7 @@ var Model = Class.extend({
 			x,
 			len,
 			pk;
-		if (pks.length == 0) {
+		if (pks.length === 0) {
 			return false;
 		}
 		for (x = 0, len = pks.length; x < len; ++x) {
@@ -3205,12 +3268,12 @@ var Model = Class.extend({
 	 * @return Model
 	 */
 	setNew: function (bool) {
-		this._isNew = (bool == true);
+		this._isNew = (bool === true);
 		return this;
 	},
 
 	/**
-	 * Returns true if the column values validate.
+	 * Returns true if the field values validate.
 	 * @return bool
 	 */
 	validate: function() {
@@ -3242,15 +3305,15 @@ var Model = Class.extend({
 			throw new Error('Cannot save ' + this.constructor.getClassName() + ' with validation errors.');
 		}
 
-		if (this.constructor._primaryKeys.length == 0) {
+		if (this.constructor._primaryKeys.length === 0) {
 			throw new Error('Cannot save without primary keys');
 		}
 
-		if (this.isNew() && this.constructor.hasColumn('created') && !this.isColumnModified('created')) {
+		if (this.isNew() && this.constructor.hasField('created') && !this.isModified('created')) {
 			this.created = new Date();
 		}
 
-		if ((this.isNew() || this.isModified()) && this.constructor.hasColumn('updated') && !this.isColumnModified('updated')) {
+		if ((this.isNew() || this.isModified()) && this.constructor.hasField('updated') && !this.isModified('updated')) {
 			this.updated = new Date();
 		}
 
@@ -3259,19 +3322,6 @@ var Model = Class.extend({
 		} else {
 			return this.update();
 		}
-	},
-
-	archive: function() {
-		if (!this.constructor.hasColumn('archived')) {
-			throw new Error('Cannot call archive on models without "archived" column');
-		}
-
-		if (null !== this.archived && typeof this.archived != 'undefined') {
-			throw new Error('This ' + this.constructor.getClassName() + ' is already archived.');
-		}
-
-		this.archived = new Date();
-		return this.save();
 	},
 
 	/**
@@ -3285,21 +3335,14 @@ var Model = Class.extend({
 	 * Updates the stored record representing this object.
 	 */
 	update: function(values) {
-		if (typeof onSuccess == 'object') {
-			this.fromArray(values);
-		}
-
-		if (!this.isModified()) {
-			var d = new Deferred();
-			d.resolve();
-			return d.promise();
+		if (typeof values === 'object') {
+			this.setValues(values);
 		}
 		return this.constructor._adapter.update(this);
 	},
 
 	/**
-	 * Creates and executess DELETE Query for this object
-	 * Deletes any database rows with a primary key(s) that match this
+	 * Deletes any records with a primary key(s) that match this
 	 * NOTE/BUG: If you alter pre-existing primary key(s) before deleting, then you will be
 	 * deleting based on the new primary key(s) and not the originals,
 	 * leaving the original row unchanged(if it exists).  Also, since NULL isn't an accurate way
@@ -3307,56 +3350,63 @@ var Model = Class.extend({
 	 */
 	destroy: function(onSuccess, onError) {
 		return this.constructor._adapter.destroy(this, onSuccess, onError);
+	},
+
+	archive: function() {
+		if (!this.constructor.hasField('archived')) {
+			throw new Error('Cannot call archive on models without "archived" field');
+		}
+
+		if (null !== this.archived && typeof this.archived !== 'undefined') {
+			throw new Error('This ' + this.constructor.getClassName() + ' is already archived.');
+		}
+
+		this.archived = new Date();
+		return this.save();
 	}
 });
 
-Model.COLUMN_TYPE_TEXT = 'TEXT';
-Model.COLUMN_TYPE_NUMERIC = 'NUMERIC';
-Model.COLUMN_TYPE_INTEGER = 'INTEGER';
-Model.COLUMN_TYPE_BLOB = 'BLOB';
-Model.COLUMN_TYPE_DATE = 'DATE';
-Model.COLUMN_TYPE_TIME = 'TIME';
-Model.COLUMN_TYPE_TIMESTAMP = 'TIMESTAMP';
+Model.FIELD_TYPE_TEXT = 'TEXT';
+Model.FIELD_TYPE_NUMERIC = 'NUMERIC';
+Model.FIELD_TYPE_INTEGER = 'INTEGER';
+Model.FIELD_TYPE_DATE = 'DATE';
+Model.FIELD_TYPE_TIME = 'TIME';
+Model.FIELD_TYPE_TIMESTAMP = 'TIMESTAMP';
 
-Model.COLUMN_TYPES = {
-	TEXT: Model.COLUMN_TYPE_TEXT,
-	NUMERIC: Model.COLUMN_TYPE_NUMERIC,
-	INTEGER: Model.COLUMN_TYPE_INTEGER,
-	BLOB: Model.COLUMN_TYPE_BLOB,
-	DATE: Model.COLUMN_TYPE_DATE,
-	TIME: Model.COLUMN_TYPE_TIME,
-	TIMESTAMP: Model.COLUMN_TYPE_TIMESTAMP
+Model.FIELD_TYPES = {
+	TEXT: Model.FIELD_TYPE_TEXT,
+	NUMERIC: Model.FIELD_TYPE_NUMERIC,
+	INTEGER: Model.FIELD_TYPE_INTEGER,
+	DATE: Model.FIELD_TYPE_DATE,
+	TIME: Model.FIELD_TYPE_TIME,
+	TIMESTAMP: Model.FIELD_TYPE_TIMESTAMP
 };
 
 Model.TEXT_TYPES = {
-	TEXT: Model.COLUMN_TYPE_TEXT,
-	DATE: Model.COLUMN_TYPE_DATE,
-	TIME: Model.COLUMN_TYPE_TIME,
-	TIMESTAMP: Model.COLUMN_TYPE_TIMESTAMP
+	TEXT: Model.FIELD_TYPE_TEXT,
+	DATE: Model.FIELD_TYPE_DATE,
+	TIME: Model.FIELD_TYPE_TIME,
+	TIMESTAMP: Model.FIELD_TYPE_TIMESTAMP
 };
 
 Model.INTEGER_TYPES = {
-	INTEGER: Model.COLUMN_TYPE_INTEGER
-};
-
-Model.BLOB_TYPES = {
-	BLOB: Model.COLUMN_TYPE_BLOB
+	INTEGER: Model.FIELD_TYPE_INTEGER
 };
 
 Model.TEMPORAL_TYPES = {
-	DATE: Model.COLUMN_TYPE_DATE,
-	TIME: Model.COLUMN_TYPE_TIME,
-	TIMESTAMP: Model.COLUMN_TYPE_TIMESTAMP
+	DATE: Model.FIELD_TYPE_DATE,
+	TIME: Model.FIELD_TYPE_TIME,
+	TIMESTAMP: Model.FIELD_TYPE_TIMESTAMP
 };
 
 Model.NUMERIC_TYPES = {
-	INTEGER: Model.COLUMN_TYPE_INTEGER,
-	NUMERIC: Model.COLUMN_TYPE_NUMERIC
+	INTEGER: Model.FIELD_TYPE_INTEGER,
+	NUMERIC: Model.FIELD_TYPE_NUMERIC
 };
 
-Model.isColumnType = function(type) {
-	return (type in Model.COLUMN_TYPES);
-}
+Model.isFieldType = function(type) {
+	return (type in Model.FIELD_TYPES);
+};
 
 /**
  * Whether passed type is a temporal (date/time/timestamp) type.
@@ -3366,7 +3416,7 @@ Model.isColumnType = function(type) {
  */
 Model.isTemporalType = function(type) {
 	return (type in this.TEMPORAL_TYPES);
-}
+};
 
 /**
  * Returns true if values for the type need to be quoted.
@@ -3376,7 +3426,7 @@ Model.isTemporalType = function(type) {
  */
 Model.isTextType = function(type) {
 	return (type in this.TEXT_TYPES);
-}
+};
 
 /**
  * Returns true if values for the type are numeric.
@@ -3386,7 +3436,7 @@ Model.isTextType = function(type) {
  */
 Model.isNumericType = function(type) {
 	return (type in this.NUMERIC_TYPES);
-}
+};
 
 /**
  * Returns true if values for the type are integer.
@@ -3396,23 +3446,13 @@ Model.isNumericType = function(type) {
  */
 Model.isIntegerType = function(type) {
 	return (type in this.INTEGER_TYPES);
-}
+};
 
-/**
- * Returns true if values for the type are blob.
- *
- * @param type
- * @return boolean
- */
-Model.isBlobType = function(type) {
-	return (type in Model.BLOB_TYPES);
-}
-
-Model.coerceTemporalValue = function(value, columnType) {
+Model.coerceTemporalValue = function(value, fieldType) {
 	var x, date, len;
 	if (value instanceof Array) {
 		for (x = 0, len = value; x < len; ++x) {
-			value[x] = this.coerceTemporalValue(value[x], columnType);
+			value[x] = this.coerceTemporalValue(value[x], fieldType);
 		}
 		return value;
 	}
@@ -3421,24 +3461,20 @@ Model.coerceTemporalValue = function(value, columnType) {
 		throw new Error(value + ' is not a valid date');
 	}
 	return date;
-}
+};
 
-Model._table = null;
+Model._fields = Model._primaryKeys = Model._table = null;
 
-Model._primaryKeys = null;
-
-Model._isAutoIncrement = true;
-
-Model._columns = null;
+Model._autoIncrement = true;
 
 Model.getAdapter = function(){
 	return this._adapter;
-}
+};
 
 Model.setAdapter = function(adapter){
 	this._adapter = adapter;
 	return this;
-}
+};
 
 /**
  * Returns string representation of table name
@@ -3446,35 +3482,35 @@ Model.setAdapter = function(adapter){
  */
 Model.getTableName = function() {
 	return this._table;
-}
+};
 
 /**
- * Access to array of column types, indexed by column name
+ * Access to array of field types, indexed by field name
  * @return array
  */
-Model.getColumns = function() {
-	return this._columns.slice(0);
-}
+Model.getFields = function() {
+	return this._fields.slice(0);
+};
 
 /**
- * Get the type of a column
+ * Get the type of a field
  * @return array
  */
-Model.getColumnType = function(columnName) {
-	return this._columns[columnName];
-}
+Model.getFieldType = function(field) {
+	return this._fields[field];
+};
 
 /**
  * @return bool
  */
-Model.hasColumn = function(columnName) {
-	for (var colName in this._columns) {
-		if (colName == columnName) {
+Model.hasField = function(field) {
+	for (var field in this._fields) {
+		if (field === field) {
 			return true;
 		}
 	}
 	return false;
-}
+};
 
 /**
  * Access to array of primary keys
@@ -3482,26 +3518,28 @@ Model.hasColumn = function(columnName) {
  */
 Model.getPrimaryKeys = function() {
 	return this._primaryKeys.slice(0);
-}
+};
 
 /**
  * Access to name of primary key
  * @return array
  */
 Model.getPrimaryKey = function() {
-	return this._primaryKeys.length == 1 ? this._primaryKeys[0] : null;
-}
+	return this._primaryKeys.length === 1 ? this._primaryKeys[0] : null;
+};
 
 /**
- * Returns true if the primary key column for this table is auto-increment
+ * Returns true if the primary key field for this table is auto-increment
  * @return bool
  */
 Model.isAutoIncrement = function() {
-	return this._isAutoIncrement;
-}
+	return this._autoIncrement;
+};
 
-Model.prototype.toJSON = Model.prototype.toArray;
-Model.prototype.fromJSON = Model.prototype.fromArray;
+Model.prototype.toJSON = Model.prototype.getValues;
+Model.prototype.fromJSON = Model.prototype.setValues;
+Model.prototype.toArray = Model.prototype.getValues;
+Model.prototype.fromArray = Model.prototype.setValues;
 
 var adapterMethods = ['count', 'findAll', 'find'];
 
@@ -3509,141 +3547,89 @@ for (var i = 0, l = adapterMethods.length; i < l; ++i) {
 	var method = adapterMethods[i];
 	Model[method] = (function(method){
 		return function() {
-			var newArgs = [this];
-			for (var i = 0; i < arguments.length; i++) {
-				newArgs.push(arguments[i]);
-			}
+			var args = Array.prototype.slice.call(arguments);
+			args.unshift(this);
 			var con = this.getAdapter();
-			return con[method].apply(con, newArgs);
-		}
+			return con[method].apply(con, args);
+		};
 	})(method);
 }
 
-var findAliases = ['findBy', 'retrieveByColumn', 'retrieveByPK', 'retrieveByPKs', 'findByPKs'];
+var findAliases = ['findBy', 'retrieveByField', 'retrieveByPK', 'retrieveByPKs', 'findByPKs'];
 
 for (var x = 0, len = findAliases.length; x < len; ++x) {
 	Model[findAliases[x]] = Model.find;
 }
 
-Model.addGetterAndSetter = function(object, colName, colType) {
-	if (!object.__defineGetter__) {
+Model.addField = function(object, field, colType) {
+	if (!object.__defineGetter__ && !Object.defineProperty) {
 		return;
 	}
-	object.__defineGetter__(colName, function() {
-		var value = this._privateValues[colName];
-		return typeof value == 'undefined' ? null : value;
-	});
+	var get = function() {
+		var value = this._privateValues[field];
+		return typeof value === 'undefined' ? null : value;
+	};
 
-	object.__defineSetter__(colName, function(value) {
-		value = this.coerceColumnValue(colName, value, colType);
-		if (this._privateValues[colName] === value) {
-			return;
-		}
-		this._privateValues[colName] = value;
-	});
-}
+	var set = function(value) {
+		this._privateValues[field] = this.coerceValue(field, value, colType);
+	};
 
-Model.models = {};
-
-function encodeUriSegment(val) {
-	return encodeUriQuery(val, true).
-	replace(/%26/gi, '&').
-	replace(/%3D/gi, '=').
-	replace(/%2B/gi, '+');
-}
-
-function encodeUriQuery(val, pctEncodeSpaces) {
-	return encodeURIComponent(val).
-	replace(/%40/gi, '@').
-	replace(/%3A/gi, ':').
-	replace(/%24/g, '$').
-	replace(/%2C/gi, ',').
-	replace((pctEncodeSpaces ? null : /%20/g), '+');
-}
-
-function Route(template, defaults) {
-	this.template = template = template + '#';
-	this.defaults = defaults || {};
-	var urlParams = this.urlParams = {},
-		parts = template.split(/\W/);
-	for (var i = 0, l = parts.length; i < l; ++i) {
-		var param = parts[i];
-		if (param && template.match(new RegExp("[^\\\\]:" + param + "\\W"))) {
-			urlParams[param] = true;
-		}
-	}
-	this.template = template.replace(/\\:/g, ':');
-}
-
-Route.prototype = {
-	url: function(params) {
-		var self = this,
-		url = this.template,
-		val,
-		encodedVal;
-
-		params = params || {};
-		for (var urlParam in this.urlParams) {
-			val = typeof params[urlParam] != 'undefined' || params.hasOwnProperty(urlParam) ? params[urlParam] : self.defaults[urlParam];
-			if (typeof val != 'undefined' && val !== null) {
-				encodedVal = encodeUriSegment(val);
-				url = url.replace(new RegExp(":" + urlParam + "(\\W)", "g"), encodedVal + "$1");
-			} else {
-				url = url.replace(new RegExp("(\/?):" + urlParam + "(\\W)", "g"), function(match,
-					leadingSlashes, tail) {
-					if (tail.charAt(0) == '/') {
-						return tail;
-					} else {
-						return leadingSlashes + tail;
-					}
-				});
-			}
-		}
-		return url;
+	if (Object.defineProperty) {
+		Object.defineProperty(object, field, {
+			enumerable: true,
+			get: get,
+			set: set
+		});
+	} else {
+		object.__defineGetter__(field, get);
+		object.__defineSetter__(field, set);
 	}
 };
+
+Model.models = {};
 
 /**
  * @return Model
  */
-Model.create = function(props){
-	var newClass, column, type, prop;
+Model.create = function(opts) {
+	var newClass, field, type, prop;
 
-	if (typeof props.table == 'undefined') {
+	if (typeof opts.table === 'undefined') {
 		throw new Error('Must provide a table when exending Model');
 	}
-	if (typeof props.columns == 'undefined') {
-		throw new Error('Must provide columns when exending Model');
+	if (typeof opts.fields === 'undefined') {
+		throw new Error('Must provide fields when exending Model');
 	}
-	if (typeof props.primaryKeys == 'undefined') {
+	if (typeof opts.primaryKeys === 'undefined') {
 		throw new Error('Must provide primaryKeys when exending Model');
 	}
 
-	newClass = this.extend(props.instancePrototype);
+	newClass = this.extend(opts.prototype);
+	delete opts.prototype;
 
-	for (column in props.columns) {
-		type = props.columns[column] = props.columns[column].toUpperCase();
-		if (!Model.isColumnType(type)) {
-			throw new Error(type + ' is not a valide DABL/SQLite column type');
+	for (field in opts.fields) {
+		type = opts.fields[field] = opts.fields[field].toUpperCase();
+		if (!Model.isFieldType(type)) {
+			throw new Error(type + ' is not a valide field type');
 		}
-		Model.addGetterAndSetter(newClass.prototype, column, type);
+		Model.addField(newClass.prototype, field, type);
 	}
 
-	for (prop in props) {
+	for (prop in opts) {
 		switch (prop) {
-			case 'url':
-				newClass._route = new Route(props[prop]);
+			// known static private properties
+			case 'url', 'adapter': case 'table': case 'fields': case 'primaryKeys': case 'autoIncrement':
+				newClass['_' + prop] = opts[prop];
 				break;
-			case 'adapter': case 'table': case 'columns': case 'primaryKeys': case 'isAutoIncrement':
-				newClass['_' + prop] = props[prop];
-				break;
+
+			// public static methods and properties
 			default:
-				newClass[prop] = props[prop];
+				newClass[prop] = opts[prop];
 				break;
 		}
 	}
 
-	Model.models[props.table] = newClass;
+	Model.models[opts.table] = newClass;
 
 	newClass.name = 'Foo';
 	return newClass;
@@ -3660,11 +3646,11 @@ var Migration = {};
 Migration.schema = Model.create({
 	table: 'schema_definitions',
 	primaryKeys : ['id'],
-	columns: {
-		id: 'INTEGER',
-		table_name: 'TEXT',
-		column_names: 'TEXT',
-		column_types: 'TEXT'
+	fields: {
+		id: Model.FIELD_TYPE_INTEGER,
+		table_name: Model.FIELD_TYPE_TEXT,
+		column_names: Model.FIELD_TYPE_INTEGER,
+		column_types: Model.FIELD_TYPE_INTEGER
 	}
 });
 
@@ -3679,11 +3665,11 @@ Migration.migrate = function(options) {
 	// Drop tables
 	if (options.refresh) {
 		for (tableName in Model.models){
-			Adapter.execute('DROP TABLE IF EXISTS ' + tableName);
+			SQLAdapter.execute('DROP TABLE IF EXISTS ' + tableName);
 //				Migration.each(model.options.hasAndBelongsToMany, function(assocTable) {
 //					var mappingTable = [model.table, assocTable].sort().toString().replace(',', '_');
 //					var sql = 'DROP TABLE IF EXISTS ' + mappingTable;
-//					Adapter.execute(sql);
+//					SQLAdapter.execute(sql);
 //				});
 		}
 		Migration.setupSchema(true);
@@ -3700,9 +3686,9 @@ Migration.migrate = function(options) {
 		targetVersion = Infinity;
 
 		// did user specify a migration number?
-		if(options.number !== null && typeof options.number !== 'undefined')
+		if (options.number !== null && typeof options.number !== 'undefined')
 			targetVersion = options.number;
-		else if(typeof options === 'number')
+		else if (typeof options === 'number')
 			targetVersion = options;
 
 		// actually handle a migrations object
@@ -3710,14 +3696,14 @@ Migration.migrate = function(options) {
 
 		do {
 			// schema is already up to date
-			if(i === targetVersion) {
+			if (i === targetVersion) {
 				// up to date
 				return;
 			}
 			// migrate up
-			else if(i < targetVersion) {
+			else if (i < targetVersion) {
 				i += 1;
-				if(migrations[i] !== null && typeof migrations[i] !== 'undefined')
+				if (migrations[i] !== null && typeof migrations[i] !== 'undefined')
 					migrations[i].up();
 				else
 					break;
@@ -3733,13 +3719,13 @@ Migration.migrate = function(options) {
 		// developer can choose to use automigrations while in dev mode
 //		Migration.models.each(function(model) {
 //			var sql = 'CREATE TABLE IF NOT EXISTS ' + model.table + '(id INTEGER PRIMARY KEY AUTOINCREMENT';
-//			for (var colName in model.options.columns) {
-//				var colType = model.options.columns[colName];
-//				if(colName !== 'id')
+//			for (var colName in model._fields) {
+//				var colType = model._fields[colName];
+//				if (colName !== 'id')
 //					sql += (', ' + colName + ' ' + colType.toUpperCase());
 //			}
 //			sql += ')';
-//			Adapter.execute(sql);
+//			SQLAdapter.execute(sql);
 
 //			Migration.each(model.options.hasAndBelongsToMany, function(assocTable, association) {
 //				var mappingTable = [model.table, assocTable].sort().toString().replace(',', '_');
@@ -3747,15 +3733,15 @@ Migration.migrate = function(options) {
 //				var foreignKey = Migration.models.get(assocTable).options.foreignKey;
 //				var keys = [localKey, foreignKey].sort();
 //				var sql = 'CREATE TABLE IF NOT EXISTS ' + mappingTable + '(' + keys[0] + ' INTEGER, ' + keys[1] + ' INTEGER)';
-//				Adapter.execute(sql);
+//				SQLAdapter.execute(sql);
 //			});
 //
-//			model.options.columns.id = 'INTEGER';
+//			model._fields.id = 'INTEGER';
 //		});
 	}
 
 	// handle fixture data, if passed in fixtures erase all old data
-//	if(options && options.refresh && Migration.fixtures)
+//	if (options && options.refresh && Migration.fixtures)
 //		Migration.loadFixtures();
 };
 
@@ -3767,14 +3753,14 @@ Migration.migrate = function(options) {
 //		});
 //	});
 //
-//	if(!fixtures.mappingTables)
+//	if (!fixtures.mappingTables)
 //		return;
 //
 //	Migration.each(fixtures.mappingTables, function(tableData, tableName) {
 //		Migration.each(tableData, function(colData) {
 //			var dataHash = new Migration.Hash(colData);
 //			var sql = 'INSERT INTO ' + tableName + ' (' + dataHash.getKeys().toString() + ') VALUES(' + dataHash.getValues().toString() + ')';
-//			Adapter.execute(sql);
+//			SQLAdapter.execute(sql);
 //		});
 //	});
 //};
@@ -3784,26 +3770,26 @@ Migration.migrate = function(options) {
 Migration.setupSchema = function(force) {
 	var sql;
 	Migration.createTable('schema_migrations', {
-		version: 'TEXT'
+		version: Model.FIELD_TYPE_TEXT
 	});
-	if(Adapter.count('SELECT * FROM schema_migrations') === 0) {
+	if (SQLAdapter.count('SELECT * FROM schema_migrations') === 0) {
 		sql = 'INSERT INTO schema_migrations (version) VALUES(0)';
-		Adapter.execute(sql);
+		SQLAdapter.execute(sql);
 	}
-	if(force && Adapter.count('SELECT * FROM schema_migrations') === 1) {
+	if (force && SQLAdapter.count('SELECT * FROM schema_migrations') === 1) {
 		sql = 'UPDATE schema_migrations set version = 0';
-		Adapter.execute(sql);
+		SQLAdapter.execute(sql);
 	}
 	Migration.createTable('schema_definitions', {
-		id: 'INTEGER',
-		table_name: 'TEXT',
-		column_names: 'TEXT',
-		column_types: 'TEXT'
+		id: Model.FIELD_TYPE_INTEGER,
+		table_name: Model.FIELD_TYPE_TEXT,
+		column_names: Model.FIELD_TYPE_INTEGER,
+		column_types: Model.FIELD_TYPE_INTEGER
 	});
-}
+};
 
 Migration.writeSchema = function(tableName, cols) {
-	if(tableName === 'schema_definitions' || tableName === 'schema_migrations')
+	if (tableName === 'schema_definitions' || tableName === 'schema_migrations')
 		return;
 	var keys = [],
 		values = [],
@@ -3818,23 +3804,23 @@ Migration.writeSchema = function(tableName, cols) {
 	names = keys.join();
 	types = keys.join();
 	table = Migration.schema.findBy('table_name', tableName);
-	if(table) {
+	if (table) {
 		table.column_names = names;
 		table.column_types = types;
 		table.save();
 	} else {
 		table = new Migration.schema;
-		table.fromArray({
+		table.setValues({
 			table_name: tableName,
 			column_names: names,
 			column_types: types
 		});
 		table.save();
 	}
-}
+};
 
 Migration.readSchema = function(tableName) {
-	if(tableName === 'schema_definitions' || tableName === 'schema_migrations')
+	if (tableName === 'schema_definitions' || tableName === 'schema_migrations')
 		return null;
 	var table = Migration.schema.findBy('table_name', tableName),
 		column_names = table.column_names.split(','),
@@ -3848,21 +3834,21 @@ Migration.readSchema = function(tableName) {
 		cols[col] = column_types[i];
 	}
 	return cols;
-}
+};
 
 Migration.currentSchemaVersion = function() {
 	var sql = 'SELECT version FROM schema_migrations LIMIT 1';
 
-	return parseInt(Adapter.execute(sql)[0].version, 10);
-}
+	return parseInt(SQLAdapter.execute(sql)[0].version, 10);
+};
 
 Migration.updateSchemaVersion = function(number) {
 	var sql = 'UPDATE schema_migrations SET version = ' + number;
-	Adapter.execute(sql);
-}
+	SQLAdapter.execute(sql);
+};
 
 Migration.modifyColumn = function(tableName, columnName, options) {
-//
+
 	if (!options) {
 		throw new Error('MIGRATION_EXCEPTION: Not a valid column modification');
 	}
@@ -3876,12 +3862,12 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 		colType = oldCols[colName];
 		switch(options['modification']) {
 			case 'remove':
-				if(colName !== columnName)
+				if (colName !== columnName)
 					newCols[colName] = colType;
 				break;
 
 			case 'rename':
-				if(colName !== columnName) {
+				if (colName !== columnName) {
 					newCols[colName] = colType;
 				}
 				else {
@@ -3890,7 +3876,7 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 				break;
 
 			case 'change':
-				if(colName !== columnName) {
+				if (colName !== columnName) {
 					newCols[colName] = colType;
 				}
 				else {
@@ -3903,8 +3889,8 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 		}
 	}
 
-	Adapter.transaction(function() {
-		var records = Adapter.execute('SELECT * FROM ' + tableName);
+	SQLAdapter.transaction(function() {
+		var records = SQLAdapter.execute('SELECT * FROM ' + tableName);
 		if (records.length !== 0) {
 			throw new Error('Modify column not quite ready yet...');
 		}
@@ -3914,31 +3900,31 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 
 		for (var i = 0, len = records.length; i < len; ++i) {
 			 var record = records[i];
-			 switch(options.modification) {
+			 switch (options.modification) {
 				 case 'remove':
 					 delete record[columnName];
-					 Model.insert(tableName, record, Adapter.getConnection());
+					 Model.insert(tableName, record, SQLAdapter.getConnection());
 					 break;
 				 case 'rename':
 					 record[options.newName] = record[columnName];
 					 delete record[columnName];
-					 Model.insert(tableName, record, Adapter.getConnection());
+					 Model.insert(tableName, record, SQLAdapter.getConnection());
 					 break;
 				 case 'change':
-					 Model.insert(tableName, record, Adapter.getConnection());
+					 Model.insert(tableName, record, SQLAdapter.getConnection());
 					 break;
 				 default:
 					 throw('MIGRATION_EXCEPTION: Not a valid column modification');
 			 }
 		}
 	});
-}
+};
 
 
 // used in actual migrations
 
 Migration.createTable = function(name, columns) {
-	if(!name || !columns) {
+	if (!name || !columns) {
 		return;
 	}
 	var sql = 'CREATE TABLE IF NOT EXISTS ' + name + "\n",
@@ -3953,48 +3939,48 @@ Migration.createTable = function(name, columns) {
 			sql += ",\n";
 		}
 		sql += (colName + ' ' + colType);
-		if (colName === 'id') {
+		if (colType === Model.FIELD_TYPE_INTEGER && colName === 'id') {
 			sql += ' PRIMARY KEY AUTOINCREMENT';
 		}
 		++i;
 	}
 	sql += ')';
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 
 	Migration.writeSchema(name, columns);
-}
+};
 
 Migration.dropTable = function(name) {
 	var sql = 'DROP TABLE IF EXISTS ' + name,
 		schemaTable;
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 	schemaTable = Migration.schema.findBy('table_name', name);
 	schemaTable.destroy();
-}
+};
 
 Migration.renameTable = function(oldName, newName) {
 	var sql = 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName,
 		schemaTable;
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 	schemaTable = Migration.schema.findBy('table_name', oldName);
 	schemaTable.table_name = newName;
 	schemaTable.save();
-}
+};
 
 Migration.addColumn = function(tableName, columnName, dataType) {
 	var sql = 'ALTER TABLE ' + tableName + ' ADD COLUMN ' + columnName + ' ' + dataType,
 		cols;
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 	cols = Migration.readSchema(tableName);
 	cols[columnName] = dataType;
 	Migration.writeSchema(tableName, cols);
-}
+};
 
 Migration.removeColumn = function(tableName, columnName) {
 	Migration.modifyColumn(tableName, columnName, {
 		modification: 'remove'
 	});
-}
+};
 
 Migration.renameColumn = function(tableName, columnName, newColumnName) {
 	var options = {
@@ -4002,7 +3988,7 @@ Migration.renameColumn = function(tableName, columnName, newColumnName) {
 		newName: newColumnName
 	};
 	Migration.modifyColumn(tableName, columnName, options);
-}
+};
 
 Migration.changeColumn = function(tableName, columnName, type) {
 	var options = {
@@ -4010,18 +3996,17 @@ Migration.changeColumn = function(tableName, columnName, type) {
 		newType: type
 	};
 	Migration.modifyColumn(tableName, columnName, options);
-}
+};
 
 Migration.addIndex = function(tableName, columnName, unique) {
 	var sql = 'CREATE' + (unique ? ' UNIQUE ' : ' ') + 'INDEX IF NOT EXISTS ' + tableName + '_' + columnName + '_index ON ' + tableName + ' (' + columnName + ')';
-	Adapter.execute(sql);
-}
+	SQLAdapter.execute(sql);
+};
 
 Migration.removeIndex = function(tableName, columnName) {
 	var sql = 'DROP INDEX IF EXISTS ' + tableName + '_' + columnName + '_index';
-	Adapter.execute(sql);
-}
+	SQLAdapter.execute(sql);
+};
 
 this.Migration = Migration;
 })();
-

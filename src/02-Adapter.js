@@ -61,15 +61,6 @@ var Adapter = Class.extend({
 	}
 });
 
-Adapter.adapters = [];
-
-Adapter.getAdapter = function() {
-	if (0 === this.adapters.length) {
-		this.adapters.push(new this);
-	}
-	return this.adapters[0];
-};
-
 this.Adapter = Adapter;
 
 })();

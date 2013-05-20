@@ -5,11 +5,11 @@ var Migration = {};
 Migration.schema = Model.create({
 	table: 'schema_definitions',
 	primaryKeys : ['id'],
-	columns: {
-		id: 'INTEGER',
-		table_name: 'TEXT',
-		column_names: 'TEXT',
-		column_types: 'TEXT'
+	fields: {
+		id: Model.FIELD_TYPE_INTEGER,
+		table_name: Model.FIELD_TYPE_TEXT,
+		column_names: Model.FIELD_TYPE_INTEGER,
+		column_types: Model.FIELD_TYPE_INTEGER
 	}
 });
 
@@ -24,11 +24,11 @@ Migration.migrate = function(options) {
 	// Drop tables
 	if (options.refresh) {
 		for (tableName in Model.models){
-			Adapter.execute('DROP TABLE IF EXISTS ' + tableName);
+			SQLAdapter.execute('DROP TABLE IF EXISTS ' + tableName);
 //				Migration.each(model.options.hasAndBelongsToMany, function(assocTable) {
 //					var mappingTable = [model.table, assocTable].sort().toString().replace(',', '_');
 //					var sql = 'DROP TABLE IF EXISTS ' + mappingTable;
-//					Adapter.execute(sql);
+//					SQLAdapter.execute(sql);
 //				});
 		}
 		Migration.setupSchema(true);
@@ -45,9 +45,9 @@ Migration.migrate = function(options) {
 		targetVersion = Infinity;
 
 		// did user specify a migration number?
-		if(options.number !== null && typeof options.number !== 'undefined')
+		if (options.number !== null && typeof options.number !== 'undefined')
 			targetVersion = options.number;
-		else if(typeof options === 'number')
+		else if (typeof options === 'number')
 			targetVersion = options;
 
 		// actually handle a migrations object
@@ -55,14 +55,14 @@ Migration.migrate = function(options) {
 
 		do {
 			// schema is already up to date
-			if(i === targetVersion) {
+			if (i === targetVersion) {
 				// up to date
 				return;
 			}
 			// migrate up
-			else if(i < targetVersion) {
+			else if (i < targetVersion) {
 				i += 1;
-				if(migrations[i] !== null && typeof migrations[i] !== 'undefined')
+				if (migrations[i] !== null && typeof migrations[i] !== 'undefined')
 					migrations[i].up();
 				else
 					break;
@@ -78,13 +78,13 @@ Migration.migrate = function(options) {
 		// developer can choose to use automigrations while in dev mode
 //		Migration.models.each(function(model) {
 //			var sql = 'CREATE TABLE IF NOT EXISTS ' + model.table + '(id INTEGER PRIMARY KEY AUTOINCREMENT';
-//			for (var colName in model.options.columns) {
-//				var colType = model.options.columns[colName];
-//				if(colName !== 'id')
+//			for (var colName in model._fields) {
+//				var colType = model._fields[colName];
+//				if (colName !== 'id')
 //					sql += (', ' + colName + ' ' + colType.toUpperCase());
 //			}
 //			sql += ')';
-//			Adapter.execute(sql);
+//			SQLAdapter.execute(sql);
 
 //			Migration.each(model.options.hasAndBelongsToMany, function(assocTable, association) {
 //				var mappingTable = [model.table, assocTable].sort().toString().replace(',', '_');
@@ -92,15 +92,15 @@ Migration.migrate = function(options) {
 //				var foreignKey = Migration.models.get(assocTable).options.foreignKey;
 //				var keys = [localKey, foreignKey].sort();
 //				var sql = 'CREATE TABLE IF NOT EXISTS ' + mappingTable + '(' + keys[0] + ' INTEGER, ' + keys[1] + ' INTEGER)';
-//				Adapter.execute(sql);
+//				SQLAdapter.execute(sql);
 //			});
 //
-//			model.options.columns.id = 'INTEGER';
+//			model._fields.id = 'INTEGER';
 //		});
 	}
 
 	// handle fixture data, if passed in fixtures erase all old data
-//	if(options && options.refresh && Migration.fixtures)
+//	if (options && options.refresh && Migration.fixtures)
 //		Migration.loadFixtures();
 };
 
@@ -112,14 +112,14 @@ Migration.migrate = function(options) {
 //		});
 //	});
 //
-//	if(!fixtures.mappingTables)
+//	if (!fixtures.mappingTables)
 //		return;
 //
 //	Migration.each(fixtures.mappingTables, function(tableData, tableName) {
 //		Migration.each(tableData, function(colData) {
 //			var dataHash = new Migration.Hash(colData);
 //			var sql = 'INSERT INTO ' + tableName + ' (' + dataHash.getKeys().toString() + ') VALUES(' + dataHash.getValues().toString() + ')';
-//			Adapter.execute(sql);
+//			SQLAdapter.execute(sql);
 //		});
 //	});
 //};
@@ -129,26 +129,26 @@ Migration.migrate = function(options) {
 Migration.setupSchema = function(force) {
 	var sql;
 	Migration.createTable('schema_migrations', {
-		version: 'TEXT'
+		version: Model.FIELD_TYPE_TEXT
 	});
-	if(Adapter.count('SELECT * FROM schema_migrations') === 0) {
+	if (SQLAdapter.count('SELECT * FROM schema_migrations') === 0) {
 		sql = 'INSERT INTO schema_migrations (version) VALUES(0)';
-		Adapter.execute(sql);
+		SQLAdapter.execute(sql);
 	}
-	if(force && Adapter.count('SELECT * FROM schema_migrations') === 1) {
+	if (force && SQLAdapter.count('SELECT * FROM schema_migrations') === 1) {
 		sql = 'UPDATE schema_migrations set version = 0';
-		Adapter.execute(sql);
+		SQLAdapter.execute(sql);
 	}
 	Migration.createTable('schema_definitions', {
-		id: 'INTEGER',
-		table_name: 'TEXT',
-		column_names: 'TEXT',
-		column_types: 'TEXT'
+		id: Model.FIELD_TYPE_INTEGER,
+		table_name: Model.FIELD_TYPE_TEXT,
+		column_names: Model.FIELD_TYPE_INTEGER,
+		column_types: Model.FIELD_TYPE_INTEGER
 	});
 };
 
 Migration.writeSchema = function(tableName, cols) {
-	if(tableName === 'schema_definitions' || tableName === 'schema_migrations')
+	if (tableName === 'schema_definitions' || tableName === 'schema_migrations')
 		return;
 	var keys = [],
 		values = [],
@@ -163,13 +163,13 @@ Migration.writeSchema = function(tableName, cols) {
 	names = keys.join();
 	types = keys.join();
 	table = Migration.schema.findBy('table_name', tableName);
-	if(table) {
+	if (table) {
 		table.column_names = names;
 		table.column_types = types;
 		table.save();
 	} else {
 		table = new Migration.schema;
-		table.fromArray({
+		table.setValues({
 			table_name: tableName,
 			column_names: names,
 			column_types: types
@@ -179,7 +179,7 @@ Migration.writeSchema = function(tableName, cols) {
 };
 
 Migration.readSchema = function(tableName) {
-	if(tableName === 'schema_definitions' || tableName === 'schema_migrations')
+	if (tableName === 'schema_definitions' || tableName === 'schema_migrations')
 		return null;
 	var table = Migration.schema.findBy('table_name', tableName),
 		column_names = table.column_names.split(','),
@@ -198,16 +198,16 @@ Migration.readSchema = function(tableName) {
 Migration.currentSchemaVersion = function() {
 	var sql = 'SELECT version FROM schema_migrations LIMIT 1';
 
-	return parseInt(Adapter.execute(sql)[0].version, 10);
+	return parseInt(SQLAdapter.execute(sql)[0].version, 10);
 };
 
 Migration.updateSchemaVersion = function(number) {
 	var sql = 'UPDATE schema_migrations SET version = ' + number;
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 };
 
 Migration.modifyColumn = function(tableName, columnName, options) {
-//
+
 	if (!options) {
 		throw new Error('MIGRATION_EXCEPTION: Not a valid column modification');
 	}
@@ -221,12 +221,12 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 		colType = oldCols[colName];
 		switch(options['modification']) {
 			case 'remove':
-				if(colName !== columnName)
+				if (colName !== columnName)
 					newCols[colName] = colType;
 				break;
 
 			case 'rename':
-				if(colName !== columnName) {
+				if (colName !== columnName) {
 					newCols[colName] = colType;
 				}
 				else {
@@ -235,7 +235,7 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 				break;
 
 			case 'change':
-				if(colName !== columnName) {
+				if (colName !== columnName) {
 					newCols[colName] = colType;
 				}
 				else {
@@ -248,8 +248,8 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 		}
 	}
 
-	Adapter.transaction(function() {
-		var records = Adapter.execute('SELECT * FROM ' + tableName);
+	SQLAdapter.transaction(function() {
+		var records = SQLAdapter.execute('SELECT * FROM ' + tableName);
 		if (records.length !== 0) {
 			throw new Error('Modify column not quite ready yet...');
 		}
@@ -259,18 +259,18 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 
 		for (var i = 0, len = records.length; i < len; ++i) {
 			 var record = records[i];
-			 switch(options.modification) {
+			 switch (options.modification) {
 				 case 'remove':
 					 delete record[columnName];
-					 Model.insert(tableName, record, Adapter.getConnection());
+					 Model.insert(tableName, record, SQLAdapter.getConnection());
 					 break;
 				 case 'rename':
 					 record[options.newName] = record[columnName];
 					 delete record[columnName];
-					 Model.insert(tableName, record, Adapter.getConnection());
+					 Model.insert(tableName, record, SQLAdapter.getConnection());
 					 break;
 				 case 'change':
-					 Model.insert(tableName, record, Adapter.getConnection());
+					 Model.insert(tableName, record, SQLAdapter.getConnection());
 					 break;
 				 default:
 					 throw('MIGRATION_EXCEPTION: Not a valid column modification');
@@ -283,7 +283,7 @@ Migration.modifyColumn = function(tableName, columnName, options) {
 // used in actual migrations
 
 Migration.createTable = function(name, columns) {
-	if(!name || !columns) {
+	if (!name || !columns) {
 		return;
 	}
 	var sql = 'CREATE TABLE IF NOT EXISTS ' + name + "\n",
@@ -298,21 +298,21 @@ Migration.createTable = function(name, columns) {
 			sql += ",\n";
 		}
 		sql += (colName + ' ' + colType);
-		if (colName === 'id') {
+		if (colType === Model.FIELD_TYPE_INTEGER && colName === 'id') {
 			sql += ' PRIMARY KEY AUTOINCREMENT';
 		}
 		++i;
 	}
 	sql += ')';
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 
 	Migration.writeSchema(name, columns);
-}
+};
 
 Migration.dropTable = function(name) {
 	var sql = 'DROP TABLE IF EXISTS ' + name,
 		schemaTable;
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 	schemaTable = Migration.schema.findBy('table_name', name);
 	schemaTable.destroy();
 };
@@ -320,7 +320,7 @@ Migration.dropTable = function(name) {
 Migration.renameTable = function(oldName, newName) {
 	var sql = 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName,
 		schemaTable;
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 	schemaTable = Migration.schema.findBy('table_name', oldName);
 	schemaTable.table_name = newName;
 	schemaTable.save();
@@ -329,7 +329,7 @@ Migration.renameTable = function(oldName, newName) {
 Migration.addColumn = function(tableName, columnName, dataType) {
 	var sql = 'ALTER TABLE ' + tableName + ' ADD COLUMN ' + columnName + ' ' + dataType,
 		cols;
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 	cols = Migration.readSchema(tableName);
 	cols[columnName] = dataType;
 	Migration.writeSchema(tableName, cols);
@@ -359,12 +359,12 @@ Migration.changeColumn = function(tableName, columnName, type) {
 
 Migration.addIndex = function(tableName, columnName, unique) {
 	var sql = 'CREATE' + (unique ? ' UNIQUE ' : ' ') + 'INDEX IF NOT EXISTS ' + tableName + '_' + columnName + '_index ON ' + tableName + ' (' + columnName + ')';
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 };
 
 Migration.removeIndex = function(tableName, columnName) {
 	var sql = 'DROP INDEX IF EXISTS ' + tableName + '_' + columnName + '_index';
-	Adapter.execute(sql);
+	SQLAdapter.execute(sql);
 };
 
 this.Migration = Migration;

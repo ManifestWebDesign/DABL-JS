@@ -14,8 +14,6 @@ var SQLAdapter = Adapter.extend({
 	 * @returns Array of Objects
 	 */
 	execute: function(sql, params) {
-		return [];
-
 		if (!params && sql instanceof QueryStatement) {
 			sql = sql.setConnection(this);
 			return sql.bindAndExecute();
@@ -51,7 +49,7 @@ var SQLAdapter = Adapter.extend({
 			return rows;
 		}
 
-		while(rs.isValidRow()) {
+		while (rs.isValidRow()) {
 			row = {};
 			for(i = 0, j = rs.getFieldCount(); i < j; ++i) {
 				field = rs.getFieldName(i);
@@ -84,7 +82,6 @@ var SQLAdapter = Adapter.extend({
 	},
 
 	lastInsertId: function() {
-		return 1;
 		return this._db.lastInsertRowId;
 	},
 
@@ -158,7 +155,7 @@ var SQLAdapter = Adapter.extend({
 	},
 
 	findQuery: function(model) {
-		var a = arguments,
+		var a = Array.prototype.slice.call(arguments),
 			q = new Query().setTable(model.getTableName());
 		a.shift();
 		var len = a.length;
@@ -189,7 +186,7 @@ var SQLAdapter = Adapter.extend({
 			if (len === pks.len) {
 				for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
 					var pk = pks[x],
-					pkVal = arguments[x];
+					pkVal = a[x];
 
 					if (pkVal === null || typeof pkVal === 'undefined') {
 						return null;
@@ -203,15 +200,15 @@ var SQLAdapter = Adapter.extend({
 		return q;
 	},
 
-	find: function(model){
+	find: function(model) {
 		var q = this.findQuery
 			.apply(this, arguments)
 			.setLimit(1);
-		return this.select(q).shift();
+		return this.select(model, q).shift() || null;
 	},
 
 	findAll: function(model) {
-		return this.select(this.findQuery.apply(this, arguments));
+		return this.select(model, this.findQuery.apply(this, arguments));
 	},
 
 	/**
@@ -328,16 +325,16 @@ var SQLAdapter = Adapter.extend({
 			placeholders = [],
 			statement = new QueryStatement(this),
 			queryString,
-			column,
+			field,
 			value,
 			result,
 			id,
 			def = new Deferred();
 
-		for (column in model._columns) {
-			value = instance[column];
+		for (field in model._fields) {
+			value = instance[field];
 			if (value === null) {
-				if (!instance.isColumnModified(column)) {
+				if (!instance.isModified(field)) {
 					continue;
 				}
 			} else if (value instanceof Date) {
@@ -347,7 +344,7 @@ var SQLAdapter = Adapter.extend({
 					value = this.formatDateTime(value);
 				}
 			}
-			fields.push(column);
+			fields.push(field);
 			values.push(value);
 			placeholders.push('?');
 		}
@@ -380,7 +377,7 @@ var SQLAdapter = Adapter.extend({
 			q = new Query,
 			model = instance.constructor,
 			pks = model._primaryKeys,
-			modColumns = instance.getModifiedColumns(),
+			modFields = instance.getModified(),
 			x,
 			len,
 			modCol,
@@ -388,11 +385,17 @@ var SQLAdapter = Adapter.extend({
 			pkVal,
 			value;
 
+		if (!instance.isModified()) {
+			var def = new Deferred();
+			def.resolve();
+			return def.promise();
+		}
+
 		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
 		}
 
-		for (modCol in modColumns) {
+		for (modCol in modFields) {
 			value = instance[modCol];
 			if (value instanceof Date) {
 				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
@@ -408,7 +411,7 @@ var SQLAdapter = Adapter.extend({
 			pk = pks[x];
 			pkVal = instance[pk];
 			if (pkVal === null) {
-				throw new Error('Cannot delete using NULL primary key.');
+				throw new Error('Cannot destroy using NULL primary key.');
 			}
 			q.addAnd(pk, pkVal);
 		}
@@ -436,7 +439,7 @@ var SQLAdapter = Adapter.extend({
 			pk = pks[x];
 			pkVal = instance[pk];
 			if (pkVal === null) {
-				throw new Error('Cannot delete using NULL primary key.');
+				throw new Error('Cannot destroy using NULL primary key.');
 			}
 			q.addAnd(pk, pkVal);
 		}

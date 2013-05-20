@@ -1,18 +1,89 @@
 (function($){
+
+function encodeUriSegment(val) {
+	return encodeUriQuery(val, true).
+	replace(/%26/gi, '&').
+	replace(/%3D/gi, '=').
+	replace(/%2B/gi, '+');
+}
+
+function encodeUriQuery(val, pctEncodeSpaces) {
+	return encodeURIComponent(val).
+	replace(/%40/gi, '@').
+	replace(/%3A/gi, ':').
+	replace(/%24/g, '$').
+	replace(/%2C/gi, ',').
+	replace((pctEncodeSpaces ? null : /%20/g), '+');
+}
+
+function Route(template, defaults) {
+	this.template = template = template + '#';
+	this.defaults = defaults || {};
+	var urlParams = this.urlParams = {},
+		parts = template.split(/\W/);
+	for (var i = 0, l = parts.length; i < l; ++i) {
+		var param = parts[i];
+		if (param && template.match(new RegExp("[^\\\\]:" + param + "\\W"))) {
+			urlParams[param] = true;
+		}
+	}
+	this.template = template.replace(/\\:/g, ':');
+}
+
+Route.prototype = {
+	url: function(params) {
+		var self = this,
+		url = this.template,
+		val,
+		encodedVal;
+
+		params = params || {};
+		for (var urlParam in this.urlParams) {
+			val = typeof params[urlParam] !== 'undefined' || params.hasOwnProperty(urlParam) ? params[urlParam] : self.defaults[urlParam];
+			if (typeof val !== 'undefined' && val !== null) {
+				encodedVal = encodeUriSegment(val);
+				url = url.replace(new RegExp(":" + urlParam + "(\\W)", "g"), encodedVal + "$1");
+			} else {
+				url = url.replace(new RegExp("(\/?):" + urlParam + "(\\W)", "g"), function(match,
+					leadingSlashes, tail) {
+					if (tail.charAt(0) === '/') {
+						return tail;
+					} else {
+						return leadingSlashes + tail;
+					}
+				});
+			}
+		}
+		return url;
+	}
+};
+
 var RESTAdapter = Adapter.extend({
 
+	routes: {},
+
+	route: function(url) {
+		if (!url) {
+			throw new Error('Cannot create RESTful route for empty url.');
+		}
+		if (this.routes[url]) {
+			return this.routes[url];
+		}
+		return this.routes[url] = new Route(url);
+	},
+
 	insert: function(instance) {
-		var column,
+		var field,
 			model = instance.constructor,
 			value,
-			route = model._route,
+			route = this.route(model._url),
 			data = {},
 			def = new Deferred();
 
-		for (column in model._columns) {
-			value = instance[column];
+		for (field in model._fields) {
+			value = instance[field];
 			if (value === null) {
-				if (!instance.isColumnModified(column)) {
+				if (!instance.isModified(field)) {
 					continue;
 				} else {
 					value = '';
@@ -24,7 +95,7 @@ var RESTAdapter = Adapter.extend({
 					value = this.formatDateTime(value);
 				}
 			}
-			data[column] = value;
+			data[field] = value;
 		}
 
 		$.post(route.url(this), data, function(r){
@@ -49,14 +120,19 @@ var RESTAdapter = Adapter.extend({
 
 	update: function(instance) {
 		var data = {},
-			modColumns = instance.getModifiedColumns(),
+			modFields = instance.getModified(),
 			model = instance.constructor,
-			route = model._route,
+			route = this.route(model._url),
 			x,
 			pks = model.getPrimaryKeys(),
 			modCol,
 			value,
 			def = new Deferred();
+
+		if (!instance.isModified()) {
+			def.resolve();
+			return def.promise();
+		}
 
 		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
@@ -69,8 +145,8 @@ var RESTAdapter = Adapter.extend({
 			return def.promise();
 		}
 
-		for (x in modColumns) {
-			modCol = modColumns[x];
+		for (x in modFields) {
+			modCol = modFields[x];
 			value = this[modCol];
 			if (value === null) {
 				value = '';
@@ -107,7 +183,7 @@ var RESTAdapter = Adapter.extend({
 	destroy: function(instance) {
 		var model = instance.constructor,
 			pks = model.getPrimaryKeys(),
-			route = model._route,
+			route = this.route(model._url),
 			def = new Deferred();
 
 		if (pks.length === 0) {
@@ -146,7 +222,7 @@ var RESTAdapter = Adapter.extend({
 
 	find: function(model, id) {
 		var pk = model.getPrimaryKey(),
-			route = model._route,
+			route = this.route(model._url),
 			data = {},
 			def = new Deferred();
 
@@ -164,7 +240,6 @@ var RESTAdapter = Adapter.extend({
 			}
 			var instance = null;
 			if (r !== null) {
-//				console.log(r);
 				instance = new model;
 				instance.fromJSON(r);
 				instance.setNew(false);
@@ -183,7 +258,7 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	findAll: function(model) {
-		var route = model._route,
+		var route = this.route(model._url),
 			data = {},
 			def = new Deferred();
 		$.get(route.url(data), function(r) {
@@ -198,9 +273,6 @@ var RESTAdapter = Adapter.extend({
 				}
 			}
 			def.resolve(collection);
-//				var instance = new model;
-//				instance.fromJSON(r[model.getTableName()]);
-//				onSuccess.apply(model, [instance]);
 		})
 		.fail(function(jqXHR, textStatus, errorThrown){
 			def.reject({
