@@ -1457,7 +1457,7 @@ Query.prototype = {
 		}
 
 		this.setAction(Query.ACTION_COUNT);
-		return parseInt(this.getQuery(conn).bindAndExecute()[0], 10);
+		return parseInt(this.getQuery(conn).bindAndExecute()[0], 10) || 0;
 	},
 
 	/**
@@ -1472,7 +1472,7 @@ Query.prototype = {
 		}
 
 		this.setAction(Query.ACTION_DELETE);
-		return this.getQuery(conn).bindAndExecute().rowsAffected;
+		return this.getQuery(conn).bindAndExecute().rowsAffected || 0;
 	},
 
 	/**

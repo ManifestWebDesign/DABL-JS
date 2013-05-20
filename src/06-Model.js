@@ -513,7 +513,7 @@ Model.prototype.fromJSON = Model.prototype.setValues;
 Model.prototype.toArray = Model.prototype.getValues;
 Model.prototype.fromArray = Model.prototype.setValues;
 
-var adapterMethods = ['count', 'findAll', 'find'];
+var adapterMethods = ['countAll', 'findAll', 'find', 'destroyAll', 'updateAll'];
 
 for (var i = 0, l = adapterMethods.length; i < l; ++i) {
 	var method = adapterMethods[i];
@@ -538,12 +538,12 @@ Model.addField = function(object, field, colType) {
 		return;
 	}
 	var get = function() {
-		var value = this._privateValues[field];
+		var value = this._values[field];
 		return typeof value === 'undefined' ? null : value;
 	};
 
 	var set = function(value) {
-		this._privateValues[field] = this.coerceValue(field, value, colType);
+		this._values[field] = this.coerceValue(field, value, colType);
 	};
 
 	if (Object.defineProperty) {

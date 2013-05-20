@@ -66,7 +66,7 @@ var SQLAdapter = Adapter.extend({
 	count: function(sql, params) {
 		sql = 'SELECT COUNT(0) AS rCount FROM (' + sql + ') AS a';
 		var rows = this.execute(sql, params);
-		return parseInt(rows[0].rCount, 10);
+		return parseInt(rows[0].rCount, 10) || 0;
 	},
 
 	transaction: function(inTransactionCallBack){
@@ -269,10 +269,7 @@ var SQLAdapter = Adapter.extend({
 		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
-		var def = new Deferred();
-		q.destroy(this);
-		def.resolve();
-		return def.promise();
+		return q.destroy(q);
 	},
 
 	/**
@@ -291,8 +288,7 @@ var SQLAdapter = Adapter.extend({
 			statement = new QueryStatement(this),
 			x,
 			queryString,
-			whereClause = q.getWhereClause(this),
-			def = new Deferred();
+			whereClause = q.getWhereClause(this);
 
 		for (x in data) {
 			fields.push(this.quoteIdentifier(x) + ' = ?');
@@ -301,8 +297,7 @@ var SQLAdapter = Adapter.extend({
 
 		//If array is empty there is nothing to update
 		if (fields.length === 0) {
-			def.resolve();
-			return def.promise();
+			return 0;
 		}
 
 		queryString = 'UPDATE ' + quotedTable + ' SET ' + fields.join(', ') + ' WHERE ' + whereClause.getString();
@@ -310,10 +305,9 @@ var SQLAdapter = Adapter.extend({
 		statement.setString(queryString);
 		statement.setParams(values);
 		statement.addParams(whereClause.getParams());
-		statement.bindAndExecute();
+		var result = statement.bindAndExecute();
 
-		def.resolve();
-		return def.promise();
+		return result.rowsAffected || 0;
 	},
 
 	insert: function(instance) {
@@ -328,8 +322,7 @@ var SQLAdapter = Adapter.extend({
 			field,
 			value,
 			result,
-			id,
-			def = new Deferred();
+			id;
 
 		for (field in model._fields) {
 			value = instance[field];
@@ -356,7 +349,6 @@ var SQLAdapter = Adapter.extend({
 		statement.setParams(values);
 
 		result = statement.bindAndExecute();
-//		count = result.rowsAffected;
 
 		if (pk && model.isAutoIncrement()) {
 			id = this.lastInsertId();
@@ -368,8 +360,7 @@ var SQLAdapter = Adapter.extend({
 		instance.resetModified();
 		instance.setNew(false);
 
-		def.resolve();
-		return def.promise();
+		return result.rowsAffected;
 	},
 
 	update: function(instance) {
@@ -386,9 +377,7 @@ var SQLAdapter = Adapter.extend({
 			value;
 
 		if (!instance.isModified()) {
-			var def = new Deferred();
-			def.resolve();
-			return def.promise();
+			return 0;
 		}
 
 		if (pks.length === 0) {
@@ -416,11 +405,10 @@ var SQLAdapter = Adapter.extend({
 			q.addAnd(pk, pkVal);
 		}
 
-		var promise = this.updateAll(model, data, q);
-		promise.then(function(){
-			instance.resetModified();
-		});
-		return promise;
+		var count = this.updateAll(model, data, q);
+		instance.resetModified();
+
+		return count;
 	},
 
 	destroy: function(instance) {

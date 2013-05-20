@@ -440,753 +440,7 @@ this.Adapter = Adapter;
 
 })();
 
-/* 03-RESTAdapter.js */
-(function($){
-
-function encodeUriSegment(val) {
-	return encodeUriQuery(val, true).
-	replace(/%26/gi, '&').
-	replace(/%3D/gi, '=').
-	replace(/%2B/gi, '+');
-}
-
-function encodeUriQuery(val, pctEncodeSpaces) {
-	return encodeURIComponent(val).
-	replace(/%40/gi, '@').
-	replace(/%3A/gi, ':').
-	replace(/%24/g, '$').
-	replace(/%2C/gi, ',').
-	replace((pctEncodeSpaces ? null : /%20/g), '+');
-}
-
-function Route(template, defaults) {
-	this.template = template = template + '#';
-	this.defaults = defaults || {};
-	var urlParams = this.urlParams = {},
-		parts = template.split(/\W/);
-	for (var i = 0, l = parts.length; i < l; ++i) {
-		var param = parts[i];
-		if (param && template.match(new RegExp("[^\\\\]:" + param + "\\W"))) {
-			urlParams[param] = true;
-		}
-	}
-	this.template = template.replace(/\\:/g, ':');
-}
-
-Route.prototype = {
-	url: function(params) {
-		var self = this,
-		url = this.template,
-		val,
-		encodedVal;
-
-		params = params || {};
-		for (var urlParam in this.urlParams) {
-			val = typeof params[urlParam] !== 'undefined' || params.hasOwnProperty(urlParam) ? params[urlParam] : self.defaults[urlParam];
-			if (typeof val !== 'undefined' && val !== null) {
-				encodedVal = encodeUriSegment(val);
-				url = url.replace(new RegExp(":" + urlParam + "(\\W)", "g"), encodedVal + "$1");
-			} else {
-				url = url.replace(new RegExp("(\/?):" + urlParam + "(\\W)", "g"), function(match,
-					leadingSlashes, tail) {
-					if (tail.charAt(0) === '/') {
-						return tail;
-					} else {
-						return leadingSlashes + tail;
-					}
-				});
-			}
-		}
-		return url;
-	}
-};
-
-var RESTAdapter = Adapter.extend({
-
-	routes: {},
-
-	route: function(url) {
-		if (!url) {
-			throw new Error('Cannot create RESTful route for empty url.');
-		}
-		if (this.routes[url]) {
-			return this.routes[url];
-		}
-		return this.routes[url] = new Route(url);
-	},
-
-	insert: function(instance) {
-		var field,
-			model = instance.constructor,
-			value,
-			route = this.route(model._url),
-			data = {},
-			def = new Deferred();
-
-		for (field in model._fields) {
-			value = instance[field];
-			if (value === null) {
-				if (!instance.isModified(field)) {
-					continue;
-				} else {
-					value = '';
-				}
-			} else if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
-			}
-			data[field] = value;
-		}
-
-		$.post(route.url(this), data, function(r){
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
-				return;
-			}
-			instance.fromJSON(r);
-			instance.resetModified();
-			instance.setNew(false);
-			def.resolve(r);
-		}, 'json')
-		.fail(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				xhr: jqXHR,
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
-		return def.promise();
-	},
-
-	update: function(instance) {
-		var data = {},
-			modFields = instance.getModified(),
-			model = instance.constructor,
-			route = this.route(model._url),
-			x,
-			pks = model.getPrimaryKeys(),
-			modCol,
-			value,
-			def = new Deferred();
-
-		if (!instance.isModified()) {
-			def.resolve();
-			return def.promise();
-		}
-
-		if (pks.length === 0) {
-			throw new Error('This table has no primary keys');
-		}
-
-		if (instance[pks[0]] === null || instance[pks[0]] === 'undefined') {
-			def.reject({
-				errors: ['No ' + pks[0] + ' provided']
-			});
-			return def.promise();
-		}
-
-		for (x in modFields) {
-			modCol = modFields[x];
-			value = this[modCol];
-			if (value === null) {
-				value = '';
-			} else if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
-			}
-			data[modCol] = value;
-		}
-
-		data._method = 'PUT';
-		$.post(route.url(instance), data, function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
-				return;
-			}
-			instance.fromJSON(r);
-			instance.resetModified();
-			def.resolve(r);
-		}, 'json')
-		.fail(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				xhr: jqXHR,
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
-		return def.promise();
-	},
-
-	destroy: function(instance) {
-		var model = instance.constructor,
-			pks = model.getPrimaryKeys(),
-			route = this.route(model._url),
-			def = new Deferred();
-
-		if (pks.length === 0) {
-			throw new Error('This table has no primary keys');
-		}
-
-		if (pks.length > 1) {
-			throw new Error('Cannot save using REST if there is more than one primary key!');
-		}
-
-		if (instance[pks[0]] === null || instance[pks[0]] === 'undefined') {
-			def.reject({
-				errors: ['No ' + pks[0] + ' provided']
-			});
-			return def.promise();
-		}
-
-		var data = {};
-		data._method = 'DELETE';
-		$.post(route.url(instance), data, function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
-				return;
-			}
-			def.resolve(r);
-		}, 'json')
-		.fail(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				xhr: jqXHR,
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
-		return def.promise();
-	},
-
-	find: function(model, id) {
-		var pk = model.getPrimaryKey(),
-			route = this.route(model._url),
-			data = {},
-			def = new Deferred();
-
-		if (id === null || typeof id === 'undefined') {
-			def.reject({
-				errors: ['No ' + pk + ' provided']
-			});
-			return def.promise();
-		}
-		data[pk] = id;
-		$.get(route.url(data), function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
-				return;
-			}
-			var instance = null;
-			if (r !== null) {
-				instance = new model;
-				instance.fromJSON(r);
-				instance.setNew(false);
-				instance.resetModified();
-			}
-			def.resolve(instance);
-		})
-		.fail(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				xhr: jqXHR,
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
-		return def.promise();
-	},
-
-	findAll: function(model) {
-		var route = this.route(model._url),
-			data = {},
-			def = new Deferred();
-		$.get(route.url(data), function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
-				return;
-			}
-			var collection = [];
-			if (r instanceof Array) {
-				for (var x = 0, len = r.lenth; x < len; ++x) {
-					collection.push(new model().fromJSON(r[x]));
-				}
-			}
-			def.resolve(collection);
-		})
-		.fail(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				xhr: jqXHR,
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
-		return def.promise();
-	}
-
-});
-
-this.RESTAdapter = RESTAdapter;
-})(jQuery);
-
-/* 03-SQLAdapter.js */
-(function(){
-
-var SQLAdapter = Adapter.extend({
-
-	_db: null,
-
-	init: function SQLAdapter(db) {
-		this._db = db;
-	},
-
-	/**
-	 * Executes the SQL and returns an Array of Objects.  The Array has a
-	 * rowsAffected property added to it
-	 * @returns Array of Objects
-	 */
-	execute: function(sql, params) {
-		if (!params && sql instanceof QueryStatement) {
-			sql = sql.setConnection(this);
-			return sql.bindAndExecute();
-		}
-
-		var rs,
-			rows = [],
-			row,
-			i,
-			j,
-			field,
-			value;
-
-		if (params && (j = params.length) !== 0) {
-			for (i = 0; i < j; ++i) {
-				value = params[i];
-				if (value instanceof Date) {
-					if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-						params[i] = this.formatDate(value); // just a date
-					} else {
-						params[i] = this.formatDateTime(value);
-					}
-				}
-			}
-			rs = this._db.execute(sql, params);
-		} else {
-			rs = this._db.execute(sql);
-		}
-
-		rows.rowsAffected = this._db.rowsAffected;
-
-		if (null === rs) {
-			return rows;
-		}
-
-		while (rs.isValidRow()) {
-			row = {};
-			for(i = 0, j = rs.getFieldCount(); i < j; ++i) {
-				field = rs.getFieldName(i);
-				row[field] = rs.field(i);
-			}
-			rows.push(row);
-			rs.next();
-		}
-		rs.close();
-
-		return rows;
-	},
-
-	count: function(sql, params) {
-		sql = 'SELECT COUNT(0) AS rCount FROM (' + sql + ') AS a';
-		var rows = this.execute(sql, params);
-		return parseInt(rows[0].rCount, 10);
-	},
-
-	transaction: function(inTransactionCallBack){
-		// TODO: Titanium has a bug, so transactions don't work!
-			// this.execute('BEGIN');
-		// try {
-			inTransactionCallBack.apply(this);	inTransactionCallBack.apply(this);
-			// this.execute('END');
-		// } catch(e) {
-			// this.execute('ROLLBACK');
-			// throw e;
-		// }
-	},
-
-	lastInsertId: function() {
-		return this._db.lastInsertRowId;
-	},
-
-	quoteIdentifier: function(text) {
-		// don't do anything right now, but save this code for later if we need it
-		return text;
-//		if (text instanceof Array) {
-//			for (var x = 0, len = text.length; x < len; ++x) {
-//				text[x] = this.quoteIdentifier(text[x]);
-//			}
-//			return text;
-//		}
-//
-//		if (text.indexOf('[') != -1 || text.indexOf(' ') != -1 || text.indexOf('(') != -1 || text.indexOf('*') != -1) {
-//			return text;
-//		}
-//		return '[' + text.replace('.', '].[') + ']';
-	},
-
-	/**
-	 * @see		DABLPDO::applyLimit()
-	 */
-	applyLimit: function(sql, offset, limit) {
-		if ( limit > 0 ) {
-			sql = sql + "\nLIMIT " + limit + (offset > 0 ? ' OFFSET ' + offset : '');
-		} else if ( offset > 0 ) {
-			sql = sql + "\nLIMIT -1 OFFSET " + offset;
-		}
-		return sql;
-	},
-
-	/**
-	 * @param mixed value
-	 * @return mixed
-	 */
-	prepareInput: function(value) {
-		if (value instanceof Array) {
-			value = value.slice(0);
-			for (var x = 0, len = value.length; x < len; ++x) {
-				value[x] = this.prepareInput(value[x]);
-			}
-			return value;
-		}
-
-		if (value === true || value === false) {
-			return value ? 1 : 0;
-		}
-
-		if (value === null || typeof value === 'undefined') {
-			return 'NULL';
-		}
-
-		if (parseInt(value, 10) === value) {
-			return value;
-		}
-
-		if (value instanceof Date) {
-			if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-				// just a date
-				value = this.formatDate(value);
-			} else {
-				value = this.formatDateTime(value);
-			}
-		}
-
-		return this.quote(value);
-	},
-
-	quote: function(value) {
-		return "'" + value.replace("'", "''") + "'";
-	},
-
-	findQuery: function(model) {
-		var a = Array.prototype.slice.call(arguments),
-			q = new Query().setTable(model.getTableName());
-		a.shift();
-		var len = a.length;
-
-		if (len === 0) {
-			return q;
-		}
-		if (len === 1) {
-			if (!isNaN(parseInt(a[0], 10))) {
-				q.add(model.getPrimaryKey(), a[0]);
-			} else if (typeof a[0] === 'object') {
-				if (a[0] instanceof Query) {
-					q = a[0];
-				} else {
-					// hash
-				}
-			} else if (typeof a[0] === 'string') {
-				// where clause string
-				if (a[1] instanceof Array) {
-					// arguments
-				}
-			}
-		} else if (len === 2 && typeof a[0] === 'string') {
-			q.add(a[0], a[1]);
-		} else {
-			// if arguments list is greater than 1 and the first argument is not a string
-			var pks = model.getPrimaryKeys();
-			if (len === pks.len) {
-				for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
-					var pk = pks[x],
-					pkVal = a[x];
-
-					if (pkVal === null || typeof pkVal === 'undefined') {
-						return null;
-					}
-					q.add(pk, pkVal);
-				}
-			} else {
-				throw new Error('Find called with ' + len + ' arguments');
-			}
-		}
-		return q;
-	},
-
-	find: function(model) {
-		var q = this.findQuery
-			.apply(this, arguments)
-			.setLimit(1);
-		return this.select(model, q).shift() || null;
-	},
-
-	findAll: function(model) {
-		return this.select(model, this.findQuery.apply(this, arguments));
-	},
-
-	/**
-	 * Executes a select query and returns the PDO result
-	 * @return PDOStatement
-	 */
-	selectRS: function(model, q) {
-		q = q || new Query;
-		if (!q.getTable() || model.getTableName() !== q.getTable()) {
-			q.setTable(model.getTableName());
-		}
-		return q.select(this);
-	},
-
-	/**
-	 * Returns an array of objects of class class from
-	 * the rows of a PDOStatement(query result)
-	 *
-	 * @param result
-	 * @return Model[]
-	 */
-	fromResult: function(model, result) {
-		var objects = [],
-			i,
-			len,
-			object,
-			row,
-			fieldName;
-		for (i = 0, len = result.length; i < len; ++i) {
-			object = new model,
-			row = result[i];
-
-			for (fieldName in row) {
-				object[fieldName] = row[fieldName];
-			}
-			object.setNew(false);
-			objects.push(object);
-		}
-		return objects;
-	},
-
-	/**
-	 * @param q
-	 * @return int
-	 */
-	countAll: function(model, q) {
-		q = q instanceof Query ? q : new Query(q);
-		if (!q.getTable() || model.getTableName() !== q.getTable()) {
-			q.setTable(model.getTableName());
-		}
-		return q.count(this);
-	},
-
-	/**
-	 * @param q
-	 */
-	destroyAll: function(model, q) {
-		if (!q.getTable() || model.getTableName() !== q.getTable()) {
-			q.setTable(model.getTableName());
-		}
-		var def = new Deferred();
-		q.destroy(this);
-		def.resolve();
-		return def.promise();
-	},
-
-	/**
-	 * @param q The Query object that creates the SELECT query string
-	 * @return Model[]
-	 */
-	select: function(model, q) {
-		q = q instanceof Query ? q : new Query(q);
-		return this.fromResult(model, this.selectRS(model, q));
-	},
-
-	updateAll: function(model, data, q) {
-		var quotedTable = this.quoteIdentifier(model.getTableName()),
-			fields = [],
-			values = [],
-			statement = new QueryStatement(this),
-			x,
-			queryString,
-			whereClause = q.getWhereClause(this),
-			def = new Deferred();
-
-		for (x in data) {
-			fields.push(this.quoteIdentifier(x) + ' = ?');
-			values.push(data[x]);
-		}
-
-		//If array is empty there is nothing to update
-		if (fields.length === 0) {
-			def.resolve();
-			return def.promise();
-		}
-
-		queryString = 'UPDATE ' + quotedTable + ' SET ' + fields.join(', ') + ' WHERE ' + whereClause.getString();
-
-		statement.setString(queryString);
-		statement.setParams(values);
-		statement.addParams(whereClause.getParams());
-		statement.bindAndExecute();
-
-		def.resolve();
-		return def.promise();
-	},
-
-	insert: function(instance) {
-
-		var model = instance.constructor,
-			pk = model.getPrimaryKey(),
-			fields = [],
-			values = [],
-			placeholders = [],
-			statement = new QueryStatement(this),
-			queryString,
-			field,
-			value,
-			result,
-			id,
-			def = new Deferred();
-
-		for (field in model._fields) {
-			value = instance[field];
-			if (value === null) {
-				if (!instance.isModified(field)) {
-					continue;
-				}
-			} else if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
-			}
-			fields.push(field);
-			values.push(value);
-			placeholders.push('?');
-		}
-
-		queryString = 'INSERT INTO ' +
-			model.getTableName() + ' (' + fields.join(',') + ') VALUES (' + placeholders.join(',') + ') ';
-
-		statement.setString(queryString);
-		statement.setParams(values);
-
-		result = statement.bindAndExecute();
-//		count = result.rowsAffected;
-
-		if (pk && model.isAutoIncrement()) {
-			id = this.lastInsertId();
-			if (null !== id) {
-				instance[pk] = id;
-			}
-		}
-
-		instance.resetModified();
-		instance.setNew(false);
-
-		def.resolve();
-		return def.promise();
-	},
-
-	update: function(instance) {
-		var data = {},
-			q = new Query,
-			model = instance.constructor,
-			pks = model._primaryKeys,
-			modFields = instance.getModified(),
-			x,
-			len,
-			modCol,
-			pk,
-			pkVal,
-			value;
-
-		if (!instance.isModified()) {
-			var def = new Deferred();
-			def.resolve();
-			return def.promise();
-		}
-
-		if (pks.length === 0) {
-			throw new Error('This table has no primary keys');
-		}
-
-		for (modCol in modFields) {
-			value = instance[modCol];
-			if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
-			}
-			data[modCol] = value;
-		}
-
-		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x];
-			pkVal = instance[pk];
-			if (pkVal === null) {
-				throw new Error('Cannot destroy using NULL primary key.');
-			}
-			q.addAnd(pk, pkVal);
-		}
-
-		var promise = this.updateAll(model, data, q);
-		promise.then(function(){
-			instance.resetModified();
-		});
-		return promise;
-	},
-
-	destroy: function(instance) {
-		var pks = instance.constructor._primaryKeys,
-			q = new Query,
-			x,
-			len,
-			pk,
-			pkVal;
-
-		if (pks.length === 0) {
-			throw new Error('This table has no primary keys');
-		}
-
-		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x];
-			pkVal = instance[pk];
-			if (pkVal === null) {
-				throw new Error('Cannot destroy using NULL primary key.');
-			}
-			q.addAnd(pk, pkVal);
-		}
-
-		return this.destroyAll(instance.constructor, q);
-	}
-});
-
-this.SQLAdapter = SQLAdapter;
-})();
-
-/* 04-Query.js */
+/* 03-Query.js */
 (function(){
 
 function Condition(left, right, operator, quote) {
@@ -2646,7 +1900,7 @@ Query.prototype = {
 		}
 
 		this.setAction(Query.ACTION_COUNT);
-		return parseInt(this.getQuery(conn).bindAndExecute()[0], 10);
+		return parseInt(this.getQuery(conn).bindAndExecute()[0], 10) || 0;
 	},
 
 	/**
@@ -2661,7 +1915,7 @@ Query.prototype = {
 		}
 
 		this.setAction(Query.ACTION_DELETE);
-		return this.getQuery(conn).bindAndExecute().rowsAffected;
+		return this.getQuery(conn).bindAndExecute().rowsAffected || 0;
 	},
 
 	/**
@@ -3025,7 +2279,781 @@ this.QueryJoin = QueryJoin;
 
 })();
 
-/* 07-Model.js */
+/* 04-RESTAdapter.js */
+(function($){
+
+function encodeUriSegment(val) {
+	return encodeUriQuery(val, true).
+	replace(/%26/gi, '&').
+	replace(/%3D/gi, '=').
+	replace(/%2B/gi, '+');
+}
+
+function encodeUriQuery(val, pctEncodeSpaces) {
+	return encodeURIComponent(val).
+	replace(/%40/gi, '@').
+	replace(/%3A/gi, ':').
+	replace(/%24/g, '$').
+	replace(/%2C/gi, ',').
+	replace((pctEncodeSpaces ? null : /%20/g), '+');
+}
+
+function Route(template, defaults) {
+	this.template = template = template + '#';
+	this.defaults = defaults || {};
+	var urlParams = this.urlParams = {},
+		parts = template.split(/\W/);
+	for (var i = 0, l = parts.length; i < l; ++i) {
+		var param = parts[i];
+		if (param && template.match(new RegExp("[^\\\\]:" + param + "\\W"))) {
+			urlParams[param] = true;
+		}
+	}
+	this.template = template.replace(/\\:/g, ':');
+}
+
+Route.prototype = {
+	url: function(params) {
+		var self = this,
+		url = this.template,
+		val,
+		encodedVal;
+
+		params = params || {};
+		for (var urlParam in this.urlParams) {
+			val = typeof params[urlParam] !== 'undefined' || params.hasOwnProperty(urlParam) ? params[urlParam] : self.defaults[urlParam];
+			if (typeof val !== 'undefined' && val !== null) {
+				encodedVal = encodeUriSegment(val);
+				url = url.replace(new RegExp(":" + urlParam + "(\\W)", "g"), encodedVal + "$1");
+			} else {
+				url = url.replace(new RegExp("(\/?):" + urlParam + "(\\W)", "g"), function(match,
+					leadingSlashes, tail) {
+					if (tail.charAt(0) === '/') {
+						return tail;
+					} else {
+						return leadingSlashes + tail;
+					}
+				});
+			}
+		}
+		return url;
+	}
+};
+
+var RESTAdapter = Adapter.extend({
+
+	routes: {},
+
+	route: function(url) {
+		if (!url) {
+			throw new Error('Cannot create RESTful route for empty url.');
+		}
+		if (this.routes[url]) {
+			return this.routes[url];
+		}
+		return this.routes[url] = new Route(url);
+	},
+
+	insert: function(instance) {
+		var field,
+			model = instance.constructor,
+			value,
+			route = this.route(model._url),
+			data = {},
+			def = new Deferred();
+
+		for (field in model._fields) {
+			value = instance[field];
+			if (value === null) {
+				if (!instance.isModified(field)) {
+					continue;
+				} else {
+					value = '';
+				}
+			} else if (value instanceof Date) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
+					value = this.formatDate(value);
+				} else {
+					value = this.formatDateTime(value);
+				}
+			}
+			data[field] = value;
+		}
+
+		$.post(route.url(this), data, function(r){
+			if (!r || (r.errors && r.errors.length)) {
+				def.reject(r);
+				return;
+			}
+			instance.fromJSON(r);
+			instance.resetModified();
+			instance.setNew(false);
+			def.resolve(r);
+		}, 'json')
+		.fail(function(jqXHR, textStatus, errorThrown){
+			def.reject({
+				xhr: jqXHR,
+				status: textStatus,
+				errors: [errorThrown]
+			});
+		});
+		return def.promise();
+	},
+
+	update: function(instance) {
+		var data = {},
+			modFields = instance.getModified(),
+			model = instance.constructor,
+			route = this.route(model._url),
+			x,
+			pks = model.getPrimaryKeys(),
+			modCol,
+			value,
+			def = new Deferred();
+
+		if (!instance.isModified()) {
+			def.resolve();
+			return def.promise();
+		}
+
+		if (pks.length === 0) {
+			throw new Error('This table has no primary keys');
+		}
+
+		if (instance[pks[0]] === null || instance[pks[0]] === 'undefined') {
+			def.reject({
+				errors: ['No ' + pks[0] + ' provided']
+			});
+			return def.promise();
+		}
+
+		for (x in modFields) {
+			modCol = modFields[x];
+			value = this[modCol];
+			if (value === null) {
+				value = '';
+			} else if (value instanceof Date) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
+					value = this.formatDate(value);
+				} else {
+					value = this.formatDateTime(value);
+				}
+			}
+			data[modCol] = value;
+		}
+
+		data._method = 'PUT';
+		$.post(route.url(instance), data, function(r) {
+			if (!r || (r.errors && r.errors.length)) {
+				def.reject(r);
+				return;
+			}
+			instance.fromJSON(r);
+			instance.resetModified();
+			def.resolve(r);
+		}, 'json')
+		.fail(function(jqXHR, textStatus, errorThrown){
+			def.reject({
+				xhr: jqXHR,
+				status: textStatus,
+				errors: [errorThrown]
+			});
+		});
+		return def.promise();
+	},
+
+	destroy: function(instance) {
+		var model = instance.constructor,
+			pks = model.getPrimaryKeys(),
+			route = this.route(model._url),
+			def = new Deferred();
+
+		if (pks.length === 0) {
+			throw new Error('This table has no primary keys');
+		}
+
+		if (pks.length > 1) {
+			throw new Error('Cannot save using REST if there is more than one primary key!');
+		}
+
+		if (instance[pks[0]] === null || instance[pks[0]] === 'undefined') {
+			def.reject({
+				errors: ['No ' + pks[0] + ' provided']
+			});
+			return def.promise();
+		}
+
+		var data = {};
+		data._method = 'DELETE';
+		$.post(route.url(instance), data, function(r) {
+			if (!r || (r.errors && r.errors.length)) {
+				def.reject(r);
+				return;
+			}
+			def.resolve(r);
+		}, 'json')
+		.fail(function(jqXHR, textStatus, errorThrown){
+			def.reject({
+				xhr: jqXHR,
+				status: textStatus,
+				errors: [errorThrown]
+			});
+		});
+		return def.promise();
+	},
+
+	find: function(model, id) {
+		var pk = model.getPrimaryKey(),
+			route = this.route(model._url),
+			data = {},
+			def = new Deferred();
+
+		if (id === null || typeof id === 'undefined') {
+			def.reject({
+				errors: ['No ' + pk + ' provided']
+			});
+			return def.promise();
+		}
+		data[pk] = id;
+		$.get(route.url(data), function(r) {
+			if (!r || (r.errors && r.errors.length)) {
+				def.reject(r);
+				return;
+			}
+			var instance = null;
+			if (r !== null) {
+				instance = new model;
+				instance.fromJSON(r);
+				instance.setNew(false);
+				instance.resetModified();
+			}
+			def.resolve(instance);
+		})
+		.fail(function(jqXHR, textStatus, errorThrown){
+			def.reject({
+				xhr: jqXHR,
+				status: textStatus,
+				errors: [errorThrown]
+			});
+		});
+		return def.promise();
+	},
+
+	findAll: function(model) {
+		var route = this.route(model._url),
+			data = {},
+			def = new Deferred();
+		$.get(route.url(data), function(r) {
+			if (!r || (r.errors && r.errors.length)) {
+				def.reject(r);
+				return;
+			}
+			var collection = [];
+			if (r instanceof Array) {
+				for (var x = 0, len = r.lenth; x < len; ++x) {
+					collection.push(new model().fromJSON(r[x]));
+				}
+			}
+			def.resolve(collection);
+		})
+		.fail(function(jqXHR, textStatus, errorThrown){
+			def.reject({
+				xhr: jqXHR,
+				status: textStatus,
+				errors: [errorThrown]
+			});
+		});
+		return def.promise();
+	}
+
+});
+
+this.RESTAdapter = RESTAdapter;
+})(jQuery);
+
+/* 04-SQLAdapter.js */
+(function(){
+
+var SQLAdapter = Adapter.extend({
+
+	_db: null,
+
+	init: function SQLAdapter(db) {
+		this._db = db;
+	},
+
+	/**
+	 * Executes the SQL and returns an Array of Objects.  The Array has a
+	 * rowsAffected property added to it
+	 * @returns Array of Objects
+	 */
+	execute: function(sql, params) {
+		if (!params && sql instanceof QueryStatement) {
+			sql = sql.setConnection(this);
+			return sql.bindAndExecute();
+		}
+
+		var rs,
+			rows = [],
+			row,
+			i,
+			j,
+			field,
+			value;
+
+		if (params && (j = params.length) !== 0) {
+			for (i = 0; i < j; ++i) {
+				value = params[i];
+				if (value instanceof Date) {
+					if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
+						params[i] = this.formatDate(value); // just a date
+					} else {
+						params[i] = this.formatDateTime(value);
+					}
+				}
+			}
+			rs = this._db.execute(sql, params);
+		} else {
+			rs = this._db.execute(sql);
+		}
+
+		rows.rowsAffected = this._db.rowsAffected;
+
+		if (null === rs) {
+			return rows;
+		}
+
+		while (rs.isValidRow()) {
+			row = {};
+			for(i = 0, j = rs.getFieldCount(); i < j; ++i) {
+				field = rs.getFieldName(i);
+				row[field] = rs.field(i);
+			}
+			rows.push(row);
+			rs.next();
+		}
+		rs.close();
+
+		return rows;
+	},
+
+	count: function(sql, params) {
+		sql = 'SELECT COUNT(0) AS rCount FROM (' + sql + ') AS a';
+		var rows = this.execute(sql, params);
+		return parseInt(rows[0].rCount, 10) || 0;
+	},
+
+	transaction: function(inTransactionCallBack){
+		// TODO: Titanium has a bug, so transactions don't work!
+			// this.execute('BEGIN');
+		// try {
+			inTransactionCallBack.apply(this);	inTransactionCallBack.apply(this);
+			// this.execute('END');
+		// } catch(e) {
+			// this.execute('ROLLBACK');
+			// throw e;
+		// }
+	},
+
+	lastInsertId: function() {
+		return this._db.lastInsertRowId;
+	},
+
+	quoteIdentifier: function(text) {
+		// don't do anything right now, but save this code for later if we need it
+		return text;
+//		if (text instanceof Array) {
+//			for (var x = 0, len = text.length; x < len; ++x) {
+//				text[x] = this.quoteIdentifier(text[x]);
+//			}
+//			return text;
+//		}
+//
+//		if (text.indexOf('[') != -1 || text.indexOf(' ') != -1 || text.indexOf('(') != -1 || text.indexOf('*') != -1) {
+//			return text;
+//		}
+//		return '[' + text.replace('.', '].[') + ']';
+	},
+
+	/**
+	 * @see		DABLPDO::applyLimit()
+	 */
+	applyLimit: function(sql, offset, limit) {
+		if ( limit > 0 ) {
+			sql = sql + "\nLIMIT " + limit + (offset > 0 ? ' OFFSET ' + offset : '');
+		} else if ( offset > 0 ) {
+			sql = sql + "\nLIMIT -1 OFFSET " + offset;
+		}
+		return sql;
+	},
+
+	/**
+	 * @param mixed value
+	 * @return mixed
+	 */
+	prepareInput: function(value) {
+		if (value instanceof Array) {
+			value = value.slice(0);
+			for (var x = 0, len = value.length; x < len; ++x) {
+				value[x] = this.prepareInput(value[x]);
+			}
+			return value;
+		}
+
+		if (value === true || value === false) {
+			return value ? 1 : 0;
+		}
+
+		if (value === null || typeof value === 'undefined') {
+			return 'NULL';
+		}
+
+		if (parseInt(value, 10) === value) {
+			return value;
+		}
+
+		if (value instanceof Date) {
+			if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
+				// just a date
+				value = this.formatDate(value);
+			} else {
+				value = this.formatDateTime(value);
+			}
+		}
+
+		return this.quote(value);
+	},
+
+	quote: function(value) {
+		return "'" + value.replace("'", "''") + "'";
+	},
+
+	findQuery: function(model) {
+		var a = Array.prototype.slice.call(arguments),
+			q = new Query().setTable(model.getTableName());
+		a.shift();
+		var len = a.length;
+
+		if (len === 0) {
+			return q;
+		}
+		if (len === 1) {
+			if (!isNaN(parseInt(a[0], 10))) {
+				q.add(model.getPrimaryKey(), a[0]);
+			} else if (typeof a[0] === 'object') {
+				if (a[0] instanceof Query) {
+					q = a[0];
+				} else {
+					// hash
+				}
+			} else if (typeof a[0] === 'string') {
+				// where clause string
+				if (a[1] instanceof Array) {
+					// arguments
+				}
+			}
+		} else if (len === 2 && typeof a[0] === 'string') {
+			q.add(a[0], a[1]);
+		} else {
+			// if arguments list is greater than 1 and the first argument is not a string
+			var pks = model.getPrimaryKeys();
+			if (len === pks.len) {
+				for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
+					var pk = pks[x],
+					pkVal = a[x];
+
+					if (pkVal === null || typeof pkVal === 'undefined') {
+						return null;
+					}
+					q.add(pk, pkVal);
+				}
+			} else {
+				throw new Error('Find called with ' + len + ' arguments');
+			}
+		}
+		return q;
+	},
+
+	find: function(model) {
+		var q = this.findQuery
+			.apply(this, arguments)
+			.setLimit(1);
+		return this.select(model, q).shift() || null;
+	},
+
+	findAll: function(model) {
+		return this.select(model, this.findQuery.apply(this, arguments));
+	},
+
+	/**
+	 * Executes a select query and returns the PDO result
+	 * @return PDOStatement
+	 */
+	selectRS: function(model, q) {
+		q = q || new Query;
+		if (!q.getTable() || model.getTableName() !== q.getTable()) {
+			q.setTable(model.getTableName());
+		}
+		return q.select(this);
+	},
+
+	/**
+	 * Returns an array of objects of class class from
+	 * the rows of a PDOStatement(query result)
+	 *
+	 * @param result
+	 * @return Model[]
+	 */
+	fromResult: function(model, result) {
+		var objects = [],
+			i,
+			len,
+			object,
+			row,
+			fieldName;
+		for (i = 0, len = result.length; i < len; ++i) {
+			object = new model,
+			row = result[i];
+
+			for (fieldName in row) {
+				object[fieldName] = row[fieldName];
+			}
+			object.setNew(false);
+			objects.push(object);
+		}
+		return objects;
+	},
+
+	/**
+	 * @param q
+	 * @return int
+	 */
+	countAll: function(model, q) {
+		q = q instanceof Query ? q : new Query(q);
+		if (!q.getTable() || model.getTableName() !== q.getTable()) {
+			q.setTable(model.getTableName());
+		}
+		return q.count(this);
+	},
+
+	/**
+	 * @param q
+	 */
+	destroyAll: function(model, q) {
+		if (!q.getTable() || model.getTableName() !== q.getTable()) {
+			q.setTable(model.getTableName());
+		}
+		return q.destroy(q);
+	},
+
+	/**
+	 * @param q The Query object that creates the SELECT query string
+	 * @return Model[]
+	 */
+	select: function(model, q) {
+		q = q instanceof Query ? q : new Query(q);
+		return this.fromResult(model, this.selectRS(model, q));
+	},
+
+	updateAll: function(model, data, q) {
+		var quotedTable = this.quoteIdentifier(model.getTableName()),
+			fields = [],
+			values = [],
+			statement = new QueryStatement(this),
+			x,
+			queryString,
+			whereClause = q.getWhereClause(this);
+
+		for (x in data) {
+			fields.push(this.quoteIdentifier(x) + ' = ?');
+			values.push(data[x]);
+		}
+
+		//If array is empty there is nothing to update
+		if (fields.length === 0) {
+			return 0;
+		}
+
+		queryString = 'UPDATE ' + quotedTable + ' SET ' + fields.join(', ') + ' WHERE ' + whereClause.getString();
+
+		statement.setString(queryString);
+		statement.setParams(values);
+		statement.addParams(whereClause.getParams());
+		var result = statement.bindAndExecute();
+
+		return result.rowsAffected || 0;
+	},
+
+	insert: function(instance) {
+
+		var model = instance.constructor,
+			pk = model.getPrimaryKey(),
+			fields = [],
+			values = [],
+			placeholders = [],
+			statement = new QueryStatement(this),
+			queryString,
+			field,
+			value,
+			result,
+			id;
+
+		for (field in model._fields) {
+			value = instance[field];
+			if (value === null) {
+				if (!instance.isModified(field)) {
+					continue;
+				}
+			} else if (value instanceof Date) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
+					value = this.formatDate(value);
+				} else {
+					value = this.formatDateTime(value);
+				}
+			}
+			fields.push(field);
+			values.push(value);
+			placeholders.push('?');
+		}
+
+		queryString = 'INSERT INTO ' +
+			model.getTableName() + ' (' + fields.join(',') + ') VALUES (' + placeholders.join(',') + ') ';
+
+		statement.setString(queryString);
+		statement.setParams(values);
+
+		result = statement.bindAndExecute();
+
+		if (pk && model.isAutoIncrement()) {
+			id = this.lastInsertId();
+			if (null !== id) {
+				instance[pk] = id;
+			}
+		}
+
+		instance.resetModified();
+		instance.setNew(false);
+
+		return result.rowsAffected;
+	},
+
+	update: function(instance) {
+		var data = {},
+			q = new Query,
+			model = instance.constructor,
+			pks = model._primaryKeys,
+			modFields = instance.getModified(),
+			x,
+			len,
+			modCol,
+			pk,
+			pkVal,
+			value;
+
+		if (!instance.isModified()) {
+			return 0;
+		}
+
+		if (pks.length === 0) {
+			throw new Error('This table has no primary keys');
+		}
+
+		for (modCol in modFields) {
+			value = instance[modCol];
+			if (value instanceof Date) {
+				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
+					value = this.formatDate(value);
+				} else {
+					value = this.formatDateTime(value);
+				}
+			}
+			data[modCol] = value;
+		}
+
+		for (x = 0, len = pks.length; x < len; ++x) {
+			pk = pks[x];
+			pkVal = instance[pk];
+			if (pkVal === null) {
+				throw new Error('Cannot destroy using NULL primary key.');
+			}
+			q.addAnd(pk, pkVal);
+		}
+
+		var count = this.updateAll(model, data, q);
+		instance.resetModified();
+
+		return count;
+	},
+
+	destroy: function(instance) {
+		var pks = instance.constructor._primaryKeys,
+			q = new Query,
+			x,
+			len,
+			pk,
+			pkVal;
+
+		if (pks.length === 0) {
+			throw new Error('This table has no primary keys');
+		}
+
+		for (x = 0, len = pks.length; x < len; ++x) {
+			pk = pks[x];
+			pkVal = instance[pk];
+			if (pkVal === null) {
+				throw new Error('Cannot destroy using NULL primary key.');
+			}
+			q.addAnd(pk, pkVal);
+		}
+
+		return this.destroyAll(instance.constructor, q);
+	}
+});
+
+this.SQLAdapter = SQLAdapter;
+})();
+
+/* 05-AsyncSQLAdapter.js */
+(function(){
+
+var asyncMethods = [
+	'find',
+	'findAll',
+	'countAll',
+	'destroyAll',
+	'updateAll',
+	'insert',
+	'update',
+	'destroy'
+];
+
+var props = {
+	init: function AsyncSQLAdapter(db) {
+		this._db = db;
+	}
+};
+
+for (var x = 0, l = asyncMethods.length; x < l; ++x) {
+	var method = asyncMethods[x];
+	props[method] = function() {
+		var def = new Deferred();
+		try {
+			def.resolve(this._super.apply(this, arguments));
+		} catch (e) {
+			def.reject({
+				errors: [e]
+			});
+		}
+		return def.promise();
+	};
+}
+
+var AsyncSQLAdapter = SQLAdapter.extend(props);
+
+this.AsyncSQLAdapter = AsyncSQLAdapter;
+})();
+
+/* 06-Model.js */
 (function(){
 
 var Model = Class.extend({
@@ -3541,7 +3569,7 @@ Model.prototype.fromJSON = Model.prototype.setValues;
 Model.prototype.toArray = Model.prototype.getValues;
 Model.prototype.fromArray = Model.prototype.setValues;
 
-var adapterMethods = ['count', 'findAll', 'find'];
+var adapterMethods = ['countAll', 'findAll', 'find', 'destroyAll', 'updateAll'];
 
 for (var i = 0, l = adapterMethods.length; i < l; ++i) {
 	var method = adapterMethods[i];
@@ -3566,12 +3594,12 @@ Model.addField = function(object, field, colType) {
 		return;
 	}
 	var get = function() {
-		var value = this._privateValues[field];
+		var value = this._values[field];
 		return typeof value === 'undefined' ? null : value;
 	};
 
 	var set = function(value) {
-		this._privateValues[field] = this.coerceValue(field, value, colType);
+		this._values[field] = this.coerceValue(field, value, colType);
 	};
 
 	if (Object.defineProperty) {
@@ -3638,7 +3666,7 @@ Model.create = function(opts) {
 this.Model = Model;
 })();
 
-/* 08-Migration.js */
+/* 07-Migration.js */
 (function(){
 
 var Migration = {};
