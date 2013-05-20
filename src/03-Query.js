@@ -1191,12 +1191,12 @@ Query.prototype = {
 	/**
 	 * Builds and returns the query string
 	 *
-	 * @param conn Database connection to use
+	 * @param {SQLAdapter} conn
 	 * @return QueryStatement
 	 */
 	getQuery : function(conn) {
 		if (typeof conn === 'undefined') {
-			conn = new Adapter;
+			conn = new SQLAdapter;
 		}
 
 		// the QueryStatement for the Query
@@ -1281,6 +1281,7 @@ Query.prototype = {
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
+	 * @param {SQLAdapter} conn
 	 * @return QueryStatement
 	 */
 	getTablesClause : function(conn) {
@@ -1362,6 +1363,7 @@ Query.prototype = {
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
+	 * @param {SQLAdapter} conn
 	 * @return QueryStatement
 	 */
 	getColumnsClause : function(conn) {
@@ -1431,6 +1433,7 @@ Query.prototype = {
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
+	 * @param {SQLAdapter} conn
 	 * @return QueryStatement
 	 */
 	getWhereClause : function(conn) {
@@ -1447,46 +1450,42 @@ Query.prototype = {
 	},
 
 	/**
-	 * Returns a count of rows for result
-	 * @return int
-	 * @param conn PDO[optional]
+	 * @param {SQLAdapter} conn
+	 * @returns {QueryStatement}
 	 */
-	count : function(conn) {
+	getCountQuery : function(conn) {
 		if (!this.getTable()) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_COUNT);
-		return parseInt(this.getQuery(conn).bindAndExecute()[0], 10) || 0;
+		return this.getQuery(conn);
 	},
 
 	/**
-	 * Executes DELETE query and returns count of
-	 * rows deleted.
-	 * @return int
-	 * @param conn PDO[optional]
+	 * @param {SQLAdapter} conn
+	 * @returns {QueryStatement}
 	 */
-	destroy : function(conn) {
+	getDeleteQuery : function(conn) {
 		if (!this.getTable()) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_DELETE);
-		return this.getQuery(conn).bindAndExecute().rowsAffected || 0;
+		return this.getQuery(conn);
 	},
 
 	/**
-	 * Executes SELECT query and returns a result set.
-	 * @return PDOStatement
-	 * @param conn PDO[optional]
+	 * @param {SQLAdapter} conn
+	 * @returns {QueryStatement}
 	 */
-	select : function(conn) {
+	getSelectQuery : function(conn) {
 		if (!this.getTable()) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_SELECT);
-		return this.getQuery(conn).bindAndExecute();
+		return this.getQuery(conn);
 	}
 };
 
@@ -1815,17 +1814,6 @@ QueryStatement.prototype = {
 	 */
 	toString : function() {
 		return QueryStatement.embedParams(this._qString, this._params.slice(0), this._conn);
-	},
-
-	/**
-	 * Creates a PDOStatment using the string. Loops through param array, and binds each value.
-	 * Executes and returns the prepared statement.
-	 * @return PDOStatement
-	 */
-	bindAndExecute : function() {
-		var conn = this._conn;
-		conn = conn || Adapter.getConnection();
-		return conn.execute(this._qString, this._params);
 	}
 };
 

@@ -1634,12 +1634,12 @@ Query.prototype = {
 	/**
 	 * Builds and returns the query string
 	 *
-	 * @param conn Database connection to use
+	 * @param {SQLAdapter} conn
 	 * @return QueryStatement
 	 */
 	getQuery : function(conn) {
 		if (typeof conn === 'undefined') {
-			conn = new Adapter;
+			conn = new SQLAdapter;
 		}
 
 		// the QueryStatement for the Query
@@ -1724,6 +1724,7 @@ Query.prototype = {
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
+	 * @param {SQLAdapter} conn
 	 * @return QueryStatement
 	 */
 	getTablesClause : function(conn) {
@@ -1805,6 +1806,7 @@ Query.prototype = {
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
+	 * @param {SQLAdapter} conn
 	 * @return QueryStatement
 	 */
 	getColumnsClause : function(conn) {
@@ -1874,6 +1876,7 @@ Query.prototype = {
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
+	 * @param {SQLAdapter} conn
 	 * @return QueryStatement
 	 */
 	getWhereClause : function(conn) {
@@ -1890,46 +1893,42 @@ Query.prototype = {
 	},
 
 	/**
-	 * Returns a count of rows for result
-	 * @return int
-	 * @param conn PDO[optional]
+	 * @param {SQLAdapter} conn
+	 * @returns {QueryStatement}
 	 */
-	count : function(conn) {
+	getCountQuery : function(conn) {
 		if (!this.getTable()) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_COUNT);
-		return parseInt(this.getQuery(conn).bindAndExecute()[0], 10) || 0;
+		return this.getQuery(conn);
 	},
 
 	/**
-	 * Executes DELETE query and returns count of
-	 * rows deleted.
-	 * @return int
-	 * @param conn PDO[optional]
+	 * @param {SQLAdapter} conn
+	 * @returns {QueryStatement}
 	 */
-	destroy : function(conn) {
+	getDeleteQuery : function(conn) {
 		if (!this.getTable()) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_DELETE);
-		return this.getQuery(conn).bindAndExecute().rowsAffected || 0;
+		return this.getQuery(conn);
 	},
 
 	/**
-	 * Executes SELECT query and returns a result set.
-	 * @return PDOStatement
-	 * @param conn PDO[optional]
+	 * @param {SQLAdapter} conn
+	 * @returns {QueryStatement}
 	 */
-	select : function(conn) {
+	getSelectQuery : function(conn) {
 		if (!this.getTable()) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_SELECT);
-		return this.getQuery(conn).bindAndExecute();
+		return this.getQuery(conn);
 	}
 };
 
@@ -2258,17 +2257,6 @@ QueryStatement.prototype = {
 	 */
 	toString : function() {
 		return QueryStatement.embedParams(this._qString, this._params.slice(0), this._conn);
-	},
-
-	/**
-	 * Creates a PDOStatment using the string. Loops through param array, and binds each value.
-	 * Executes and returns the prepared statement.
-	 * @return PDOStatement
-	 */
-	bindAndExecute : function() {
-		var conn = this._conn;
-		conn = conn || Adapter.getConnection();
-		return conn.execute(this._qString, this._params);
 	}
 };
 
@@ -2585,12 +2573,18 @@ var SQLAdapter = Adapter.extend({
 	/**
 	 * Executes the SQL and returns an Array of Objects.  The Array has a
 	 * rowsAffected property added to it
+	 * @param {mixed} sql
+	 * @param {Array} params
 	 * @returns Array of Objects
 	 */
 	execute: function(sql, params) {
-		if (!params && sql instanceof QueryStatement) {
-			sql = sql.setConnection(this);
-			return sql.bindAndExecute();
+		if (sql instanceof Query) {
+			sql = sql.getQuery(this);
+		}
+
+		if (sql instanceof QueryStatement) {
+			sql.setConnection(this);
+			return this.execute(sql.getString(), sql.getParams());
 		}
 
 		var rs,
@@ -2617,7 +2611,7 @@ var SQLAdapter = Adapter.extend({
 			rs = this._db.execute(sql);
 		}
 
-		rows.rowsAffected = this._db.rowsAffected;
+		rows.rowsAffected = parseInt(this._db.rowsAffected) || 0;
 
 		if (null === rs) {
 			return rows;
@@ -2643,22 +2637,28 @@ var SQLAdapter = Adapter.extend({
 		return parseInt(rows[0].rCount, 10) || 0;
 	},
 
-	transaction: function(inTransactionCallBack){
-		// TODO: Titanium has a bug, so transactions don't work!
-			// this.execute('BEGIN');
-		// try {
-			inTransactionCallBack.apply(this);	inTransactionCallBack.apply(this);
-			// this.execute('END');
-		// } catch(e) {
-			// this.execute('ROLLBACK');
-			// throw e;
-		// }
+	transaction: function(inTransactionCallBack) {
+//		this.execute('BEGIN');
+//		try {
+			inTransactionCallBack.apply(this);
+//			this.execute('END');
+//		} catch (e) {
+//			this.execute('ROLLBACK');
+//			throw e;
+//		}
 	},
 
+	/**
+	 * @return {Number}
+	 */
 	lastInsertId: function() {
 		return this._db.lastInsertRowId;
 	},
 
+	/**
+	 * @param {String} text
+	 * @return {String}
+	 */
 	quoteIdentifier: function(text) {
 		// don't do anything right now, but save this code for later if we need it
 		return text;
@@ -2676,6 +2676,9 @@ var SQLAdapter = Adapter.extend({
 	},
 
 	/**
+	 * @param {String} sql
+	 * @param {Number} offset
+	 * @param {Number} limit
 	 * @see		DABLPDO::applyLimit()
 	 */
 	applyLimit: function(sql, offset, limit) {
@@ -2688,7 +2691,7 @@ var SQLAdapter = Adapter.extend({
 	},
 
 	/**
-	 * @param mixed value
+	 * @param {mixed} value
 	 * @return mixed
 	 */
 	prepareInput: function(value) {
@@ -2787,21 +2790,22 @@ var SQLAdapter = Adapter.extend({
 
 	/**
 	 * Executes a select query and returns the PDO result
-	 * @return PDOStatement
+	 * @return Array
 	 */
 	selectRS: function(model, q) {
 		q = q || new Query;
 		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
-		return q.select(this);
+		return this.execute(q.getSelectQuery(this));
 	},
 
 	/**
 	 * Returns an array of objects of class class from
 	 * the rows of a PDOStatement(query result)
 	 *
-	 * @param result
+	 * @param {Model} model
+	 * @param {Array} result
 	 * @return Model[]
 	 */
 	fromResult: function(model, result) {
@@ -2825,7 +2829,8 @@ var SQLAdapter = Adapter.extend({
 	},
 
 	/**
-	 * @param q
+	 * @param {Model} model
+	 * @param {Query} q
 	 * @return int
 	 */
 	countAll: function(model, q) {
@@ -2833,21 +2838,24 @@ var SQLAdapter = Adapter.extend({
 		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
-		return q.count(this);
+		var rs = this.execute(q.getCountQuery(this));
+		return parseInt(rs[0], 10) || 0;
 	},
 
 	/**
-	 * @param q
+	 * @param {Model} model
+	 * @param {Query} q
 	 */
 	destroyAll: function(model, q) {
 		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
-		return q.destroy(q);
+		return this.execute(q.getDeleteQuery(this)).rowsAffected;
 	},
 
 	/**
-	 * @param q The Query object that creates the SELECT query string
+	 * @param {Model} model
+	 * @param {Query} q The Query object that creates the SELECT query string
 	 * @return Model[]
 	 */
 	select: function(model, q) {
@@ -2879,7 +2887,8 @@ var SQLAdapter = Adapter.extend({
 		statement.setString(queryString);
 		statement.setParams(values);
 		statement.addParams(whereClause.getParams());
-		var result = statement.bindAndExecute();
+
+		var result = this.execute(statement);
 
 		return result.rowsAffected || 0;
 	},
@@ -2922,7 +2931,7 @@ var SQLAdapter = Adapter.extend({
 		statement.setString(queryString);
 		statement.setParams(values);
 
-		result = statement.bindAndExecute();
+		result = this.execute(statement);
 
 		if (pk && model.isAutoIncrement()) {
 			id = this.lastInsertId();
