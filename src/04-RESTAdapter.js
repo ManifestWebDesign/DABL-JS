@@ -17,7 +17,7 @@ function encodeUriQuery(val, pctEncodeSpaces) {
 }
 
 function Route(template, defaults) {
-	this.template = template = template + '#';
+	this.template = template;
 	this.defaults = defaults || {};
 	var urlParams = this.urlParams = {},
 		parts = template.split(/\W/);
@@ -38,6 +38,7 @@ Route.prototype = {
 		encodedVal;
 
 		params = params || {};
+
 		for (var urlParam in this.urlParams) {
 			val = typeof params[urlParam] !== 'undefined' || params.hasOwnProperty(urlParam) ? params[urlParam] : self.defaults[urlParam];
 			if (typeof val !== 'undefined' && val !== null) {
@@ -55,6 +56,23 @@ Route.prototype = {
 			}
 		}
 		return url;
+	},
+
+	urlGet: function(params) {
+		var url = this.url(params);
+
+		params = params || {};
+
+		url = url.replace(/\/?#$/, '');
+		var query = [];
+		for (var key in params) {
+			if (!this.urlParams[key]) {
+				query.push(encodeUriQuery(key) + '=' + encodeUriQuery(params[key]));
+			}
+		}
+		query.sort();
+		url = url.replace(/\/*$/, '');
+		return url + (query.length ? '?' + query.join('&') : '');
 	}
 };
 
@@ -98,12 +116,12 @@ var RESTAdapter = Adapter.extend({
 			data[field] = value;
 		}
 
-		$.post(route.url(this), data, function(r){
+		$.post(route.url(instance), data, function(r){
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);
 				return;
 			}
-			instance.fromJSON(r);
+			instance.setValues(r);
 			instance.resetModified();
 			instance.setNew(false);
 			def.resolve(r);
@@ -166,7 +184,7 @@ var RESTAdapter = Adapter.extend({
 				def.reject(r);
 				return;
 			}
-			instance.fromJSON(r);
+			instance.setValues(r);
 			instance.resetModified();
 			def.resolve(r);
 		}, 'json')
@@ -233,7 +251,7 @@ var RESTAdapter = Adapter.extend({
 			return def.promise();
 		}
 		data[pk] = id;
-		$.get(route.url(data), function(r) {
+		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);
 				return;
@@ -241,7 +259,7 @@ var RESTAdapter = Adapter.extend({
 			var instance = null;
 			if (r !== null) {
 				instance = new model;
-				instance.fromJSON(r);
+				instance.setValues(r);
 				instance.setNew(false);
 				instance.resetModified();
 			}
@@ -258,18 +276,21 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	findAll: function(model) {
+		var q = this.findQuery
+			.apply(this, arguments);
+
 		var route = this.route(model._url),
-			data = {},
+			data = q.toArray(),
 			def = new Deferred();
-		$.get(route.url(data), function(r) {
+		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);
 				return;
 			}
 			var collection = [];
 			if (r instanceof Array) {
-				for (var x = 0, len = r.lenth; x < len; ++x) {
-					collection.push(new model().fromJSON(r[x]));
+				for (var x = 0, len = r.length; x < len; ++x) {
+					collection.push(new model().setValues(r[x]));
 				}
 			}
 			def.resolve(collection);

@@ -1,5 +1,10 @@
 // https://github.com/warpdesign/Standalone-Deferred
-(function(global) {
+(function(global, $) {
+	if ($ && $.Deferred) {
+		global.Deferred = jQuery.Deferred;
+		return;
+	}
+
 	function isArray(arr) {
 		return Object.prototype.toString.call(arr) === '[object Array]';
 	}
@@ -286,4 +291,4 @@
 	};
 
 	global.Deferred = D;
-})(window);
+})(window, jQuery);

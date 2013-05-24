@@ -177,7 +177,7 @@ Condition.prototype = {
 	 * @return Condition
 	 */
 	addAnd : function(left, right, operator, quote) {
-		var key, condition;
+		var key;
 
 		if (left.constructor === Object) {
 			for (key in left) {
@@ -186,12 +186,13 @@ Condition.prototype = {
 			return this;
 		}
 
-		condition = this._processCondition.apply(this, arguments);
+		arguments.processed = this._processCondition.apply(this, arguments);
 
-		if (null !== condition) {
-			condition.sep = 'AND';
-			this._conds.push(condition);
+		if (null !== arguments.processed) {
+			arguments.type = 'AND';
+			this._conds.push(arguments);
 		}
+
 		return this;
 	},
 
@@ -204,7 +205,7 @@ Condition.prototype = {
 	 * @return Condition
 	 */
 	addOr : function(left, right, operator, quote) {
-		var key, condition;
+		var key;
 
 		if (left.constructor === Object) {
 			for (key in left) {
@@ -213,12 +214,13 @@ Condition.prototype = {
 			return this;
 		}
 
-		condition = this._processCondition.apply(this, arguments);
+		arguments.processed = this._processCondition.apply(this, arguments);
 
-		if (null !== condition) {
-			condition.sep = 'OR';
-			this._conds.push(condition);
+		if (null !== arguments.processed) {
+			arguments.type = 'OR';
+			this._conds.push(arguments);
 		}
+
 		return this;
 	},
 
@@ -422,7 +424,7 @@ Condition.prototype = {
 			len = conds.length;
 
 		for (x = 0; x < len; ++x) {
-			cond = conds[x];
+			cond = conds[x].processed;
 
 			if (null === cond) {
 				continue;
@@ -430,7 +432,7 @@ Condition.prototype = {
 
 			string += "\n\t";
 			if (0 !== x) {
-				string += ((1 === x && conds[0].sep === 'OR') ? 'OR' : cond.sep) + ' ';
+				string += ((1 === x && conds[0].type === 'OR') ? 'OR' : conds[x].type) + ' ';
 			}
 			string += cond._qString;
 			statement.addParams(cond._params);
@@ -445,6 +447,34 @@ Condition.prototype = {
 	 */
 	toString : function() {
 		return this.getQueryStatement().toString();
+	},
+
+	toArray: function() {
+		var r = {};
+
+		if (0 === this._conds.length) {
+			return {};
+		}
+
+		var x,
+			cond,
+			conds = this._conds,
+			len = conds.length;
+
+		for (x = 0; x < len; ++x) {
+			var cond = conds[x];
+			if (null === cond.processed) {
+				continue;
+			}
+			if ('AND' !== cond.type) {
+				throw new Error('OR conditions not supported.');
+			}
+			if (cond.length !== 2) {
+				throw new Error('Only simple equals Conditions can be exported.');
+			}
+			r[cond[0]] = cond[1];
+		}
+		return r;
 	}
 
 };
@@ -1117,10 +1147,7 @@ Query.prototype = {
 	 * @param dir String
 	 */
 	orderBy : function(column, dir) {
-		if (null !== dir && typeof dir !== 'undefined') {
-			column = column + ' ' + dir;
-		}
-		this._orders.push(column);
+		this._orders.push(arguments);
 		return this;
 	},
 
@@ -1129,12 +1156,16 @@ Query.prototype = {
 	 * @return Query
 	 * @param limit Int
 	 */
-	setLimit : function(limit) {
+	setLimit : function(limit, offset) {
 		limit = parseInt(limit);
 		if (isNaN(limit)) {
 			throw new Error('Not a number');
 		}
 		this._limit = limit;
+
+		if (offset) {
+			this.setOffset(offset);
+		}
 		return this;
 	},
 
@@ -1155,9 +1186,31 @@ Query.prototype = {
 	setOffset : function(offset) {
 		offset = parseInt(offset);
 		if (isNaN(offset)) {
-			throw new Error('Not a number');
+			throw new Error('Not a number.');
 		}
 		this._offset = offset;
+		return this;
+	},
+
+	/**
+	 * Sets the offset for the rows returned.  Used to build
+	 * the LIMIT part of the query.
+	 * @param {page} Int
+	 * @return Query
+	 */
+	setPage : function(page) {
+		page = parseInt(page);
+		if (isNaN(page)) {
+			throw new Error('Not a number.');
+		}
+		if (page < 2) {
+			this._offset = null;
+			return this;
+		}
+		if (!this._limit) {
+			throw new Error('Cannot set page without first setting limit.');
+		}
+		this._offset = page * this._limit - this._limit;
 		return this;
 	},
 
@@ -1260,7 +1313,19 @@ Query.prototype = {
 		}
 
 		if (this._action !== Query.ACTION_COUNT && this._orders.length !== 0) {
-			queryS += "\nORDER BY " + this._orders.join(', ');
+			queryS += "\nORDER BY ";
+
+			for (x = 0, len = this._orders.length; x < len; ++x) {
+				var column = this._orders[x][0];
+				var dir = this._orders[x][1];
+				if (null !== dir && typeof dir !== 'undefined') {
+					column = column + ' ' + dir;
+				}
+				if (0 !== x) {
+					queryS += ', ';
+				}
+				queryS += column;
+			}
 		}
 
 		if (null !== this._limit) {
@@ -1486,6 +1551,40 @@ Query.prototype = {
 
 		this.setAction(Query.ACTION_SELECT);
 		return this.getQuery(conn);
+	},
+
+	toArray: function() {
+//		if (this._joins && this._joins.length !== 0) {
+//			throw new Error('JOINS cannot be exported.');
+//		}
+//		if (this._extraTables && this._extraTables.length !== 0) {
+//			throw new Error('Extra tables cannot be exported.');
+//		}
+//		if (this._having && this._having.length !== 0) {
+//			throw new Error('Having cannot be exported.');
+//		}
+//		if (this._groups && this._groups.length !== 0) {
+//			throw new Error('Grouping cannot be exported.');
+//		}
+
+		var r = this._where.toArray();
+
+		if (this._limit) {
+			r.limit = this._limit;
+			if (this._offset) {
+				r.offset = this._offset;
+				r.page = Math.floor(this._offset / this._limit) + 1;
+			}
+		}
+
+		if (this._orders && this._orders.length !== 0) {
+			r.order_by = this._orders[0][0];
+			if (this._orders[0][1] === Query.DESC) {
+				r.dir = Query.DESC;
+			}
+		}
+
+		return r;
 	}
 };
 

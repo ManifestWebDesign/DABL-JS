@@ -590,7 +590,7 @@ Model.create = function(opts) {
 	for (prop in opts) {
 		switch (prop) {
 			// known static private properties
-			case 'url', 'adapter': case 'table': case 'fields': case 'primaryKeys': case 'autoIncrement':
+			case 'url': case 'adapter': case 'table': case 'fields': case 'primaryKeys': case 'autoIncrement':
 				newClass['_' + prop] = opts[prop];
 				break;
 
