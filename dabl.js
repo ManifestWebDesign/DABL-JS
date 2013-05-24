@@ -2420,6 +2420,11 @@ this.QueryJoin = QueryJoin;
 /* 04-RESTAdapter.js */
 (function($){
 
+function _sPad(value) {
+	value = value + '';
+	return value.length === 2 ? value : '0' + value;
+}
+
 function encodeUriSegment(val) {
 	return encodeUriQuery(val, true).
 	replace(/%26/gi, '&').
@@ -2508,6 +2513,20 @@ var RESTAdapter = Adapter.extend({
 			return this.routes[url];
 		}
 		return this.routes[url] = new Route(url);
+	},
+
+	formatDateTime: function(value) {
+		if (!(value instanceof Date)) {
+			value = new Date(value);
+		}
+		var offset = -value.getTimezoneOffset() / 60;
+		offset = (offset > 0 ? '+' : '-') + _sPad(Math.abs(offset));
+
+		return this.formatDate(value)
+			+ ' ' + _sPad(value.getHours())
+			+ ':' + _sPad(value.getMinutes())
+			+ ':' + _sPad(value.getSeconds())
+			+ ' ' + offset + '00';
 	},
 
 	insert: function(instance) {
