@@ -2,7 +2,7 @@
 
 var Migration = {};
 
-Migration.schema = Model.create('schema_definitions', {
+Migration.schema = Model.extend('schema_definitions', {
 	fields: {
 		id: { type: Model.FIELD_TYPE_INTEGER, computed: true, key: true },
 		table_name: Model.FIELD_TYPE_TEXT,

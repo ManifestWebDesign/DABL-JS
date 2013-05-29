@@ -73,9 +73,6 @@
 		// Enforce the constructor to be what we expect
 		Class.prototype.constructor = Class;
 
-		// And make this class extendable
-		Class.extend = arguments.callee;
-
 		return Class;
 	};
 })();

@@ -371,9 +371,6 @@
 		// Enforce the constructor to be what we expect
 		Class.prototype.constructor = Class;
 
-		// And make this class extendable
-		Class.extend = arguments.callee;
-
 		return Class;
 	};
 })();
@@ -2704,7 +2701,7 @@ var RESTAdapter = Adapter.extend({
 			if (pk && instance[pk]) {
 				self.cache(model._table, instance[pk], instance);
 			}
-			def.resolve(instance);
+			def.resolve(r);
 		}, 'json')
 		.fail(function(jqXHR, textStatus, errorThrown){
 			def.reject({
@@ -2762,7 +2759,7 @@ var RESTAdapter = Adapter.extend({
 			}
 			instance.setValues(r);
 			instance.resetModified();
-			def.resolve(instance);
+			def.resolve(r);
 		}, 'json')
 		.fail(function(jqXHR, textStatus, errorThrown){
 			def.reject({
@@ -4100,16 +4097,18 @@ Model.addField = function(fieldName, field) {
 		this._values[fieldName] = self.coerceValue(fieldName, value, field);
 	};
 
-	if (Object.defineProperty) {
-		Object.defineProperty(this.prototype, fieldName, {
-			get: get,
-			set: set,
-			enumerable: true
-		});
-	} else {
-		this.prototype.__defineGetter__(fieldName, get);
-		this.prototype.__defineSetter__(fieldName, set);
-	}
+	try {
+		if (Object.defineProperty) {
+			Object.defineProperty(this.prototype, fieldName, {
+				get: get,
+				set: set,
+				enumerable: true
+			});
+		} else {
+			this.prototype.__defineGetter__(fieldName, get);
+			this.prototype.__defineSetter__(fieldName, set);
+		}
+	} catch (e) {}
 };
 
 Model.models = {};
@@ -4119,7 +4118,7 @@ Model.models = {};
  * @param {Object} opts
  * @return {Model}
  */
-Model.create = function(table, opts) {
+Model.extend = function(table, opts) {
 	var newClass,
 		fieldName,
 		prop;
@@ -4131,11 +4130,17 @@ Model.create = function(table, opts) {
 		throw new Error('Must provide fields when exending Model');
 	}
 
-	newClass = this.extend(opts.prototype);
+	newClass = Class.extend.call(this, opts.prototype);
 	delete opts.prototype;
 
-	newClass._keys = [];
-	newClass._fields = {};
+	if (!this._table && !this._fields) {
+		newClass._keys = [];
+		newClass._fields = {};
+	} else {
+		newClass._keys = copy(this._keys);
+		newClass._fields = copy(this._fields);
+	}
+
 	newClass._table = table;
 
 	for (prop in opts) {
@@ -4143,7 +4148,6 @@ Model.create = function(table, opts) {
 			// private static properties
 			case 'url':
 			case 'adapter':
-			case 'table':
 				newClass['_' + prop] = opts[prop];
 				break;
 
@@ -4171,7 +4175,7 @@ this.Model = Model;
 
 var Migration = {};
 
-Migration.schema = Model.create('schema_definitions', {
+Migration.schema = Model.extend('schema_definitions', {
 	fields: {
 		id: { type: Model.FIELD_TYPE_INTEGER, computed: true, key: true },
 		table_name: Model.FIELD_TYPE_TEXT,

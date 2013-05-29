@@ -707,16 +707,18 @@ Model.addField = function(fieldName, field) {
 		this._values[fieldName] = self.coerceValue(fieldName, value, field);
 	};
 
-	if (Object.defineProperty) {
-		Object.defineProperty(this.prototype, fieldName, {
-			get: get,
-			set: set,
-			enumerable: true
-		});
-	} else {
-		this.prototype.__defineGetter__(fieldName, get);
-		this.prototype.__defineSetter__(fieldName, set);
-	}
+	try {
+		if (Object.defineProperty) {
+			Object.defineProperty(this.prototype, fieldName, {
+				get: get,
+				set: set,
+				enumerable: true
+			});
+		} else {
+			this.prototype.__defineGetter__(fieldName, get);
+			this.prototype.__defineSetter__(fieldName, set);
+		}
+	} catch (e) {}
 };
 
 Model.models = {};
@@ -726,7 +728,7 @@ Model.models = {};
  * @param {Object} opts
  * @return {Model}
  */
-Model.create = function(table, opts) {
+Model.extend = function(table, opts) {
 	var newClass,
 		fieldName,
 		prop;
@@ -738,11 +740,17 @@ Model.create = function(table, opts) {
 		throw new Error('Must provide fields when exending Model');
 	}
 
-	newClass = this.extend(opts.prototype);
+	newClass = Class.extend.call(this, opts.prototype);
 	delete opts.prototype;
 
-	newClass._keys = [];
-	newClass._fields = {};
+	if (!this._table && !this._fields) {
+		newClass._keys = [];
+		newClass._fields = {};
+	} else {
+		newClass._keys = copy(this._keys);
+		newClass._fields = copy(this._fields);
+	}
+
 	newClass._table = table;
 
 	for (prop in opts) {
@@ -750,7 +758,6 @@ Model.create = function(table, opts) {
 			// private static properties
 			case 'url':
 			case 'adapter':
-			case 'table':
 				newClass['_' + prop] = opts[prop];
 				break;
 
