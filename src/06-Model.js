@@ -23,6 +23,9 @@ var Model = Class.extend({
 	 */
 	_validationErrors: null,
 
+	/**
+	 * @param {Object} values
+	 */
 	init : function Model(values) {
 		this._validationErrors = [];
 		this._values = {};
@@ -56,7 +59,7 @@ var Model = Class.extend({
 	/**
 	 * Creates new instance of self and with the same values as this, except
 	 * the primary key value is cleared
-	 * @return Model
+	 * @return {Model}
 	 */
 	copy: function() {
 		var newObject = new this.constructor,
@@ -78,12 +81,12 @@ var Model = Class.extend({
 	 * If field is provided, checks whether that field has been modified
 	 * If no field is provided, checks whether any of the fields have been modified from the database values.
 	 *
-	 * @param {String} field
+	 * @param {String} fieldName
 	 * @return bool
 	 */
-	isModified: function(field) {
-		if (field) {
-			return this[field] !== this._originalValues[field];
+	isModified: function(fieldName) {
+		if (fieldName) {
+			return this[fieldName] !== this._originalValues[fieldName];
 		}
 		for (var fieldName in this.constructor._fields) {
 			if (this[fieldName] !== this._originalValues[fieldName]) {
@@ -95,7 +98,7 @@ var Model = Class.extend({
 
 	/**
 	 * Returns an array of the names of modified fields
-	 * @return object
+	 * @return {Object}
 	 */
 	getModified: function() {
 		var modified = {};
@@ -109,7 +112,7 @@ var Model = Class.extend({
 
 	/**
 	 * Clears the array of modified field names
-	 * @return Model
+	 * @return {Model}
 	 */
 	resetModified: function() {
 		this._originalValues = {};
@@ -122,15 +125,15 @@ var Model = Class.extend({
 	/**
 	 * Populates this with the values of an associative Array.
 	 * Array keys must match field names to be used.
-	 * @param array array
-	 * @return Model
+	 * @param {Object} values
+	 * @return {Model}
 	 */
-	setValues: function(object) {
+	setValues: function(values) {
 		for (var fieldName in this.constructor._fields) {
-			if (!(fieldName in object)) {
+			if (!(fieldName in values)) {
 				continue;
 			}
-			this[fieldName] = object[fieldName];
+			this[fieldName] = values[fieldName];
 		}
 		return this;
 	},
@@ -138,7 +141,7 @@ var Model = Class.extend({
 	/**
 	 * Returns an associative Array with the values of this.
 	 * Array keys match field names.
-	 * @return array
+	 * @return {Object}
 	 */
 	getValues: function() {
 		var values = {},
@@ -169,7 +172,7 @@ var Model = Class.extend({
 
 	/**
 	 * Returns true if this table has primary keys and if all of the primary values are not null
-	 * @return bool
+	 * @return {Boolean}
 	 */
 	hasPrimaryKeyValues: function() {
 		var pks = this.constructor._keys,
@@ -191,7 +194,7 @@ var Model = Class.extend({
 	/**
 	 * Returns an array of all primary key values.
 	 *
-	 * @return mixed[]
+	 * @return {Array}
 	 */
 	getPrimaryKeyValues: function() {
 		var arr = [],
@@ -209,7 +212,7 @@ var Model = Class.extend({
 
 	/**
 	 * Returns true if this has not yet been saved to the database
-	 * @return bool
+	 * @return {Boolean}
 	 */
 	isNew: function() {
 		return this._isNew;
@@ -217,8 +220,8 @@ var Model = Class.extend({
 
 	/**
 	 * Indicate whether this object has been saved to the database
-	 * @param bool bool
-	 * @return Model
+	 * @param {Boolean} bool
+	 * @return {Model}
 	 */
 	setNew: function (bool) {
 		this._isNew = (bool === true);
@@ -227,7 +230,7 @@ var Model = Class.extend({
 
 	/**
 	 * Returns true if the field values validate.
-	 * @return bool
+	 * @return {Boolean}
 	 */
 	validate: function() {
 		this._validationErrors = [];
@@ -236,7 +239,7 @@ var Model = Class.extend({
 
 	/**
 	 * See this.validate()
-	 * @return array Array of errors that occured when validating object
+	 * @return {Array} Array of errors that occured when validating object
 	 */
 	getValidationErrors: function() {
 		return this._validationErrors;
@@ -251,7 +254,7 @@ var Model = Class.extend({
 	 * updating/inserting based on the new primary key(s) and not the originals,
 	 * leaving the original row unchanged(if it exists).
 	 * @todo find a way to solve the above issue
-	 * @return int number of records inserted or updated
+	 * @return {Promise}
 	 */
 	save: function() {
 		var model = this.constructor;
@@ -281,6 +284,7 @@ var Model = Class.extend({
 
 	/**
 	 * Stores a new record with that values in this object
+	 * @return {Promise}
 	 */
 	insert: function() {
 		return this.constructor._adapter.insert(this);
@@ -288,6 +292,8 @@ var Model = Class.extend({
 
 	/**
 	 * Updates the stored record representing this object.
+	 * @param {Object} values
+	 * @return {Promise}
 	 */
 	update: function(values) {
 		if (typeof values === 'object') {
@@ -302,22 +308,10 @@ var Model = Class.extend({
 	 * deleting based on the new primary key(s) and not the originals,
 	 * leaving the original row unchanged(if it exists).  Also, since NULL isn't an accurate way
 	 * to look up a row, I return if one of the primary keys is null.
+	 * @return {Promise}
 	 */
-	destroy: function(onSuccess, onError) {
-		return this.constructor._adapter.destroy(this, onSuccess, onError);
-	},
-
-	archive: function() {
-		if (!this.constructor.hasField('archived')) {
-			throw new Error('Cannot call archive on models without "archived" field');
-		}
-
-		if (null !== this.archived && typeof this.archived !== 'undefined') {
-			throw new Error('This ' + this.constructor.getClassName() + ' is already archived.');
-		}
-
-		this.archived = new Date();
-		return this.save();
+	destroy: function() {
+		return this.constructor._adapter.destroy(this);
 	}
 });
 
@@ -359,15 +353,18 @@ Model.NUMERIC_TYPES = {
 	NUMERIC: Model.FIELD_TYPE_NUMERIC
 };
 
+/**
+ * @param {String} type
+ * @returns {Boolean}
+ */
 Model.isFieldType = function(type) {
 	return (type in Model.FIELD_TYPES || this.isObjectType(type));
 };
 
 /**
  * Whether passed type is a temporal (date/time/timestamp) type.
- *
- * @param type Propel type
- * @return boolean
+ * @param {String} type
+ * @return {Boolean}
  */
 Model.isTemporalType = function(type) {
 	return (type in this.TEMPORAL_TYPES);
@@ -375,9 +372,8 @@ Model.isTemporalType = function(type) {
 
 /**
  * Returns true if values for the type need to be quoted.
- *
- * @param type The Propel type to check.
- * @return boolean True if values for the type need to be quoted.
+ * @param {String} type
+ * @return {Boolean}
  */
 Model.isTextType = function(type) {
 	return (type in this.TEXT_TYPES);
@@ -385,9 +381,8 @@ Model.isTextType = function(type) {
 
 /**
  * Returns true if values for the type are numeric.
- *
- * @param type The Propel type to check.
- * @return boolean True if values for the type need to be quoted.
+ * @param {String} type
+ * @return {Boolean}
  */
 Model.isNumericType = function(type) {
 	return (type in this.NUMERIC_TYPES);
@@ -395,9 +390,8 @@ Model.isNumericType = function(type) {
 
 /**
  * Returns true if values for the type are integer.
- *
- * @param type
- * @return boolean
+ * @param {String} type
+ * @return {Boolean}
  */
 Model.isIntegerType = function(type) {
 	return (type in this.INTEGER_TYPES);
@@ -405,14 +399,18 @@ Model.isIntegerType = function(type) {
 
 /**
  * Returns true if values for the type are objects or arrays.
- *
- * @param type
- * @return boolean
+ * @param {String} type
+ * @return {Boolean}
  */
 Model.isObjectType = function(type) {
 	return typeof type === 'function';
 };
 
+/**
+ * @param {mixed} value
+ * @param {String} fieldType
+ * @returns {Date}
+ */
 Model.coerceTemporalValue = function(value, fieldType) {
 	var x, date, l;
 	if (value.constructor === Array) {
@@ -538,10 +536,17 @@ Model._fields = Model._keys = Model._table = null;
 
 Model._autoIncrement = false;
 
+/**
+ * @returns {Adapter}
+ */
 Model.getAdapter = function(){
 	return this._adapter;
 };
 
+/**
+ * @param {Adapter} adapter
+ * @returns {Model}
+ */
 Model.setAdapter = function(adapter){
 	this._adapter = adapter;
 	return this;
@@ -549,7 +554,7 @@ Model.setAdapter = function(adapter){
 
 /**
  * Returns string representation of table name
- * @return string
+ * @return {String}
  */
 Model.getTableName = function() {
 	return this._table;
@@ -557,7 +562,7 @@ Model.getTableName = function() {
 
 /**
  * Access to array of field types, indexed by field name
- * @return array
+ * @return {Object}
  */
 Model.getFields = function() {
 	return copy(this._fields);
@@ -565,7 +570,8 @@ Model.getFields = function() {
 
 /**
  * Get the type of a field
- * @return array
+ * @param {String} fieldName
+ * @return {Object}
  */
 Model.getField = function(fieldName) {
 	return this._fields[fieldName];
@@ -573,18 +579,20 @@ Model.getField = function(fieldName) {
 
 /**
  * Get the type of a field
- * @return array
+ * @param {String} fieldName
+ * @return {mixed}
  */
 Model.getFieldType = function(fieldName) {
 	return this._fields[fieldName].type;
 };
 
 /**
- * @return bool
+ * @param {String} fieldName
+ * @return {Boolean}
  */
-Model.hasField = function(field) {
-	for (var fieldName in this._fields) {
-		if (fieldName === field) {
+Model.hasField = function(fieldName) {
+	for (var f in this._fields) {
+		if (f === fieldName) {
 			return true;
 		}
 	}
@@ -593,7 +601,7 @@ Model.hasField = function(field) {
 
 /**
  * Access to array of primary keys
- * @return array
+ * @return {Array}
  */
 Model.getPrimaryKeys = function() {
 	return this._keys.slice(0);
@@ -601,7 +609,7 @@ Model.getPrimaryKeys = function() {
 
 /**
  * Access to name of primary key
- * @return array
+ * @return {Array}
  */
 Model.getPrimaryKey = function() {
 	return this._keys.length === 1 ? this._keys[0] : null;
@@ -609,7 +617,7 @@ Model.getPrimaryKey = function() {
 
 /**
  * Returns true if the primary key field for this table is auto-increment
- * @return bool
+ * @return {Boolean}
  */
 Model.isAutoIncrement = function() {
 	return this._autoIncrement;
@@ -635,6 +643,10 @@ for (var x = 0, len = findAliases.length; x < len; ++x) {
 	Model[findAliases[x]] = Model.find;
 }
 
+/**
+ * @param {String} fieldName
+ * @param {mixed} field
+ */
 Model.addField = function(fieldName, field) {
 	var get, set, self = this;
 
@@ -684,7 +696,6 @@ Model.addField = function(fieldName, field) {
 		var value = this._values[fieldName];
 		return typeof value === 'undefined' ? null : value;
 	};
-
 	set = function(value) {
 		this._values[fieldName] = self.coerceValue(fieldName, value, field);
 	};
@@ -704,7 +715,9 @@ Model.addField = function(fieldName, field) {
 Model.models = {};
 
 /**
- * @return Model
+ * @param {String} table
+ * @param {Object} opts
+ * @return {Model}
  */
 Model.create = function(table, opts) {
 	var newClass,

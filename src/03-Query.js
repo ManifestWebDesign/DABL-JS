@@ -32,7 +32,11 @@ Condition.prototype = {
 	_conds : null,
 
 	/**
-	 * @return string
+	 * @param {mixed} left
+	 * @param {mixed} right
+	 * @param {String} operator
+	 * @param {Number} quote
+	 * @return {QueryStatement}
 	 */
 	_processCondition : function(left, right, operator, quote) {
 
@@ -162,7 +166,7 @@ Condition.prototype = {
 
 	/**
 	 * Alias of addAnd
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	add : function(left, right, operator, quote) {
 		return this.addAnd.apply(this, arguments);
@@ -170,7 +174,7 @@ Condition.prototype = {
 
 	/**
 	 * Alias of addAnd
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	and : function(left, right, operator, quote) {
 		return this.addAnd.apply(this, arguments);
@@ -178,7 +182,7 @@ Condition.prototype = {
 
 	/**
 	 * Alias of addAnd, but with operator and right switched
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	filter : function(left, operator, right, quote) {
 		if (arguments.length === 2) {
@@ -195,7 +199,7 @@ Condition.prototype = {
 
 	/**
 	 * Alias of filter
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	where : function(left, operator, right, quote) {
 		return this.filter.apply(this, arguments);
@@ -207,7 +211,7 @@ Condition.prototype = {
 	 * @param right mixed[optional]
 	 * @param operator string[optional]
 	 * @param quote int[optional]
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	addAnd : function(left, right, operator, quote) {
 		var key;
@@ -231,7 +235,7 @@ Condition.prototype = {
 
 	/**
 	 * Alias of addAnd
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	or : function(left, right, operator, quote) {
 		return this.addOr.apply(this, arguments);
@@ -243,7 +247,7 @@ Condition.prototype = {
 	 * @param right mixed[optional]
 	 * @param operator string[optional]
 	 * @param quote int[optional]
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	addOr : function(left, right, operator, quote) {
 		var key;
@@ -266,182 +270,182 @@ Condition.prototype = {
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andNot : function(column, value) {
 		return this.addAnd(column, value, Query.NOT_EQUAL);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andLike : function(column, value) {
 		return this.addAnd(column, value, Query.LIKE);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andNotLike : function(column, value) {
 		return this.addAnd(column, value, Query.NOT_LIKE);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andGreater : function(column, value) {
 		return this.addAnd(column, value, Query.GREATER_THAN);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andGreaterEqual : function(column, value) {
 		return this.addAnd(column, value, Query.GREATER_EQUAL);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andLess : function(column, value) {
 		return this.addAnd(column, value, Query.LESS_THAN);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andLessEqual : function(column, value) {
 		return this.addAnd(column, value, Query.LESS_EQUAL);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andNull : function(column) {
 		return this.addAnd(column, null);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andNotNull : function(column) {
 		return this.addAnd(column, null, Query.NOT_EQUAL);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andBetween : function(column, from, to) {
 		return this.addAnd(column, array(from, to), Query.BETWEEN);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andBeginsWith : function(column, value) {
 		return this.addAnd(column, value, Query.BEGINS_WITH);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andEndsWith : function(column, value) {
 		return this.addAnd(column, value, Query.ENDS_WITH);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	andContains : function(column, value) {
 		return this.addAnd(column, value, Query.CONTAINS);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orNot : function(column, value) {
 		return this.addOr(column, value, Query.NOT_EQUAL);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orLike : function(column, value) {
 		return this.addOr(column, value, Query.LIKE);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orNotLike : function(column, value) {
 		return this.addOr(column, value, Query.NOT_LIKE);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orGreater : function(column, value) {
 		return this.addOr(column, value, Query.GREATER_THAN);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orGreaterEqual : function(column, value) {
 		return this.addOr(column, value, Query.GREATER_EQUAL);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orLess : function(column, value) {
 		return this.addOr(column, value, Query.LESS_THAN);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orLessEqual : function(column, value) {
 		return this.addOr(column, value, Query.LESS_EQUAL);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orNull : function(column) {
 		return this.addOr(column, null);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orNotNull : function(column) {
 		return this.addOr(column, null, Query.NOT_EQUAL);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orBetween : function(column, from, to) {
 		return this.addOr(column, array(from, to), Query.BETWEEN);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orBeginsWith : function(column, value) {
 		return this.addOr(column, value, Query.BEGINS_WITH);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orEndsWith : function(column, value) {
 		return this.addOr(column, value, Query.ENDS_WITH);
 	},
 
 	/**
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	orContains : function(column, value) {
 		return this.addOr(column, value, Query.CONTAINS);
@@ -449,7 +453,7 @@ Condition.prototype = {
 
 	/**
 	 * Builds and returns a string representation of this Condition
-	 * @return QueryStatement
+	 * @return {QueryStatement}
 	 */
 	getQueryStatement : function(conn) {
 
@@ -484,7 +488,7 @@ Condition.prototype = {
 
 	/**
 	 * Builds and returns a string representation of this Condition
-	 * @return string
+	 * @return {String}
 	 */
 	toString : function() {
 		return this.getQueryStatement().toString();
@@ -524,8 +528,8 @@ Condition.prototype = {
  * Creates new instance of Query, parameters will be passed to the
  * setTable() method.
  * @return self
- * @param table Mixed[optional]
- * @param alias String[optional]
+ * @param {String} table
+ * @param {String} alias
  */
 function Query (table, alias) {
 	this._columns = [];
@@ -665,7 +669,7 @@ Query.prototype = {
 
 	/**
 	 * Specify whether to select only distinct rows
-	 * @param bool
+	 * @param {Boolean} bool
 	 */
 	setDistinct : function(bool) {
 		if (typeof bool === 'undefined') {
@@ -676,8 +680,8 @@ Query.prototype = {
 
 	/**
 	 * Sets the action of the query.  Should be SELECT, DELETE, or COUNT.
-	 * @return Query
-	 * @param action String
+	 * @return {Query}
+	 * @param {String} action
 	 */
 	setAction : function(action) {
 		this._action = action;
@@ -686,7 +690,7 @@ Query.prototype = {
 
 	/**
 	 * Returns the action of the query.  Should be SELECT, DELETE, or COUNT.
-	 * @return String
+	 * @param {String} action
 	 */
 	getAction : function() {
 		return this._action;
@@ -697,8 +701,8 @@ Query.prototype = {
 	 *
 	 * {@example libraries/dabl/database/query/Query_addColumn.php}
 	 *
-	 * @param columnName
-	 * @return Query
+	 * @param {String} columnName
+	 * @return {Query}
 	 */
 	addColumn : function(columnName) {
 		this._columns.push(columnName);
@@ -708,7 +712,7 @@ Query.prototype = {
 	/**
 	 * Set array of strings of columns to be selected
 	 * @param columnsArray
-	 * @return Query
+	 * @return {Query}
 	 */
 	setColumns : function(columnsArray) {
 		this._columns = columnsArray.slice(0);
@@ -717,7 +721,7 @@ Query.prototype = {
 
 	/**
 	 * Return array of columns to be selected
-	 * @return array
+	 * @return {Array}
 	 */
 	getColumns : function() {
 		return this._columns;
@@ -726,7 +730,7 @@ Query.prototype = {
 	/**
 	 * Set array of strings of groups to be selected
 	 * @param groupsArray
-	 * @return Query
+	 * @return {Query}
 	 */
 	setGroups : function(groupsArray) {
 		this._groups = groupsArray;
@@ -735,7 +739,7 @@ Query.prototype = {
 
 	/**
 	 * Return array of groups to be selected
-	 * @return array
+	 * @return {Array}
 	 */
 	getGroups : function() {
 		return this._groups;
@@ -746,9 +750,9 @@ Query.prototype = {
 	 * or an instance of Query if you would like to nest queries.
 	 * This function also supports arbitrary SQL.
 	 *
-	 * @param table Name of the table to add, or sub-Query
-	 * @param alias Alias for the table
-	 * @return Query
+	 * @param {String} table Name of the table to add, or sub-Query
+	 * @param {String} alias Alias for the table
+	 * @return {Query}
 	 */
 	setTable : function(table, alias) {
 		if (table instanceof Query) {
@@ -769,7 +773,7 @@ Query.prototype = {
 	 * Returns a String representation of the table being queried,
 	 * NOT including its alias.
 	 *
-	 * @return String
+	 * @return {String}
 	 */
 	getTable : function() {
 		return this._table;
@@ -784,16 +788,16 @@ Query.prototype = {
 	 * Returns a String of the alias of the table being queried,
 	 * if present.
 	 *
-	 * @return String
+	 * @return {String}
 	 */
 	getAlias : function() {
 		return this._tableAlias;
 	},
 
 	/**
-	 * @param tableName
-	 * @param alias
-	 * @return Query
+	 * @param {String} tableName
+	 * @param {String} alias
+	 * @return {Query}
 	 */
 	addTable : function(tableName, alias) {
 		if (tableName instanceof Query) {
@@ -815,8 +819,8 @@ Query.prototype = {
 	 * Provide the Condition object to generate the WHERE clause of
 	 * the query.
 	 *
-	 * @param w Condition
-	 * @return Query
+	 * @param {Condition} w
+	 * @return {Query}
 	 */
 	setWhere : function(w) {
 		this._where = w;
@@ -827,7 +831,7 @@ Query.prototype = {
 	 * Returns the Condition object that generates the WHERE clause
 	 * of the query.
 	 *
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	getWhere : function() {
 		return this._where;
@@ -837,10 +841,10 @@ Query.prototype = {
 	 * Add a JOIN to the query.
 	 *
 	 * @todo Support the ON clause being NULL correctly
-	 * @param tableOrColumn Table to join on
-	 * @param onClauseOrColumn ON clause to join with
-	 * @param joinType Type of JOIN to perform
-	 * @return Query
+	 * @param {String} tableOrColumn Table to join on
+	 * @param {String} onClauseOrColumn ON clause to join with
+	 * @param {String} joinType Type of JOIN to perform
+	 * @return {Query}
 	 */
 	addJoin : function(tableOrColumn, onClauseOrColumn, joinType) {
 		if (tableOrColumn instanceof QueryJoin) {
@@ -862,49 +866,49 @@ Query.prototype = {
 
 	/**
 	 * Alias of {@link addJoin()}.
-	 * @return Query
+	 * @return {Query}
 	 */
 	join : function(tableOrColumn, onClauseOrColumn, joinType) {
 		return this.addJoin(tableOrColumn, onClauseOrColumn, joinType);
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	innerJoin : function(tableOrColumn, onClauseOrColumn) {
 		return this.addJoin(tableOrColumn, onClauseOrColumn, Query.INNER_JOIN);
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	leftJoin : function(tableOrColumn, onClauseOrColumn) {
 		return this.addJoin(tableOrColumn, onClauseOrColumn, Query.LEFT_JOIN);
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	rightJoin : function(tableOrColumn, onClauseOrColumn) {
 		return this.addJoin(tableOrColumn, onClauseOrColumn, Query.RIGHT_JOIN);
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	outerJoin : function(tableOrColumn, onClauseOrColumn) {
 		return this.addJoin(tableOrColumn, onClauseOrColumn, Query.OUTER_JOIN);
 	},
 
 	/**
-	 * @return QueryJoin[]
+	 * @return {Array}
 	 */
 	getJoins : function() {
 		return this._joins;
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	setJoins : function(joins) {
 		this._joins = joins;
@@ -913,11 +917,11 @@ Query.prototype = {
 
 	/**
 	 * Shortcut to adding an AND statement to the Query's WHERE Condition.
-	 * @return Query
-	 * @param column Mixed
-	 * @param value Mixed[optional]
-	 * @param operator String[optional]
-	 * @param quote Int[optional]
+	 * @return {Query}
+	 * @param {mixed} column
+	 * @param {mixed} value
+	 * @param {String} operator
+	 * @param {Number} quote
 	 */
 	addAnd : function(column, value, operator, quote) {
 		this._where.addAnd.apply(this._where, arguments);
@@ -926,7 +930,7 @@ Query.prototype = {
 
 	/**
 	 * Alias of {@link addAnd()}
-	 * @return Query
+	 * @return {Query}
 	 */
 	add : function(column, value, operator, quote) {
 		return this.addAnd.apply(this, arguments);
@@ -934,7 +938,7 @@ Query.prototype = {
 
 	/**
 	 * Alias of addAnd
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	and : function(left, right, operator, quote) {
 		return this.addAnd.apply(this, arguments);
@@ -942,7 +946,7 @@ Query.prototype = {
 
 	/**
 	 * Alias of addAnd, but with operator and right switched
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	filter : function(left, operator, right, quote) {
 		this._where.filter.apply(this._where, arguments);
@@ -951,7 +955,7 @@ Query.prototype = {
 
 	/**
 	 * Alias of filter
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	where : function(left, operator, right, quote) {
 		return this.filter.apply(this, arguments);
@@ -959,7 +963,7 @@ Query.prototype = {
 
 	/**
 	 * Alias of addOr
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	or : function(left, right, operator, quote) {
 		return this.addOr.apply(this, arguments);
@@ -967,11 +971,11 @@ Query.prototype = {
 
 	/**
 	 * Shortcut to adding an OR statement to the Query's WHERE Condition.
-	 * @return Query
-	 * @param column Mixed
-	 * @param value Mixed[optional]
-	 * @param operator String[optional]
-	 * @param quote Int[optional]
+	 * @return {Query}
+	 * @param {mixed} column
+	 * @param {mixed} value
+	 * @param {String} operator
+	 * @param {Number} quote
 	 */
 	addOr : function(column, value, operator, quote) {
 		this._where.addOr.apply(this._where, arguments);
@@ -979,7 +983,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andNot : function(column, value) {
 		this._where.andNot(column, value);
@@ -987,7 +991,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andLike : function(column, value) {
 		this._where.andLike(column, value);
@@ -995,7 +999,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andNotLike : function(column, value) {
 		this._where.andNotLike(column, value);
@@ -1003,7 +1007,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andGreater : function(column, value) {
 		this._where.andGreater(column, value);
@@ -1011,7 +1015,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andGreaterEqual : function(column, value) {
 		this._where.andGreaterEqual(column, value);
@@ -1019,7 +1023,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andLess : function(column, value) {
 		this._where.andLess(column, value);
@@ -1027,7 +1031,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andLessEqual : function(column, value) {
 		this._where.andLessEqual(column, value);
@@ -1035,7 +1039,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andNull : function(column) {
 		this._where.andNull(column);
@@ -1043,7 +1047,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andNotNull : function(column) {
 		this._where.andNotNull(column);
@@ -1051,7 +1055,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andBetween : function(column, from, to) {
 		this._where.andBetween(column, from, to);
@@ -1059,7 +1063,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andBeginsWith : function(column, value) {
 		this._where.andBeginsWith(column, value);
@@ -1067,7 +1071,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andEndsWith : function(column, value) {
 		this._where.andEndsWith(column, value);
@@ -1075,7 +1079,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	andContains : function(column, value) {
 		this._where.andContains(column, value);
@@ -1083,7 +1087,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orNot : function(column, value) {
 		this._where.orNot(column, value);
@@ -1091,7 +1095,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orLike : function(column, value) {
 		this._where.orLike(column, value);
@@ -1099,7 +1103,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orNotLike : function(column, value) {
 		this._where.orNotLike(column, value);
@@ -1107,7 +1111,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orGreater : function(column, value) {
 		this._where.orGreater(column, value);
@@ -1115,7 +1119,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orGreaterEqual : function(column, value) {
 		this._where.orGreaterEqual(column, value);
@@ -1123,7 +1127,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orLess : function(column, value) {
 		this._where.orLess(column, value);
@@ -1131,7 +1135,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orLessEqual : function(column, value) {
 		this._where.orLessEqual(column, value);
@@ -1139,7 +1143,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orNull : function(column) {
 		this._where.orNull(column);
@@ -1147,7 +1151,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orNotNull : function(column) {
 		this._where.orNotNull(column);
@@ -1155,7 +1159,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orBetween : function(column, from, to) {
 		this._where.orBetween(column, from, to);
@@ -1163,7 +1167,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orBeginsWith : function(column, value) {
 		this._where.orBeginsWith(column, value);
@@ -1171,7 +1175,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orEndsWith : function(column, value) {
 		this._where.orEndsWith(column, value);
@@ -1179,7 +1183,7 @@ Query.prototype = {
 	},
 
 	/**
-	 * @return Query
+	 * @return {Query}
 	 */
 	orContains : function(column, value) {
 		this._where.orContains(column, value);
@@ -1188,8 +1192,8 @@ Query.prototype = {
 
 	/**
 	 * Adds a clolumn to GROUP BY
-	 * @return Query
-	 * @param column String
+	 * @return {Query}
+	 * @param {String} column
 	 */
 	groupBy : function(column) {
 		this._groups.push(column);
@@ -1198,8 +1202,8 @@ Query.prototype = {
 
 	/**
 	 * Provide the Condition object to generate the HAVING clause of the query
-	 * @return Query
-	 * @param where Condition
+	 * @return {Query}
+	 * @param {Condition} where
 	 */
 	setHaving : function(where) {
 		this._having = where;
@@ -1208,7 +1212,7 @@ Query.prototype = {
 
 	/**
 	 * Returns the Condition object that generates the HAVING clause of the query
-	 * @return Condition
+	 * @return {Condition}
 	 */
 	getHaving : function() {
 		return this._having;
@@ -1216,9 +1220,9 @@ Query.prototype = {
 
 	/**
 	 * Adds a column to ORDER BY in the form of "COLUMN DIRECTION"
-	 * @return Query
-	 * @param column String
-	 * @param dir String
+	 * @return {Query}
+	 * @param {String} column
+	 * @param {String} dir
 	 */
 	orderBy : function(column, dir) {
 		this._orders.push(arguments);
@@ -1227,8 +1231,9 @@ Query.prototype = {
 
 	/**
 	 * Sets the limit of rows that can be returned
-	 * @return Query
-	 * @param limit Int
+	 * @return {Query}
+	 * @param {Number} limit
+	 * @param {Number} offset
 	 */
 	setLimit : function(limit, offset) {
 		limit = parseInt(limit);
@@ -1245,7 +1250,7 @@ Query.prototype = {
 
 	/**
 	 * Returns the LIMIT integer for this Query, if it has one
-	 * @return int
+	 * @return {Number}
 	 */
 	getLimit : function() {
 		return this._limit;
@@ -1254,8 +1259,8 @@ Query.prototype = {
 	/**
 	 * Sets the offset for the rows returned.  Used to build
 	 * the LIMIT part of the query.
-	 * @return Query
-	 * @param offset Int
+	 * @return {Query}
+	 * @param {Number} offset
 	 */
 	setOffset : function(offset) {
 		offset = parseInt(offset);
@@ -1269,8 +1274,8 @@ Query.prototype = {
 	/**
 	 * Sets the offset for the rows returned.  Used to build
 	 * the LIMIT part of the query.
-	 * @param {page} Int
-	 * @return Query
+	 * @param {Number} page
+	 * @return {Query}
 	 */
 	setPage : function(page) {
 		page = parseInt(page);
@@ -1291,7 +1296,7 @@ Query.prototype = {
 	/**
 	 * Returns true if this Query uses aggregate functions in either a GROUP BY clause or in the
 	 * select columns
-	 * @return bool
+	 * @return {Boolean}
 	 */
 	hasAggregates : function() {
 		if (this._groups.length !== 0) {
@@ -1307,7 +1312,7 @@ Query.prototype = {
 
 	/**
 	 * Returns true if this Query requires a complex count
-	 * @return bool
+	 * @return {Boolean}
 	 */
 	needsComplexCount : function() {
 		return this.hasAggregates()
@@ -1319,7 +1324,7 @@ Query.prototype = {
 	 * Builds and returns the query string
 	 *
 	 * @param {SQLAdapter} conn
-	 * @return QueryStatement
+	 * @return {QueryStatement}
 	 */
 	getQuery : function(conn) {
 		if (typeof conn === 'undefined') {
@@ -1421,7 +1426,7 @@ Query.prototype = {
 	/**
 	 * Protected for now.  Likely to be public in the future.
 	 * @param {SQLAdapter} conn
-	 * @return QueryStatement
+	 * @return {QueryStatement}
 	 */
 	getTablesClause : function(conn) {
 
@@ -1503,7 +1508,7 @@ Query.prototype = {
 	/**
 	 * Protected for now.  Likely to be public in the future.
 	 * @param {SQLAdapter} conn
-	 * @return QueryStatement
+	 * @return {QueryStatement}
 	 */
 	getColumnsClause : function(conn) {
 		var table = this.getTable(),
@@ -1573,14 +1578,14 @@ Query.prototype = {
 	/**
 	 * Protected for now.  Likely to be public in the future.
 	 * @param {SQLAdapter} conn
-	 * @return QueryStatement
+	 * @return {QueryStatement}
 	 */
 	getWhereClause : function(conn) {
 		return this._where.getQueryStatement(conn);
 	},
 
 	/**
-	 * @return string
+	 * @return {String}
 	 */
 	toString : function() {
 		if (!this.getTable())
@@ -1728,7 +1733,7 @@ QueryJoin.prototype = {
 	_joinType : Query.JOIN,
 
 	/**
-	 * @return string
+	 * @return {String}
 	 */
 	toString : function() {
 		if (!this.getTable()) {
@@ -1738,8 +1743,8 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @param tableName
-	 * @return QueryJoin
+	 * @param {String} tableName
+	 * @return {QueryJoin}
 	 */
 	setTable : function(tableName) {
 		var space = tableName.lastIndexOf(' '),
@@ -1757,8 +1762,8 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @param alias String
-	 * @return QueryJoin
+	 * @param {String} alias
+	 * @return {QueryJoin}
 	 */
 	setAlias : function(alias) {
 		this._alias = alias;
@@ -1766,8 +1771,8 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @param onClause Condition
-	 * @return QueryJoin
+	 * @param {Condition} onClause
+	 * @return {QueryJoin}
 	 */
 	setOnClause : function(onClause) {
 		this._isLikePropel = false;
@@ -1776,8 +1781,8 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @param joinType String
-	 * @return QueryJoin
+	 * @param {String} joinType
+	 * @return {QueryJoin}
 	 */
 	setJoinType : function(joinType) {
 		this._joinType = joinType;
@@ -1785,8 +1790,8 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @param conn Adapter
-	 * @return QueryStatement
+	 * @param {Adapter} conn
+	 * @return {QueryStatement}
 	 */
 	getQueryStatement : function(conn) {
 		var statement,
@@ -1827,21 +1832,21 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @return mixed
+	 * @return {String|Query}
 	 */
 	getTable : function() {
 		return this._table;
 	},
 
 	/**
-	 * @return string
+	 * @return {String}
 	 */
 	getAlias : function() {
 		return this._alias;
 	},
 
 	/**
-	 * @return mixed
+	 * @return {String|Condition}
 	 */
 	getOnClause : function() {
 		if (this._isLikePropel) {
@@ -1851,7 +1856,7 @@ QueryJoin.prototype = {
 	},
 
 	/**
-	 * @return string
+	 * @return {String}
 	 */
 	getJoinType : function() {
 		return this._joinType;
@@ -1871,7 +1876,7 @@ function QueryStatement(conn) {
  * @param string
  * @param params
  * @param conn
- * @return string
+ * @return {String}
  */
 QueryStatement.embedParams = function(string, params, conn) {
 	if (conn) {
@@ -1923,14 +1928,14 @@ QueryStatement.prototype = {
 	/**
 	 * Sets the PDO connection to be used for preparing and
 	 * executing the query
-	 * @param conn
+	 * @param {Adapter} conn
 	 */
 	setConnection : function(conn) {
 		this._conn = conn;
 	},
 
 	/**
-	 * @return Adapter
+	 * @return {Adapter}
 	 */
 	getConnection : function() {
 		return this._conn;
@@ -1938,14 +1943,14 @@ QueryStatement.prototype = {
 
 	/**
 	 * Sets the SQL string to be used in a query
-	 * @param string string
+	 * @param {String} string
 	 */
 	setString : function(string) {
 		this._qString = string;
 	},
 
 	/**
-	 * @return string
+	 * @return {String}
 	 */
 	getString : function() {
 		return this._qString;
@@ -1953,7 +1958,7 @@ QueryStatement.prototype = {
 
 	/**
 	 * Merges given array into _params
-	 * @param params
+	 * @param {Array} params
 	 */
 	addParams : function(params) {
 		this._params = this._params.concat(params);
@@ -1961,7 +1966,7 @@ QueryStatement.prototype = {
 
 	/**
 	 * Replaces params with given array
-	 * @param params
+	 * @param {Array} params
 	 */
 	setParams : function(params) {
 		this._params = params.slice(0);
@@ -1969,21 +1974,21 @@ QueryStatement.prototype = {
 
 	/**
 	 * Adds given param to param array
-	 * @param param
+	 * @param {mixed} param
 	 */
 	addParam : function(param) {
 		this._params.push(param);
 	},
 
 	/**
-	 * @return array
+	 * @return {Array}
 	 */
 	getParams : function() {
 		return this._params.slice(0);
 	},
 
 	/**
-	 * @return string
+	 * @return {String}
 	 */
 	toString : function() {
 		return QueryStatement.embedParams(this._qString, this._params.slice(0), this._conn);

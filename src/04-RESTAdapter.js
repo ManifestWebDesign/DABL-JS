@@ -359,7 +359,6 @@ var RESTAdapter = Adapter.extend({
 		});
 		return def.promise();
 	}
-
 });
 
 this.RESTAdapter = RESTAdapter;

@@ -9,10 +9,17 @@ var Adapter = Class.extend({
 
 	_cache: null,
 
+	init: function Adapter() {
+		this._cache = {};
+	},
+
+	/**
+	 * @param {String} table
+	 * @param {mixed} key
+	 * @param {Model} value
+	 * @return {Model|Adapter}
+	 */
 	cache: function(table, key, value) {
-		if (!this._cache) {
-			this._cache = {};
-		}
 		if (!this._cache[table]) {
 			this._cache[table] = {};
 		}
@@ -26,16 +33,17 @@ var Adapter = Class.extend({
 		return this;
 	},
 
+	/**
+	 * @param {String} table
+	 */
 	emptyCache: function(table) {
-		if (!this._cache) {
-			this._cache = {};
-		}
 		delete this._cache[table];
 	},
 
-	init: function Adapter() {
-	},
-
+	/**
+	 * @param {Date|String} value
+	 * @return {String}
+	 */
 	formatDate: function(value) {
 		if (!(value instanceof Date)) {
 			value = new Date(value);
@@ -43,6 +51,10 @@ var Adapter = Class.extend({
 		return value.getFullYear() + '-' + _sPad(value.getMonth() + 1) + '-' + _sPad(value.getDate());
 	},
 
+	/**
+	 * @param {Date|String} value
+	 * @return {String}
+	 */
 	formatDateTime: function(value) {
 		if (!(value instanceof Date)) {
 			value = new Date(value);
