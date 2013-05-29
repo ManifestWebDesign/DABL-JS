@@ -3638,7 +3638,19 @@ var Model = Class.extend({
 	 */
 	validate: function() {
 		this._validationErrors = [];
-		return true;
+
+		for (var fieldName in this.constructor._fields) {
+			var field = this.constructor._fields[fieldName];
+			if (!field.required) {
+				continue;
+			}
+			var value = this[fieldName];
+			if (!value || (value instanceof Array && value.length === 0)) {
+				this._validationErrors.push(fieldName + ' is required.');
+			}
+		}
+
+		return this._validationErrors.length === 0;
 	},
 
 	/**
@@ -3657,7 +3669,7 @@ var Model = Class.extend({
 		var model = this.constructor;
 
 		if (!this.validate()) {
-			throw new Error('Cannot save ' + model.getClassName() + ' with validation errors.');
+			throw new Error('Cannot save ' + model._table + ' with validation errors:\n' + this.getValidationErrors().join('\n'));
 		}
 
 		if (model._keys.length === 0) {
