@@ -44,7 +44,10 @@ var Adapter = Class.extend({
 	 * @param {Date|String} value
 	 * @return {String}
 	 */
-	formatDate: function(value) {
+	formatDate: function(value, fieldType) {
+		if (fieldType && fieldType === Model.FIELD_TYPE_TIMESTAMP) {
+			return this.formatDateTime(value);
+		}
 		if (!(value instanceof Date)) {
 			value = new Date(value);
 		}

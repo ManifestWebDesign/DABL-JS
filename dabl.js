@@ -425,7 +425,10 @@ var Adapter = Class.extend({
 	 * @param {Date|String} value
 	 * @return {String}
 	 */
-	formatDate: function(value) {
+	formatDate: function(value, fieldType) {
+		if (fieldType && fieldType === Model.FIELD_TYPE_TIMESTAMP) {
+			return this.formatDateTime(value);
+		}
 		if (!(value instanceof Date)) {
 			value = new Date(value);
 		}
@@ -2669,7 +2672,7 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	insert: function(instance) {
-		var field,
+		var fieldName,
 			model = instance.constructor,
 			value,
 			route = this.route(model._url),
@@ -2678,16 +2681,16 @@ var RESTAdapter = Adapter.extend({
 			pk = model.getPrimaryKey(),
 			self = this;
 
-		for (field in model._fields) {
-			value = instance[field];
-			if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
+		for (fieldName in model._fields) {
+			var field = model._fields[fieldName];
+			value = instance[fieldName];
+			if (model.isTemporalType(field.type)) {
+				value = this.formatDate(value, field.type);
 			}
-			data[field] = value;
+			if (value === null) {
+				value = '';
+			}
+			data[fieldName] = value;
 		}
 
 		$.post(route.url(instance), data, function(r){
@@ -2701,7 +2704,7 @@ var RESTAdapter = Adapter.extend({
 			if (pk && instance[pk]) {
 				self.cache(model._table, instance[pk], instance);
 			}
-			def.resolve(r);
+			def.resolve(instance);
 		}, 'json')
 		.fail(function(jqXHR, textStatus, errorThrown){
 			def.reject({
@@ -2718,9 +2721,8 @@ var RESTAdapter = Adapter.extend({
 			modFields = instance.getModified(),
 			model = instance.constructor,
 			route = this.route(model._url),
-			x,
+			fieldName,
 			pks = model.getPrimaryKeys(),
-			modCol,
 			value,
 			def = new Deferred();
 
@@ -2740,19 +2742,16 @@ var RESTAdapter = Adapter.extend({
 			return def.promise();
 		}
 
-		for (x in modFields) {
-			modCol = modFields[x];
-			value = this[modCol];
+		for (fieldName in modFields) {
+			var field = model._fields[fieldName];
+			value = instance[fieldName];
+			if (model.isTemporalType(field.type)) {
+				value = this.formatDate(value, field.type);
+			}
 			if (value === null) {
 				value = '';
-			} else if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
 			}
-			data[modCol] = value;
+			data[fieldName] = value;
 		}
 
 		data._method = 'PUT';
@@ -2763,7 +2762,7 @@ var RESTAdapter = Adapter.extend({
 			}
 			instance.setValues(r);
 			instance.resetModified();
-			def.resolve(r);
+			def.resolve(instance);
 		}, 'json')
 		.fail(function(jqXHR, textStatus, errorThrown){
 			def.reject({
@@ -3231,25 +3230,23 @@ var SQLAdapter = Adapter.extend({
 			placeholders = [],
 			statement = new QueryStatement(this),
 			queryString,
-			field,
+			fieldName,
 			value,
 			result,
 			id;
 
-		for (field in model._fields) {
-			value = instance[field];
+		for (fieldName in model._fields) {
+			var field = model._fields[fieldName];
+			value = instance[fieldName];
+			if (model.isTemporalType(field.type)) {
+				value = this.formatDate(value, field.type);
+			}
 			if (value === null) {
-				if (!instance.isModified(field)) {
+				if (!instance.isModified(fieldName)) {
 					continue;
 				}
-			} else if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
 			}
-			fields.push(field);
+			fields.push(fieldName);
 			values.push(value);
 			placeholders.push('?');
 		}
@@ -3287,7 +3284,7 @@ var SQLAdapter = Adapter.extend({
 			modFields = instance.getModified(),
 			x,
 			len,
-			modCol,
+			fieldName,
 			pk,
 			pkVal,
 			value;
@@ -3300,16 +3297,13 @@ var SQLAdapter = Adapter.extend({
 			throw new Error('This table has no primary keys');
 		}
 
-		for (modCol in modFields) {
-			value = instance[modCol];
-			if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
+		for (fieldName in modFields) {
+			var field = model._fields[fieldName];
+			value = instance[fieldName];
+			if (model.isTemporalType(field.type)) {
+				value = this.formatDate(value, field.type);
 			}
-			data[modCol] = value;
+			data[fieldName] = value;
 		}
 
 		for (x = 0, len = pks.length; x < len; ++x) {
@@ -3428,7 +3422,6 @@ var Model = Class.extend({
 	init : function Model(values) {
 		this._validationErrors = [];
 		this._values = {};
-		this.resetModified();
 		for (var fieldName in this.constructor._fields) {
 			var field = this.constructor._fields[fieldName];
 			if (typeof field.value !== 'undefined') {
@@ -3437,6 +3430,7 @@ var Model = Class.extend({
 				this[fieldName] = [];
 			}
 		}
+		this.resetModified();
 		if (values) {
 			this.setValues(values);
 		}
@@ -3517,6 +3511,20 @@ var Model = Class.extend({
 		this._originalValues = {};
 		for (var fieldName in this.constructor._fields) {
 			this._originalValues[fieldName] = this[fieldName];
+		}
+		return this;
+	},
+
+	/**
+	 * Resets the object to the state it was in before changes were made
+	 */
+	revert: function() {
+		if (this._values) {
+			this._values = copy(this._originalValues);
+		} else {
+			for (var fieldName in this._originalValues) {
+				this[fieldName] = this._originalValues[fieldName];
+			}
 		}
 		return this;
 	},
@@ -3645,14 +3653,7 @@ var Model = Class.extend({
 	},
 
 	/**
-	 * Saves the values of this to a row in the database.  If there is an
-	 * existing row with a primary key(s) that matches this, the row will
-	 * be updated.  Otherwise a new row will be inserted.  If there is only
-	 * 1 primary key, it will be set using the last_insert_id() function.
-	 * NOTE: If you alter pre-existing primary key(s) before saving, then you will be
-	 * updating/inserting based on the new primary key(s) and not the originals,
-	 * leaving the original row unchanged(if it exists).
-	 * @todo find a way to solve the above issue
+	 * Saves the values of this using either insert or update
 	 * @return {Promise}
 	 */
 	save: function() {
@@ -3888,14 +3889,14 @@ Model.coerceValue = function(fieldName, value, field) {
 
 function cast(obj, type) {
 	if (type._table && typeof type === 'function') {
-		var key = type.getPrimaryKey(),
-			instance;
-		if (type._adapter && key && obj[key]) {
-			instance = type._adapter.cache(type._table, obj[key]);
-			if (instance) {
-				return instance;
-			}
-		}
+//		var key = type.getPrimaryKey(),
+//			instance;
+//		if (type._adapter && key && obj[key]) {
+//			instance = type._adapter.cache(type._table, obj[key]);
+//			if (instance) {
+//				return instance;
+//			}
+//		}
 		return new type(obj);
 	}
 //	if (type.valueOf) {

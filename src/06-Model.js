@@ -29,7 +29,6 @@ var Model = Class.extend({
 	init : function Model(values) {
 		this._validationErrors = [];
 		this._values = {};
-		this.resetModified();
 		for (var fieldName in this.constructor._fields) {
 			var field = this.constructor._fields[fieldName];
 			if (typeof field.value !== 'undefined') {
@@ -38,6 +37,7 @@ var Model = Class.extend({
 				this[fieldName] = [];
 			}
 		}
+		this.resetModified();
 		if (values) {
 			this.setValues(values);
 		}
@@ -118,6 +118,20 @@ var Model = Class.extend({
 		this._originalValues = {};
 		for (var fieldName in this.constructor._fields) {
 			this._originalValues[fieldName] = this[fieldName];
+		}
+		return this;
+	},
+
+	/**
+	 * Resets the object to the state it was in before changes were made
+	 */
+	revert: function() {
+		if (this._values) {
+			this._values = copy(this._originalValues);
+		} else {
+			for (var fieldName in this._originalValues) {
+				this[fieldName] = this._originalValues[fieldName];
+			}
 		}
 		return this;
 	},
@@ -246,14 +260,7 @@ var Model = Class.extend({
 	},
 
 	/**
-	 * Saves the values of this to a row in the database.  If there is an
-	 * existing row with a primary key(s) that matches this, the row will
-	 * be updated.  Otherwise a new row will be inserted.  If there is only
-	 * 1 primary key, it will be set using the last_insert_id() function.
-	 * NOTE: If you alter pre-existing primary key(s) before saving, then you will be
-	 * updating/inserting based on the new primary key(s) and not the originals,
-	 * leaving the original row unchanged(if it exists).
-	 * @todo find a way to solve the above issue
+	 * Saves the values of this using either insert or update
 	 * @return {Promise}
 	 */
 	save: function() {
@@ -489,14 +496,14 @@ Model.coerceValue = function(fieldName, value, field) {
 
 function cast(obj, type) {
 	if (type._table && typeof type === 'function') {
-		var key = type.getPrimaryKey(),
-			instance;
-		if (type._adapter && key && obj[key]) {
-			instance = type._adapter.cache(type._table, obj[key]);
-			if (instance) {
-				return instance;
-			}
-		}
+//		var key = type.getPrimaryKey(),
+//			instance;
+//		if (type._adapter && key && obj[key]) {
+//			instance = type._adapter.cache(type._table, obj[key]);
+//			if (instance) {
+//				return instance;
+//			}
+//		}
 		return new type(obj);
 	}
 //	if (type.valueOf) {

@@ -113,7 +113,7 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	insert: function(instance) {
-		var field,
+		var fieldName,
 			model = instance.constructor,
 			value,
 			route = this.route(model._url),
@@ -122,16 +122,16 @@ var RESTAdapter = Adapter.extend({
 			pk = model.getPrimaryKey(),
 			self = this;
 
-		for (field in model._fields) {
-			value = instance[field];
-			if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
+		for (fieldName in model._fields) {
+			var field = model._fields[fieldName];
+			value = instance[fieldName];
+			if (model.isTemporalType(field.type)) {
+				value = this.formatDate(value, field.type);
 			}
-			data[field] = value;
+			if (value === null) {
+				value = '';
+			}
+			data[fieldName] = value;
 		}
 
 		$.post(route.url(instance), data, function(r){
@@ -162,9 +162,8 @@ var RESTAdapter = Adapter.extend({
 			modFields = instance.getModified(),
 			model = instance.constructor,
 			route = this.route(model._url),
-			x,
+			fieldName,
 			pks = model.getPrimaryKeys(),
-			modCol,
 			value,
 			def = new Deferred();
 
@@ -184,19 +183,16 @@ var RESTAdapter = Adapter.extend({
 			return def.promise();
 		}
 
-		for (x in modFields) {
-			modCol = modFields[x];
-			value = this[modCol];
+		for (fieldName in modFields) {
+			var field = model._fields[fieldName];
+			value = instance[fieldName];
+			if (model.isTemporalType(field.type)) {
+				value = this.formatDate(value, field.type);
+			}
 			if (value === null) {
 				value = '';
-			} else if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
 			}
-			data[modCol] = value;
+			data[fieldName] = value;
 		}
 
 		data._method = 'PUT';

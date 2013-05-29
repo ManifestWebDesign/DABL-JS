@@ -308,25 +308,23 @@ var SQLAdapter = Adapter.extend({
 			placeholders = [],
 			statement = new QueryStatement(this),
 			queryString,
-			field,
+			fieldName,
 			value,
 			result,
 			id;
 
-		for (field in model._fields) {
-			value = instance[field];
+		for (fieldName in model._fields) {
+			var field = model._fields[fieldName];
+			value = instance[fieldName];
+			if (model.isTemporalType(field.type)) {
+				value = this.formatDate(value, field.type);
+			}
 			if (value === null) {
-				if (!instance.isModified(field)) {
+				if (!instance.isModified(fieldName)) {
 					continue;
 				}
-			} else if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
 			}
-			fields.push(field);
+			fields.push(fieldName);
 			values.push(value);
 			placeholders.push('?');
 		}
@@ -364,7 +362,7 @@ var SQLAdapter = Adapter.extend({
 			modFields = instance.getModified(),
 			x,
 			len,
-			modCol,
+			fieldName,
 			pk,
 			pkVal,
 			value;
@@ -377,16 +375,13 @@ var SQLAdapter = Adapter.extend({
 			throw new Error('This table has no primary keys');
 		}
 
-		for (modCol in modFields) {
-			value = instance[modCol];
-			if (value instanceof Date) {
-				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
-					value = this.formatDate(value);
-				} else {
-					value = this.formatDateTime(value);
-				}
+		for (fieldName in modFields) {
+			var field = model._fields[fieldName];
+			value = instance[fieldName];
+			if (model.isTemporalType(field.type)) {
+				value = this.formatDate(value, field.type);
 			}
-			data[modCol] = value;
+			data[fieldName] = value;
 		}
 
 		for (x = 0, len = pks.length; x < len; ++x) {
