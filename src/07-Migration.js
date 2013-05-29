@@ -2,11 +2,9 @@
 
 var Migration = {};
 
-Migration.schema = Model.create({
-	table: 'schema_definitions',
-	primaryKeys : ['id'],
+Migration.schema = Model.create('schema_definitions', {
 	fields: {
-		id: Model.FIELD_TYPE_INTEGER,
+		id: { type: Model.FIELD_TYPE_INTEGER, computed: true, key: true },
 		table_name: Model.FIELD_TYPE_TEXT,
 		column_names: Model.FIELD_TYPE_INTEGER,
 		column_types: Model.FIELD_TYPE_INTEGER

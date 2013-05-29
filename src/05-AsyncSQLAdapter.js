@@ -13,7 +13,7 @@ var asyncMethods = [
 
 var props = {
 	init: function AsyncSQLAdapter(db) {
-		this._db = db;
+		this._super(db);
 	}
 };
 

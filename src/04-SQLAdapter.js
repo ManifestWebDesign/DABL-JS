@@ -6,6 +6,7 @@ var SQLAdapter = Adapter.extend({
 
 	init: function SQLAdapter(db) {
 		this._db = db;
+		this._super();
 	},
 
 	/**
@@ -206,11 +207,21 @@ var SQLAdapter = Adapter.extend({
 			len,
 			object,
 			row,
-			fieldName;
+			fieldName,
+			pk = model.getPrimaryKey();
 		for (i = 0, len = result.length; i < len; ++i) {
-			object = new model,
+			object,
 			row = result[i];
 
+			if (pk && row[pk]) {
+				object = this.cache(model._table, row[pk]);
+				if (object) {
+					objects.push(object);
+					continue;
+				}
+			}
+
+			object = new model;
 			for (fieldName in row) {
 				object[fieldName] = row[fieldName];
 			}
@@ -242,6 +253,7 @@ var SQLAdapter = Adapter.extend({
 		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
+		this.emptyCache(model._table);
 		return this.execute(q.getDeleteQuery(this)).rowsAffected;
 	},
 
@@ -281,6 +293,8 @@ var SQLAdapter = Adapter.extend({
 		statement.addParams(whereClause.getParams());
 
 		var result = this.execute(statement);
+
+		this.emptyCache(model._table);
 
 		return result.rowsAffected || 0;
 	},
@@ -335,6 +349,10 @@ var SQLAdapter = Adapter.extend({
 		instance.resetModified();
 		instance.setNew(false);
 
+		if (pk && instance[pk]) {
+			this.cache(model._table, instance[pk], instance);
+		}
+
 		return result.rowsAffected;
 	},
 
@@ -342,7 +360,7 @@ var SQLAdapter = Adapter.extend({
 		var data = {},
 			q = new Query,
 			model = instance.constructor,
-			pks = model._primaryKeys,
+			pks = model.getPrimaryKeys(),
 			modFields = instance.getModified(),
 			x,
 			len,
@@ -387,7 +405,8 @@ var SQLAdapter = Adapter.extend({
 	},
 
 	destroy: function(instance) {
-		var pks = instance.constructor._primaryKeys,
+		var model = instance.constructor,
+			pks = model.getPrimaryKeys(),
 			q = new Query,
 			x,
 			len,
@@ -407,7 +426,7 @@ var SQLAdapter = Adapter.extend({
 			q.addAnd(pk, pkVal);
 		}
 
-		return this.destroyAll(instance.constructor, q);
+		return this.destroyAll(model, q);
 	}
 });
 

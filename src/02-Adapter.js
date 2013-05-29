@@ -7,6 +7,32 @@ function _sPad(value) {
 
 var Adapter = Class.extend({
 
+	_cache: null,
+
+	cache: function(table, key, value) {
+		if (!this._cache) {
+			this._cache = {};
+		}
+		if (!this._cache[table]) {
+			this._cache[table] = {};
+		}
+		if (arguments.length < 3) {
+			if (!this._cache[table][key]) {
+				return null;
+			}
+			return this._cache[table][key];
+		}
+		this._cache[table][key] = value;
+		return this;
+	},
+
+	emptyCache: function(table) {
+		if (!this._cache) {
+			this._cache = {};
+		}
+		delete this._cache[table];
+	},
+
 	init: function Adapter() {
 	},
 
@@ -24,6 +50,9 @@ var Adapter = Class.extend({
 		return this.formatDate(value) + ' ' + _sPad(value.getHours()) + ':' + _sPad(value.getMinutes()) + ':' + _sPad(value.getSeconds());
 	},
 
+	/**
+	 * @param {Class} model class
+	 */
 	findQuery: function(model) {
 		var a = Array.prototype.slice.call(arguments),
 			q = new Query().setTable(model.getTableName());
@@ -70,39 +99,54 @@ var Adapter = Class.extend({
 		return q;
 	},
 
+	/**
+	 * @param {Class} model class
+	 */
 	find: function(model){
 		throw new Error('find not implemented for this adapter');
 	},
 
+	/**
+	 * @param {Class} model class
+	 */
 	findAll: function(model) {
 		throw new Error('findAll not implemented for this adapter');
 	},
 
 	/**
-	 * @param q
-	 * @return int
+	 * @param {Class} model class
+	 * @param {Query} q
 	 */
 	countAll: function(model, q) {
 		throw new Error('countAll not implemented for this adapter');
 	},
 
 	/**
-	 * @param q
-	 * @return int
+	 * @param {Class} model class
+	 * @param {Query} q
 	 */
 	destroyAll: function(model, q) {
 		throw new Error('destroyAll not implemented for this adapter');
 	},
 
-	insert: function(instance, onSuccess, onError) {
+	/**
+	 * @param {Model} instance
+	 */
+	insert: function(instance) {
 		throw new Error('insert not implemented for this adapter');
 	},
 
-	update: function(instance, onSuccess, onError) {
+	/**
+	 * @param {Model} instance
+	 */
+	update: function(instance) {
 		throw new Error('update not implemented for this adapter');
 	},
 
-	destroy: function(instance, onSuccess, onError) {
+	/**
+	 * @param {Model} instance
+	 */
+	destroy: function(instance) {
 		throw new Error('destroy not implemented for this adapter');
 	}
 });

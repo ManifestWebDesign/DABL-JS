@@ -169,6 +169,39 @@ Condition.prototype = {
 	},
 
 	/**
+	 * Alias of addAnd
+	 * @return Condition
+	 */
+	and : function(left, right, operator, quote) {
+		return this.addAnd.apply(this, arguments);
+	},
+
+	/**
+	 * Alias of addAnd, but with operator and right switched
+	 * @return Condition
+	 */
+	filter : function(left, operator, right, quote) {
+		if (arguments.length === 2) {
+			var right = arguments[1],
+				operator = Query.EQUAL;
+		} else {
+			var right = arguments[2],
+				operator = arguments[1];
+		}
+		arguments[1] = right;
+		arguments[2] = operator;
+		return this.addAnd.apply(this, arguments);
+	},
+
+	/**
+	 * Alias of filter
+	 * @return Condition
+	 */
+	where : function(left, operator, right, quote) {
+		return this.filter.apply(this, arguments);
+	},
+
+	/**
 	 * Adds an "AND" condition to the array of conditions.
 	 * @param left mixed
 	 * @param right mixed[optional]
@@ -194,6 +227,14 @@ Condition.prototype = {
 		}
 
 		return this;
+	},
+
+	/**
+	 * Alias of addAnd
+	 * @return Condition
+	 */
+	or : function(left, right, operator, quote) {
+		return this.addOr.apply(this, arguments);
 	},
 
 	/**
@@ -889,6 +930,39 @@ Query.prototype = {
 	 */
 	add : function(column, value, operator, quote) {
 		return this.addAnd.apply(this, arguments);
+	},
+
+	/**
+	 * Alias of addAnd
+	 * @return Condition
+	 */
+	and : function(left, right, operator, quote) {
+		return this.addAnd.apply(this, arguments);
+	},
+
+	/**
+	 * Alias of addAnd, but with operator and right switched
+	 * @return Condition
+	 */
+	filter : function(left, operator, right, quote) {
+		this._where.filter.apply(this._where, arguments);
+		return this;
+	},
+
+	/**
+	 * Alias of filter
+	 * @return Condition
+	 */
+	where : function(left, operator, right, quote) {
+		return this.filter.apply(this, arguments);
+	},
+
+	/**
+	 * Alias of addOr
+	 * @return Condition
+	 */
+	or : function(left, right, operator, quote) {
+		return this.addOr.apply(this, arguments);
 	},
 
 	/**
@@ -1591,7 +1665,7 @@ Query.prototype = {
 
 var isIdent = /^\w+\.\w+$/;
 
-QueryJoin = function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
+function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
 	if (arguments.length < 3) {
 		joinType = Query.JOIN;
 	}

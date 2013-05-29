@@ -9,7 +9,7 @@ var Model = Class.extend({
 	_values: null,
 
 	/**
-	 * Array to contain names of modified fields
+	 * Object containing names of modified fields
 	 */
 	_originalValues: null,
 
@@ -27,6 +27,14 @@ var Model = Class.extend({
 		this._validationErrors = [];
 		this._values = {};
 		this.resetModified();
+		for (var fieldName in this.constructor._fields) {
+			var field = this.constructor._fields[fieldName];
+			if (typeof field.value !== 'undefined') {
+				this[fieldName] = copy(field.value);
+			} else if (field.type === Array) {
+				this[fieldName] = [];
+			}
+		}
 		if (values) {
 			this.setValues(values);
 		}
@@ -52,7 +60,7 @@ var Model = Class.extend({
 	 */
 	copy: function() {
 		var newObject = new this.constructor,
-			pks = this.constructor._primaryKeys,
+			pks = this.constructor._keys,
 			x,
 			len,
 			pk;
@@ -77,8 +85,8 @@ var Model = Class.extend({
 		if (field) {
 			return this[field] !== this._originalValues[field];
 		}
-		for (var field in this.constructor._fields) {
-			if (this[field] !== this._originalValues[field]) {
+		for (var fieldName in this.constructor._fields) {
+			if (this[fieldName] !== this._originalValues[fieldName]) {
 				return true;
 			}
 		}
@@ -91,9 +99,9 @@ var Model = Class.extend({
 	 */
 	getModified: function() {
 		var modified = {};
-		for (var field in this.constructor._fields) {
-			if (this[field] !== this._originalValues[field]) {
-				modified[field] = true;
+		for (var fieldName in this.constructor._fields) {
+			if (this[fieldName] !== this._originalValues[fieldName]) {
+				modified[fieldName] = true;
 			}
 		}
 		return modified;
@@ -105,56 +113,10 @@ var Model = Class.extend({
 	 */
 	resetModified: function() {
 		this._originalValues = {};
-		for (var field in this.constructor._fields) {
-			this._originalValues[field] = this[field];
+		for (var fieldName in this.constructor._fields) {
+			this._originalValues[fieldName] = this[fieldName];
 		}
 		return this;
-	},
-
-	/**
-	 * Sets the value of a field
-	 * @param String field
-	 * @param mixed value
-	 * @param string fieldType
-	 * @return Model
-	 */
-	coerceValue: function(field, value, fieldType) {
-		if (!fieldType) {
-			fieldType = this.constructor.getFieldType(field);
-		}
-
-		value = typeof value === 'undefined' ? null : value;
-
-		var temporal = Model.isTemporalType(fieldType),
-			numeric = Model.isNumericType(fieldType),
-			intVal,
-			floatVal;
-
-		if (numeric || temporal) {
-			if ('' === value) {
-				value = null;
-			} else if (null !== value) {
-				if (numeric) {
-					if (Model.isIntegerType(fieldType)) {
-						// validate and cast
-						intVal = parseInt(value, 10);
-						if (intVal.toString() !== value.toString()) {
-							throw new Error(value + ' is not a valid integer');
-						}
-						value = intVal;
-					} else {
-						// only validates, doesn't cast...yet
-						floatVal = parseFloat(value, 10);
-						if (floatVal.toString() !== value.toString()) {
-							throw new Error(value + ' is not a valid float');
-						}
-					}
-				} else if (temporal) {
-					value = Model.coerceTemporalValue(value, fieldType, this.constructor.getAdapter());
-				}
-			}
-		}
-		return value;
 	},
 
 	/**
@@ -164,11 +126,11 @@ var Model = Class.extend({
 	 * @return Model
 	 */
 	setValues: function(object) {
-		for (var field in this.constructor._fields) {
-			if (!(field in object)) {
+		for (var fieldName in this.constructor._fields) {
+			if (!(fieldName in object)) {
 				continue;
 			}
-			this[field] = object[field];
+			this[fieldName] = object[fieldName];
 		}
 		return this;
 	},
@@ -179,11 +141,30 @@ var Model = Class.extend({
 	 * @return array
 	 */
 	getValues: function() {
-		var array = {}, field;
-		for (field in this.constructor._fields) {
-			array[field] = this[field];
+		var values = {},
+			fieldName,
+			value;
+
+		for (fieldName in this.constructor._fields) {
+			value = this[fieldName];
+			if (!this._inGetValues && value instanceof Model) {
+				this._inGetValues = true;
+				value = value.getValues();
+				delete this._inGetValues;
+			}
+			if (value instanceof Array) {
+				for (var x = 0, l = value.length; x < l; ++x) {
+					if (!this._inGetValues && value[x] instanceof Model) {
+						this._inGetValues = true;
+						value[x] = value[x].getValues();
+						delete this._inGetValues;
+					}
+				}
+			}
+			values[fieldName] = value;
 		}
-		return array;
+
+		return values;
 	},
 
 	/**
@@ -191,7 +172,7 @@ var Model = Class.extend({
 	 * @return bool
 	 */
 	hasPrimaryKeyValues: function() {
-		var pks = this.constructor._primaryKeys,
+		var pks = this.constructor._keys,
 			x,
 			len,
 			pk;
@@ -214,7 +195,7 @@ var Model = Class.extend({
 	 */
 	getPrimaryKeyValues: function() {
 		var arr = [],
-			pks = this.constructor._primaryKeys,
+			pks = this.constructor._keys,
 			x,
 			len,
 			pk;
@@ -273,19 +254,21 @@ var Model = Class.extend({
 	 * @return int number of records inserted or updated
 	 */
 	save: function() {
+		var model = this.constructor;
+
 		if (!this.validate()) {
-			throw new Error('Cannot save ' + this.constructor.getClassName() + ' with validation errors.');
+			throw new Error('Cannot save ' + model.getClassName() + ' with validation errors.');
 		}
 
-		if (this.constructor._primaryKeys.length === 0) {
+		if (model._keys.length === 0) {
 			throw new Error('Cannot save without primary keys');
 		}
 
-		if (this.isNew() && this.constructor.hasField('created') && !this.isModified('created')) {
+		if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
 			this.created = new Date();
 		}
 
-		if ((this.isNew() || this.isModified()) && this.constructor.hasField('updated') && !this.isModified('updated')) {
+		if ((this.isNew() || this.isModified()) && model.hasField('updated') && !this.isModified('updated')) {
 			this.updated = new Date();
 		}
 
@@ -377,7 +360,7 @@ Model.NUMERIC_TYPES = {
 };
 
 Model.isFieldType = function(type) {
-	return (type in Model.FIELD_TYPES);
+	return (type in Model.FIELD_TYPES || this.isObjectType(type));
 };
 
 /**
@@ -420,10 +403,20 @@ Model.isIntegerType = function(type) {
 	return (type in this.INTEGER_TYPES);
 };
 
+/**
+ * Returns true if values for the type are objects or arrays.
+ *
+ * @param type
+ * @return boolean
+ */
+Model.isObjectType = function(type) {
+	return typeof type === 'function';
+};
+
 Model.coerceTemporalValue = function(value, fieldType) {
-	var x, date, len;
-	if (value instanceof Array) {
-		for (x = 0, len = value; x < len; ++x) {
+	var x, date, l;
+	if (value.constructor === Array) {
+		for (x = 0, l = value.length; x < l; ++x) {
 			value[x] = this.coerceTemporalValue(value[x], fieldType);
 		}
 		return value;
@@ -435,9 +428,115 @@ Model.coerceTemporalValue = function(value, fieldType) {
 	return date;
 };
 
-Model._fields = Model._primaryKeys = Model._table = null;
+/**
+ * Sets the value of a field
+ * @param {String} fieldName
+ * @param {mixed} value
+ * @param {Object} field
+ * @return {mixed}
+ */
+Model.coerceValue = function(fieldName, value, field) {
+	if (!field) {
+		field = this.getField(fieldName);
+	}
+	var fieldType = field.type;
 
-Model._autoIncrement = true;
+	value = typeof value === 'undefined' ? null : value;
+
+	var temporal = this.isTemporalType(fieldType),
+		numeric = this.isNumericType(fieldType),
+		intVal,
+		floatVal;
+
+	if (numeric || temporal) {
+		if ('' === value) {
+			value = null;
+		} else if (null !== value) {
+			if (numeric) {
+				if (this.isIntegerType(fieldType)) {
+					// validate and cast
+					intVal = parseInt(value, 10);
+					if (intVal.toString() !== value.toString()) {
+						throw new Error(value + ' is not a valid integer');
+					}
+					value = intVal;
+				} else {
+					// only validates, doesn't cast...yet
+					floatVal = parseFloat(value, 10);
+					if (floatVal.toString() !== value.toString()) {
+						throw new Error(value + ' is not a valid float');
+					}
+				}
+			} else if (temporal) {
+				value = this.coerceTemporalValue(value, fieldType);
+			}
+		}
+	} else if (fieldType === Array) {
+		if (value === null) {
+			value = [];
+		} else if (field.elementType && value instanceof Array) {
+			for (var x = 0, l = value.length; x < l; ++x) {
+				if (value[x] !== null && !(value[x] instanceof field.elementType)) {
+					value[x] = cast(value[x], field.elementType);
+				}
+			}
+		}
+	} else if (this.isObjectType(fieldType)) {
+		if (value !== null && !(value instanceof fieldType)) {
+			value = cast(value, fieldType);
+		}
+	}
+	return value;
+};
+
+function cast(obj, type) {
+	if (type._table && typeof type === 'function') {
+		var key = type.getPrimaryKey(),
+			instance;
+		if (type._adapter && key && obj[key]) {
+			instance = type._adapter.cache(type._table, obj[key]);
+			if (instance) {
+				return instance;
+			}
+		}
+		return new type(obj);
+	}
+//	if (type.valueOf) {
+//		return type.valueOf(obj);
+//	}
+	return obj;
+}
+
+function copy(obj) {
+	if (obj === null) {
+		return null;
+	}
+
+	if (obj instanceof Array) {
+		return obj.slice(0);
+	}
+
+	switch (typeof obj) {
+		case 'string':
+		case 'boolean':
+		case 'number':
+		case 'undefined':
+		case 'function':
+			return obj;
+	}
+
+	var target = {};
+	for (var i in obj) {
+		if (obj.hasOwnProperty(i)) {
+			target[i] = obj[i];
+		}
+	}
+	return target;
+}
+
+Model._fields = Model._keys = Model._table = null;
+
+Model._autoIncrement = false;
 
 Model.getAdapter = function(){
 	return this._adapter;
@@ -461,23 +560,31 @@ Model.getTableName = function() {
  * @return array
  */
 Model.getFields = function() {
-	return this._fields.slice(0);
+	return copy(this._fields);
 };
 
 /**
  * Get the type of a field
  * @return array
  */
-Model.getFieldType = function(field) {
-	return this._fields[field];
+Model.getField = function(fieldName) {
+	return this._fields[fieldName];
+};
+
+/**
+ * Get the type of a field
+ * @return array
+ */
+Model.getFieldType = function(fieldName) {
+	return this._fields[fieldName].type;
 };
 
 /**
  * @return bool
  */
 Model.hasField = function(field) {
-	for (var field in this._fields) {
-		if (field === field) {
+	for (var fieldName in this._fields) {
+		if (fieldName === field) {
 			return true;
 		}
 	}
@@ -489,7 +596,7 @@ Model.hasField = function(field) {
  * @return array
  */
 Model.getPrimaryKeys = function() {
-	return this._primaryKeys.slice(0);
+	return this._keys.slice(0);
 };
 
 /**
@@ -497,7 +604,7 @@ Model.getPrimaryKeys = function() {
  * @return array
  */
 Model.getPrimaryKey = function() {
-	return this._primaryKeys.length === 1 ? this._primaryKeys[0] : null;
+	return this._keys.length === 1 ? this._keys[0] : null;
 };
 
 /**
@@ -507,11 +614,6 @@ Model.getPrimaryKey = function() {
 Model.isAutoIncrement = function() {
 	return this._autoIncrement;
 };
-
-Model.prototype.toJSON = Model.prototype.getValues;
-Model.prototype.fromJSON = Model.prototype.setValues;
-Model.prototype.toArray = Model.prototype.getValues;
-Model.prototype.fromArray = Model.prototype.setValues;
 
 var adapterMethods = ['countAll', 'findAll', 'find', 'destroyAll', 'updateAll'];
 
@@ -533,28 +635,69 @@ for (var x = 0, len = findAliases.length; x < len; ++x) {
 	Model[findAliases[x]] = Model.find;
 }
 
-Model.addField = function(object, field, colType) {
-	if (!object.__defineGetter__ && !Object.defineProperty) {
+Model.addField = function(fieldName, field) {
+	var get, set, self = this;
+
+	if (!field.type) {
+		field = {
+			type: field
+		};
+	}
+
+	if (typeof field.type === 'string') {
+		field.type = field.type.toUpperCase();
+	}
+
+	switch (field.type) {
+		case String:
+			field.type = self.FIELD_TYPE_TEXT;
+			break;
+		case Number:
+			field.type = self.FIELD_TYPE_NUMERIC;
+			break;
+		case Date:
+			field.type = self.FIELD_TYPE_TIMESTAMP;
+			break;
+		case 'INT':
+			field.type = self.FIELD_TYPE_INTEGER;
+			break;
+	}
+
+	if (field.key) {
+		this._keys.push(fieldName);
+	}
+	if (field.computed) {
+		this._autoIncrement = true;
+	}
+
+	if (!this.isFieldType(field.type)) {
+		throw new Error(field.type + ' is not a valide field type');
+	}
+
+	this._fields[fieldName] = field;
+
+	if (!this.prototype.__defineGetter__ && !Object.defineProperty) {
 		return;
 	}
-	var get = function() {
-		var value = this._values[field];
+
+	get = function() {
+		var value = this._values[fieldName];
 		return typeof value === 'undefined' ? null : value;
 	};
 
-	var set = function(value) {
-		this._values[field] = this.coerceValue(field, value, colType);
+	set = function(value) {
+		this._values[fieldName] = self.coerceValue(fieldName, value, field);
 	};
 
 	if (Object.defineProperty) {
-		Object.defineProperty(object, field, {
-			enumerable: true,
+		Object.defineProperty(this.prototype, fieldName, {
 			get: get,
-			set: set
+			set: set,
+			enumerable: true
 		});
 	} else {
-		object.__defineGetter__(field, get);
-		object.__defineSetter__(field, set);
+		this.prototype.__defineGetter__(fieldName, get);
+		this.prototype.__defineSetter__(fieldName, set);
 	}
 };
 
@@ -563,34 +706,31 @@ Model.models = {};
 /**
  * @return Model
  */
-Model.create = function(opts) {
-	var newClass, field, type, prop;
+Model.create = function(table, opts) {
+	var newClass,
+		fieldName,
+		prop;
 
-	if (typeof opts.table === 'undefined') {
+	if (typeof table === 'undefined') {
 		throw new Error('Must provide a table when exending Model');
 	}
-	if (typeof opts.fields === 'undefined') {
+	if (!opts.fields) {
 		throw new Error('Must provide fields when exending Model');
-	}
-	if (typeof opts.primaryKeys === 'undefined') {
-		throw new Error('Must provide primaryKeys when exending Model');
 	}
 
 	newClass = this.extend(opts.prototype);
 	delete opts.prototype;
 
-	for (field in opts.fields) {
-		type = opts.fields[field] = opts.fields[field].toUpperCase();
-		if (!Model.isFieldType(type)) {
-			throw new Error(type + ' is not a valide field type');
-		}
-		Model.addField(newClass.prototype, field, type);
-	}
+	newClass._keys = [];
+	newClass._fields = {};
+	newClass._table = table;
 
 	for (prop in opts) {
 		switch (prop) {
-			// known static private properties
-			case 'url': case 'adapter': case 'table': case 'fields': case 'primaryKeys': case 'autoIncrement':
+			// private static properties
+			case 'url':
+			case 'adapter':
+			case 'table':
 				newClass['_' + prop] = opts[prop];
 				break;
 
@@ -601,9 +741,12 @@ Model.create = function(opts) {
 		}
 	}
 
-	Model.models[opts.table] = newClass;
+	for (fieldName in opts.fields) {
+		newClass.addField(fieldName, opts.fields[fieldName]);
+	}
 
-	newClass.name = 'Foo';
+	Model.models[table] = newClass;
+
 	return newClass;
 };
 

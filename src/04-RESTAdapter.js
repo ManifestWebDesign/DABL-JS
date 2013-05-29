@@ -50,8 +50,7 @@ Route.prototype = {
 				encodedVal = encodeUriSegment(val);
 				url = url.replace(new RegExp(":" + urlParam + "(\\W)", "g"), encodedVal + "$1");
 			} else {
-				url = url.replace(new RegExp("(\/?):" + urlParam + "(\\W)", "g"), function(match,
-					leadingSlashes, tail) {
+				url = url.replace(new RegExp("(\/?):" + urlParam + "(\\W)", "g"), function(match, leadingSlashes, tail) {
 					if (tail.charAt(0) === '/') {
 						return tail;
 					} else {
@@ -82,6 +81,10 @@ Route.prototype = {
 };
 
 var RESTAdapter = Adapter.extend({
+
+	init: function RESTAdaper() {
+		this._super();
+	},
 
 	routes: {},
 
@@ -115,17 +118,13 @@ var RESTAdapter = Adapter.extend({
 			value,
 			route = this.route(model._url),
 			data = {},
-			def = new Deferred();
+			def = new Deferred(),
+			pk = model.getPrimaryKey(),
+			self = this;
 
 		for (field in model._fields) {
 			value = instance[field];
-			if (value === null) {
-				if (!instance.isModified(field)) {
-					continue;
-				} else {
-					value = '';
-				}
-			} else if (value instanceof Date) {
+			if (value instanceof Date) {
 				if (value.getSeconds() === 0 && value.getMinutes() === 0 && value.getHours() === 0) {
 					value = this.formatDate(value);
 				} else {
@@ -143,6 +142,9 @@ var RESTAdapter = Adapter.extend({
 			instance.setValues(r);
 			instance.resetModified();
 			instance.setNew(false);
+			if (pk && instance[pk]) {
+				self.cache(model._table, instance[pk], instance);
+			}
 			def.resolve(r);
 		}, 'json')
 		.fail(function(jqXHR, textStatus, errorThrown){
@@ -221,7 +223,9 @@ var RESTAdapter = Adapter.extend({
 		var model = instance.constructor,
 			pks = model.getPrimaryKeys(),
 			route = this.route(model._url),
-			def = new Deferred();
+			def = new Deferred(),
+			pk = model.getPrimaryKey(),
+			self = this;
 
 		if (pks.length === 0) {
 			throw new Error('This table has no primary keys');
@@ -246,6 +250,9 @@ var RESTAdapter = Adapter.extend({
 				return;
 			}
 			def.resolve(r);
+			if (pk && instance[pk]) {
+				self.cache(model._table, instance[pk], null);
+			}
 		}, 'json')
 		.fail(function(jqXHR, textStatus, errorThrown){
 			def.reject({
@@ -261,7 +268,9 @@ var RESTAdapter = Adapter.extend({
 		var pk = model.getPrimaryKey(),
 			route = this.route(model._url),
 			data = {},
-			def = new Deferred();
+			def = new Deferred(),
+			instance = null,
+			numericKey = false;
 
 		if (id === null || typeof id === 'undefined') {
 			def.reject({
@@ -269,18 +278,31 @@ var RESTAdapter = Adapter.extend({
 			});
 			return def.promise();
 		}
+
+		if (!isNaN(parseInt(id, 10))) {
+			numericKey = true;
+			// look for it in the cache
+			instance = this.cache(model._table, id);
+			if (instance) {
+				def.resolve(instance);
+			}
+			return def.promise();
+		}
+
 		data[pk] = id;
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);
 				return;
 			}
-			var instance = null;
 			if (r !== null) {
 				instance = new model;
 				instance.setValues(r);
 				instance.setNew(false);
 				instance.resetModified();
+			}
+			if (numericKey) {
+				this.cache(model._table, id, instance);
 			}
 			def.resolve(instance);
 		})
@@ -300,7 +322,10 @@ var RESTAdapter = Adapter.extend({
 
 		var route = this.route(model._url),
 			data = q.toArray(),
-			def = new Deferred();
+			def = new Deferred(),
+			instance,
+			pk = model.getPrimaryKey(),
+			self = this;
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);
@@ -309,7 +334,18 @@ var RESTAdapter = Adapter.extend({
 			var collection = [];
 			if (r instanceof Array) {
 				for (var x = 0, len = r.length; x < len; ++x) {
-					collection.push(new model().setValues(r[x]));
+					if (pk && r[x][pk]) {
+						instance = self.cache(model._table, r[x][pk]);
+						if (instance) {
+							collection.push(instance);
+							continue;
+						}
+					}
+					instance = new model().setValues(r[x]);
+					if (pk && instance[pk]) {
+						self.cache(model._table, instance[pk], instance);
+					}
+					collection.push(instance);
 				}
 			}
 			def.resolve(collection);
