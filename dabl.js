@@ -1065,7 +1065,6 @@ Condition.prototype = {
 				throw new Error('OR conditions not supported.');
 			}
 			if (cond.length !== 2 && !(cond.length === 3 && cond[2] === Query.EQUAL)) {
-				console.log(cond);
 				throw new Error('Cannot export complex condition: "' + cond.processed + '"');
 			}
 			r[cond[0]] = cond[1];
