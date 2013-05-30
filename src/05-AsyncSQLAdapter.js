@@ -32,7 +32,6 @@ for (var x = 0, l = asyncMethods.length; x < l; ++x) {
 	};
 }
 
-var AsyncSQLAdapter = SQLAdapter.extend(props);
+this.AsyncSQLAdapter = SQLAdapter.extend(props);
 
-this.AsyncSQLAdapter = AsyncSQLAdapter;
 })();

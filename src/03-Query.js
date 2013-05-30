@@ -185,16 +185,17 @@ Condition.prototype = {
 	 * @return {Condition}
 	 */
 	filter : function(left, operator, right, quote) {
-		if (arguments.length === 2) {
-			var right = arguments[1],
+		var a = Array.prototype.slice.call(arguments);
+		if (a.length === 2) {
+			var right = a[1],
 				operator = Query.EQUAL;
 		} else {
-			var right = arguments[2],
-				operator = arguments[1];
+			var right = a[2],
+				operator = a[1];
 		}
-		arguments[1] = right;
-		arguments[2] = operator;
-		return this.addAnd.apply(this, arguments);
+		a[1] = right;
+		a[2] = operator;
+		return this.addAnd.apply(this, a);
 	},
 
 	/**
@@ -514,8 +515,9 @@ Condition.prototype = {
 			if ('AND' !== cond.type) {
 				throw new Error('OR conditions not supported.');
 			}
-			if (cond.length !== 2) {
-				throw new Error('Only simple equals Conditions can be exported.');
+			if (cond.length !== 2 && !(cond.length === 3 && cond[2] === Query.EQUAL)) {
+				console.log(cond);
+				throw new Error('Cannot export complex condition: "' + cond.processed + '"');
 			}
 			r[cond[0]] = cond[1];
 		}

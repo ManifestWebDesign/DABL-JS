@@ -1,6 +1,6 @@
 (function(){
 
-var SQLAdapter = Adapter.extend({
+this.SQLAdapter = Adapter.extend({
 
 	_db: null,
 
@@ -204,29 +204,9 @@ var SQLAdapter = Adapter.extend({
 	fromResult: function(model, result) {
 		var objects = [],
 			i,
-			len,
-			object,
-			row,
-			fieldName,
-			pk = model.getPrimaryKey();
+			len;
 		for (i = 0, len = result.length; i < len; ++i) {
-			object,
-			row = result[i];
-
-			if (pk && row[pk]) {
-				object = this.cache(model._table, row[pk]);
-				if (object) {
-					objects.push(object);
-					continue;
-				}
-			}
-
-			object = new model;
-			for (fieldName in row) {
-				object[fieldName] = row[fieldName];
-			}
-			object.setNew(false);
-			objects.push(object);
+			objects.push(model.inflate(result[i]));
 		}
 		return objects;
 	},
@@ -425,5 +405,4 @@ var SQLAdapter = Adapter.extend({
 	}
 });
 
-this.SQLAdapter = SQLAdapter;
 })();

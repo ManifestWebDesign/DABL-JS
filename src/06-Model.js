@@ -493,13 +493,13 @@ Model.coerceValue = function(fieldName, value, field) {
 			value = [];
 		} else if (field.elementType && value instanceof Array) {
 			for (var x = 0, l = value.length; x < l; ++x) {
-				if (value[x] !== null && !(value[x] instanceof field.elementType)) {
+				if (value[x] !== null) {
 					value[x] = cast(value[x], field.elementType);
 				}
 			}
 		}
 	} else if (this.isObjectType(fieldType)) {
-		if (value !== null && !(value instanceof fieldType)) {
+		if (value !== null) {
 			value = cast(value, fieldType);
 		}
 	}
@@ -508,15 +508,10 @@ Model.coerceValue = function(fieldName, value, field) {
 
 function cast(obj, type) {
 	if (type._table && typeof type === 'function') {
-//		var key = type.getPrimaryKey(),
-//			instance;
-//		if (type._adapter && key && obj[key]) {
-//			instance = type._adapter.cache(type._table, obj[key]);
-//			if (instance) {
-//				return instance;
-//			}
-//		}
-		return new type(obj);
+		if (obj.constructor === type) {
+			return obj;
+		}
+		return type.inflate(obj);
 	}
 //	if (type.valueOf) {
 //		return type.valueOf(obj);
@@ -569,6 +564,26 @@ Model.getAdapter = function(){
 Model.setAdapter = function(adapter){
 	this._adapter = adapter;
 	return this;
+};
+
+Model.inflate = function(values) {
+	var pk = this.getPrimaryKey(),
+		adapter = this.getAdapter(),
+		instance;
+	if (pk && values[pk]) {
+		instance = adapter.cache(this._table, values[pk]);
+		if (instance) {
+			return instance;
+		}
+	}
+	instance = new this(values)
+		.resetModified()
+		.setNew(false);
+
+	if (pk && instance[pk]) {
+		adapter.cache(this._table, instance[pk], instance);
+	}
+	return instance;
 };
 
 /**
@@ -648,9 +663,9 @@ for (var i = 0, l = adapterMethods.length; i < l; ++i) {
 	var method = adapterMethods[i];
 	Model[method] = (function(method){
 		return function() {
-			var args = Array.prototype.slice.call(arguments);
+			var args = Array.prototype.slice.call(arguments),
+				con = this.getAdapter();
 			args.unshift(this);
-			var con = this.getAdapter();
 			return con[method].apply(con, args);
 		};
 	})(method);

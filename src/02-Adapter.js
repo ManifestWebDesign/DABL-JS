@@ -5,7 +5,7 @@ function _sPad(value) {
 	return value.length === 2 ? value : '0' + value;
 }
 
-var Adapter = Class.extend({
+this.Adapter = Class.extend({
 
 	_cache: null,
 
@@ -165,7 +165,5 @@ var Adapter = Class.extend({
 		throw new Error('destroy not implemented for this adapter');
 	}
 });
-
-this.Adapter = Adapter;
 
 })();

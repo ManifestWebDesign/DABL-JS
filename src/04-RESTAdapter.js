@@ -80,22 +80,76 @@ Route.prototype = {
 	}
 };
 
-var RESTAdapter = Adapter.extend({
+this.RESTAdapter = Adapter.extend({
+
+	_routes: null,
 
 	init: function RESTAdaper() {
 		this._super();
+		this._routes = {};
 	},
 
-	routes: {},
-
-	route: function(url) {
+	_route: function(url) {
 		if (!url) {
 			throw new Error('Cannot create RESTful route for empty url.');
 		}
-		if (this.routes[url]) {
-			return this.routes[url];
+		if (this._routes[url]) {
+			return this._routes[url];
 		}
-		return this.routes[url] = new Route(url);
+		return this._routes[url] = new Route(url);
+	},
+
+	_save: function(instance, method) {
+		var fieldName,
+			model = instance.constructor,
+			value,
+			route = this._route(model._url),
+			data = {},
+			def = new Deferred(),
+			pk = model.getPrimaryKey(),
+			self = this;
+
+		for (fieldName in model._fields) {
+			var field = model._fields[fieldName];
+			value = instance[fieldName];
+			if (model.isTemporalType(field.type)) {
+				value = this.formatDate(value, field.type);
+			}
+			data[fieldName] = value;
+		}
+
+		data._method = method;
+
+		$.ajax({
+			url: route.url(data),
+			type: 'POST',
+			data: JSON.stringify(data),
+			contentType: 'application/json;charset=utf-8',
+			dataType: 'json',
+			success: function(r) {
+				if (!r || (r.errors && r.errors.length)) {
+					def.reject(r);
+					return;
+				}
+				instance
+					.setValues(r)
+					.resetModified()
+					.setNew(false);
+
+				if (pk && instance[pk]) {
+					self.cache(model._table, instance[pk], instance);
+				}
+				def.resolve(instance);
+			},
+			error: function(jqXHR, textStatus, errorThrown) {
+				def.reject({
+					xhr: jqXHR,
+					status: textStatus,
+					errors: [errorThrown]
+				});
+			}
+		});
+		return def.promise();
 	},
 
 	formatDateTime: function(value) {
@@ -113,194 +167,85 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	insert: function(instance) {
-		var fieldName,
-			model = instance.constructor,
-			value,
-			route = this.route(model._url),
-			data = {},
-			def = new Deferred(),
-			pk = model.getPrimaryKey(),
-			self = this;
-
-		for (fieldName in model._fields) {
-			var field = model._fields[fieldName];
-			value = instance[fieldName];
-			if (model.isTemporalType(field.type)) {
-				value = this.formatDate(value, field.type);
-			}
-			if (value === null) {
-				value = '';
-			}
-			data[fieldName] = value;
-		}
-
-		$.post(route.url(instance), data, function(r){
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
-				return;
-			}
-			instance.setValues(r);
-			instance.resetModified();
-			instance.setNew(false);
-			if (pk && instance[pk]) {
-				self.cache(model._table, instance[pk], instance);
-			}
-			def.resolve(r);
-		}, 'json')
-		.fail(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				xhr: jqXHR,
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
-		return def.promise();
+		return this._save(instance, 'POST');
 	},
 
 	update: function(instance) {
-		var data = {},
-			modFields = instance.getModified(),
-			model = instance.constructor,
-			route = this.route(model._url),
-			fieldName,
-			pks = model.getPrimaryKeys(),
-			value,
-			def = new Deferred();
-
 		if (!instance.isModified()) {
+			var def = new Deferred();
 			def.resolve();
 			return def.promise();
 		}
 
-		if (pks.length === 0) {
-			throw new Error('This table has no primary keys');
-		}
-
-		if (instance[pks[0]] === null || instance[pks[0]] === 'undefined') {
-			def.reject({
-				errors: ['No ' + pks[0] + ' provided']
-			});
-			return def.promise();
-		}
-
-		for (fieldName in modFields) {
-			var field = model._fields[fieldName];
-			value = instance[fieldName];
-			if (model.isTemporalType(field.type)) {
-				value = this.formatDate(value, field.type);
-			}
-			if (value === null) {
-				value = '';
-			}
-			data[fieldName] = value;
-		}
-
-		data._method = 'PUT';
-		$.post(route.url(instance), data, function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
-				return;
-			}
-			instance.setValues(r);
-			instance.resetModified();
-			def.resolve(r);
-		}, 'json')
-		.fail(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				xhr: jqXHR,
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
-		return def.promise();
+		return this._save(instance, 'PUT');
 	},
 
 	destroy: function(instance) {
 		var model = instance.constructor,
-			pks = model.getPrimaryKeys(),
-			route = this.route(model._url),
+			route = this._route(model._url),
 			def = new Deferred(),
 			pk = model.getPrimaryKey(),
 			self = this;
 
-		if (pks.length === 0) {
-			throw new Error('This table has no primary keys');
-		}
+		var data = {
+			_method: 'DELETE'
+		};
 
-		if (pks.length > 1) {
-			throw new Error('Cannot save using REST if there is more than one primary key!');
-		}
-
-		if (instance[pks[0]] === null || instance[pks[0]] === 'undefined') {
-			def.reject({
-				errors: ['No ' + pks[0] + ' provided']
-			});
-			return def.promise();
-		}
-
-		var data = {};
-		data._method = 'DELETE';
-		$.post(route.url(instance), data, function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
-				return;
+		$.ajax({
+			url: route.url(instance.getValues()),
+			type: 'POST',
+			data: JSON.stringify(data),
+			contentType: 'application/json;charset=utf-8',
+			dataType: 'json',
+			success: function(r) {
+				if (r && r.errors && r.errors.length) {
+					def.reject(r);
+					return;
+				}
+				if (pk && instance[pk]) {
+					self.cache(model._table, instance[pk], null);
+				}
+				def.resolve(instance);
+			},
+			error: function(jqXHR, textStatus, errorThrown){
+				def.reject({
+					xhr: jqXHR,
+					status: textStatus,
+					errors: [errorThrown]
+				});
 			}
-			def.resolve(r);
-			if (pk && instance[pk]) {
-				self.cache(model._table, instance[pk], null);
-			}
-		}, 'json')
-		.fail(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				xhr: jqXHR,
-				status: textStatus,
-				errors: [errorThrown]
-			});
 		});
+
 		return def.promise();
 	},
 
 	find: function(model, id) {
 		var pk = model.getPrimaryKey(),
-			route = this.route(model._url),
+			route = this._route(model._url),
 			data = {},
 			def = new Deferred(),
 			instance = null,
-			numericKey = false;
+			q;
 
-		if (id === null || typeof id === 'undefined') {
-			def.reject({
-				errors: ['No ' + pk + ' provided']
-			});
-			return def.promise();
-		}
-
-		if (!isNaN(parseInt(id, 10))) {
-			numericKey = true;
+		if (typeof id === 'number' || typeof id === 'string') {
 			// look for it in the cache
 			instance = this.cache(model._table, id);
 			if (instance) {
 				def.resolve(instance);
+				return def.promise();
 			}
-			return def.promise();
+			data[pk] = id;
+		} else {
+			q = this.findQuery.apply(this, arguments);
+			data = q.toArray();
 		}
 
-		data[pk] = id;
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);
 				return;
 			}
-			if (r !== null) {
-				instance = new model;
-				instance.setValues(r);
-				instance.setNew(false);
-				instance.resetModified();
-			}
-			if (numericKey) {
-				this.cache(model._table, id, instance);
-			}
-			def.resolve(instance);
+			def.resolve(model.inflate(r));
 		})
 		.fail(function(jqXHR, textStatus, errorThrown){
 			def.reject({
@@ -316,12 +261,9 @@ var RESTAdapter = Adapter.extend({
 		var q = this.findQuery
 			.apply(this, arguments);
 
-		var route = this.route(model._url),
+		var route = this._route(model._url),
 			data = q.toArray(),
-			def = new Deferred(),
-			instance,
-			pk = model.getPrimaryKey(),
-			self = this;
+			def = new Deferred();
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);
@@ -330,18 +272,7 @@ var RESTAdapter = Adapter.extend({
 			var collection = [];
 			if (r instanceof Array) {
 				for (var x = 0, len = r.length; x < len; ++x) {
-					if (pk && r[x][pk]) {
-						instance = self.cache(model._table, r[x][pk]);
-						if (instance) {
-							collection.push(instance);
-							continue;
-						}
-					}
-					instance = new model().setValues(r[x]);
-					if (pk && instance[pk]) {
-						self.cache(model._table, instance[pk], instance);
-					}
-					collection.push(instance);
+					collection.push(model.inflate(r[x]));
 				}
 			}
 			def.resolve(collection);
@@ -357,5 +288,4 @@ var RESTAdapter = Adapter.extend({
 	}
 });
 
-this.RESTAdapter = RESTAdapter;
 })(jQuery);
