@@ -44,7 +44,7 @@ this.Model = Class.extend({
 	},
 
 	toString: function() {
-		return this.constructor.name + ':' + this.getPrimaryKeyValues().join('-');
+		return this.constructor._table + ':' + JSON.stringify(this.getValues());
 	},
 
 	/**
@@ -112,12 +112,8 @@ this.Model = Class.extend({
 	 * Resets the object to the state it was in before changes were made
 	 */
 	revert: function() {
-		if (this._values) {
-			this._values = copy(this._originalValues);
-		} else {
-			for (var fieldName in this._originalValues) {
-				this[fieldName] = this._originalValues[fieldName];
-			}
+		for (var fieldName in this.constructor._fields) {
+			this[fieldName] = this._originalValues[fieldName];
 		}
 		return this;
 	},
@@ -154,15 +150,20 @@ this.Model = Class.extend({
 				this._inGetValues = true;
 				value = value.getValues();
 				delete this._inGetValues;
-			}
-			if (value instanceof Array) {
+			} else if (value instanceof Array) {
+				var newValue = [];
 				for (var x = 0, l = value.length; x < l; ++x) {
 					if (!this._inGetValues && value[x] instanceof Model) {
 						this._inGetValues = true;
-						value[x] = value[x].getValues();
+						newValue[x] = value[x].getValues();
 						delete this._inGetValues;
+					} else {
+						newValue[x] = value[x];
 					}
 				}
+				value = newValue;
+			} else {
+				value = copy(value);
 			}
 			values[fieldName] = value;
 		}
@@ -174,7 +175,7 @@ this.Model = Class.extend({
 	 * Returns true if this table has primary keys and if all of the primary values are not null
 	 * @return {Boolean}
 	 */
-	hasPrimaryKeyValues: function() {
+	hasKeyValues: function() {
 		var pks = this.constructor._keys;
 		if (pks.length === 0) {
 			return false;
@@ -193,15 +194,15 @@ this.Model = Class.extend({
 	 *
 	 * @return {Array}
 	 */
-	getPrimaryKeyValues: function() {
-		var arr = [],
+	getKeyValues: function() {
+		var values = {},
 			pks = this.constructor._keys;
 
 		for (var x = 0, len = pks.length; x < len; ++x) {
 			var pk = pks[x];
-			arr.push(this[pk]);
+			values[pk] = copy(this[pk]);
 		}
-		return arr;
+		return values;
 	},
 
 	/**
@@ -487,10 +488,12 @@ Model.coerceValue = function(fieldName, value, field) {
 				}
 				value = floatVal;
 			}
-		} else if (temporal && !(value instanceof Date)) {
-			value = new Date(value);
-			if (isNaN(value.getTime())) {
-				throw new Error(value + ' is not a valid date');
+		} else if (temporal) {
+			if (!(value instanceof Date)) {
+				value = new Date(value);
+				if (isNaN(value.getTime())) {
+					throw new Error(value + ' is not a valid date');
+				}
 			}
 		}
 	} else if (fieldType === Array) {
@@ -835,11 +838,15 @@ function copy(obj) {
 	}
 
 	if (obj instanceof Model) {
-		return obj.copy();
+		return obj.constructor(obj);
 	}
 
 	if (obj instanceof Array) {
 		return obj.slice(0);
+	}
+
+	if (obj instanceof Date) {
+		return new Date(obj);
 	}
 
 	switch (typeof obj) {

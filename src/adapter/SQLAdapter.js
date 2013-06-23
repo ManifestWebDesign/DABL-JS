@@ -760,4 +760,57 @@ SQLAdapter.Migration = Class.extend({
 	}
 });
 
+SQLAdapter.TiDebugDB = Class.extend({
+	lastInsertRowId: null,
+	rowsAffected: null,
+	lastSQL: null,
+	lastParams: null,
+	execute: function(sql, params) {
+		console.log(sql, params);
+
+		this.lastSQL = sql;
+		this.lastParams = params;
+
+		if (sql.toUpperCase().indexOf('INSERT') === 0) {
+			if (this.lastInsertRowId === null) {
+				this.lastInsertRowId = 1;
+			} else {
+				++this.lastInsertRowId;
+			}
+			this.rowsAffected = 1;
+		}
+		if (
+			sql.toUpperCase().indexOf('DELETE') === 0
+			|| sql.toUpperCase().indexOf('UPDATE') === 0
+		) {
+			this.rowsAffected = 1;
+		}
+
+		return {
+			sql: sql,
+			params: params,
+			isValidRow: function() {
+				return false;
+			},
+			getRowCount: function() {
+				return 0;
+			},
+			getFieldCount: function() {
+				return 0;
+			},
+			getFieldName: function() {
+				return '';
+			},
+			field: function() {
+				return '';
+			},
+			next: function() {
+			},
+			close: function() {
+			}
+		};
+	}
+
+});
+
 })();
