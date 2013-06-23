@@ -1,7 +1,100 @@
 
-/* 00-Deferred.js */
-// https://github.com/warpdesign/Standalone-Deferred
+/* Class.js */
+(function(){
+	/**
+	 * Simple JavaScript Inheritance
+	 * Initially by John Resig http://ejohn.org/
+	 * MIT Licensed.
+	 */
+
+	var initializing = false, fnTest = /xyz/.test(function(){
+		xyz;
+	}) ? /\b_super\b/ : /.*/;
+
+	function extend(newProps, target, src) {
+		var name;
+
+		// Copy the properties over onto the new prototype
+		for (name in newProps) {
+			// Check if we're overwriting an existing function
+			target[name] = typeof newProps[name] === 'function' &&
+			typeof src[name] === 'function' && fnTest.test(newProps[name]) ?
+			(function(name, fn){
+				return function() {
+					var tmp = this._super,
+						ret;
+
+					// Add a new ._super() method that is the same method
+					// but on the super-class
+					this._super = src[name];
+
+					// The method only need to be bound temporarily, so we
+					// remove it when we're done executing
+					ret = fn.apply(this, arguments);
+					this._super = tmp;
+
+					return ret;
+				};
+			})(name, newProps[name]) : newProps[name];
+		}
+	}
+
+	// The base Class implementation (does nothing)
+	this.Class = function(){};
+
+	// Create a new Class that inherits from this class
+	Class.extend = function(instanceProps, classProps) {
+		if (typeof instanceProps === 'undefined') {
+			instanceProps = {};
+		}
+		if (typeof classProps === 'undefined') {
+			classProps = {};
+		}
+
+		var prototype,
+			name;
+
+		// Instantiate a base class (but only create the instance,
+		// don't run the init constructor)
+		initializing = true;
+		prototype = new this();
+		initializing = false;
+
+		// The dummy class constructor
+		function Class() {
+			// All construction is actually done in the init method
+			if (!initializing && this.init) {
+				this.init.apply(this, arguments);
+			}
+		}
+
+		for (name in this) {
+			if (!(name in classProps) && this.hasOwnProperty(name)) {
+				Class[name] = this[name];
+			}
+		}
+
+		extend(instanceProps, prototype, this.prototype);
+		extend(classProps, Class, this);
+
+		// Populate our constructed prototype object
+		Class.prototype = prototype;
+
+		// Enforce the constructor to be what we expect
+		Class.prototype.constructor = Class;
+
+		return Class;
+	};
+})();
+
+/* Deferred.js */
 (function(global, $) {
+	// https://github.com/warpdesign/Standalone-Deferred
+
+	if (typeof global.Deferred !== 'undefined') {
+		return;
+	}
+
 	if ($ && $.Deferred) {
 		global.Deferred = jQuery.Deferred;
 		return;
@@ -295,299 +388,903 @@
 	global.Deferred = D;
 })(window, jQuery);
 
-/* 01-Class.js */
-/* Simple JavaScript Inheritance
- * By John Resig http://ejohn.org/
- * MIT Licensed.
- */
-// Inspired by base2 and Prototype
-(function(){
-	var initializing = false, fnTest = /xyz/.test(function(){
-		xyz;
-	}) ? /\b_super\b/ : /.*/;
-
-	// The base Class implementation (does nothing)
-	this.Class = function(){};
-
-	// Create a new Class that inherits from this class
-	Class.extend = function(prop) {
-		if (typeof prop === 'undefined') {
-			prop = {};
-		}
-
-		var prototype,
-			_super = this.prototype,
-			name,
-			staticProp;
-
-		// Instantiate a base class (but only create the instance,
-		// don't run the init constructor)
-		initializing = true;
-		prototype = new this();
-		initializing = false;
-
-		// Copy the properties over onto the new prototype
-		for (name in prop) {
-			// Check if we're overwriting an existing function
-			prototype[name] = typeof prop[name] === 'function' &&
-			typeof _super[name] === 'function' && fnTest.test(prop[name]) ?
-			(function(name, fn){
-				return function() {
-					var tmp = this._super,
-						ret;
-
-					// Add a new ._super() method that is the same method
-					// but on the super-class
-					this._super = _super[name];
-
-					// The method only need to be bound temporarily, so we
-					// remove it when we're done executing
-					ret = fn.apply(this, arguments);
-					this._super = tmp;
-
-					return ret;
-				};
-			})(name, prop[name]) :
-			prop[name];
-		}
-
-		// The dummy class constructor
-		function Class() {
-			// All construction is actually done in the init method
-			if (!initializing && this.init) {
-				this.init.apply(this, arguments);
-			}
-		}
-
-		for (staticProp in this) {
-			if (this.hasOwnProperty(staticProp)) {
-				Class[staticProp] = this[staticProp];
-			}
-		}
-
-		// Populate our constructed prototype object
-		Class.prototype = prototype;
-
-		// Enforce the constructor to be what we expect
-		Class.prototype.constructor = Class;
-
-		return Class;
-	};
-})();
-
-/* 02-Adapter.js */
+/* Model.js */
 (function(){
 
-function _sPad(value) {
-	value = value + '';
-	return value.length === 2 ? value : '0' + value;
-}
+this.Model = Class.extend({
+	/**
+	 * This will contain the field values IF __defineGetter__ and __defineSetter__
+	 * are supported by the JavaScript engine, otherwise the properties will be
+	 * set and accessed directly on the object
+	 */
+	_values: null,
 
-this.Adapter = Class.extend({
+	/**
+	 * Object containing names of modified fields
+	 */
+	_originalValues: null,
 
-	_cache: null,
+	/**
+	 * Whether or not this is a new object
+	 */
+	_isNew: true,
 
-	init: function Adapter() {
-		this._cache = {};
+	/**
+	 * Errors from the validate() step of saving
+	 */
+	_validationErrors: null,
+
+	/**
+	 * @param {Object} values
+	 */
+	init : function Model(values) {
+		this._validationErrors = [];
+		this._values = {};
+		for (var fieldName in this.constructor._fields) {
+			var field = this.constructor._fields[fieldName];
+			if (typeof field.value !== 'undefined') {
+				this[fieldName] = copy(field.value);
+			} else if (field.type === Array) {
+				this[fieldName] = [];
+			}
+		}
+		this.resetModified();
+		if (values) {
+			this.setValues(values);
+		}
+	},
+
+	toString: function() {
+		return this.constructor.name + ':' + this.getPrimaryKeyValues().join('-');
 	},
 
 	/**
-	 * @param {String} table
-	 * @param {mixed} key
-	 * @param {Model} value
-	 * @return {Model|Adapter}
+	 * Creates new instance of self and with the same values as this, except
+	 * the primary key value is cleared
+	 * @return {Model}
 	 */
-	cache: function(table, key, value) {
-		if (!this._cache[table]) {
-			this._cache[table] = {};
+	copy: function() {
+		var model = this.constructor,
+			newObject = new model(this),
+			pk = model.getPrimaryKey();
+
+		if (pk) {
+			newObject[pk] = null;
 		}
-		if (arguments.length < 3) {
-			if (!this._cache[table][key]) {
-				return null;
+		return newObject;
+	},
+
+	/**
+	 * If field is provided, checks whether that field has been modified
+	 * If no field is provided, checks whether any of the fields have been modified from the database values.
+	 *
+	 * @param {String} fieldName Optional
+	 * @return bool
+	 */
+	isModified: function(fieldName) {
+		if (fieldName) {
+			return !equals(this[fieldName], this._originalValues[fieldName]);
+		}
+		for (var fieldName in this.constructor._fields) {
+			if (this.isModified(fieldName)) {
+				return true;
 			}
-			return this._cache[table][key];
 		}
-		this._cache[table][key] = value;
+		return false;
+	},
+
+	/**
+	 * Returns an array of the names of modified fields
+	 * @return {Object}
+	 */
+	getModified: function() {
+		var modified = {};
+		for (var fieldName in this.constructor._fields) {
+			if (this.isModified(fieldName)) {
+				modified[fieldName] = true;
+			}
+		}
+		return modified;
+	},
+
+	/**
+	 * Clears the array of modified field names
+	 * @return {Model}
+	 */
+	resetModified: function() {
+		this._originalValues = {};
+		for (var fieldName in this.constructor._fields) {
+			this._originalValues[fieldName] = this[fieldName];
+		}
 		return this;
 	},
 
 	/**
-	 * @param {String} table
+	 * Resets the object to the state it was in before changes were made
 	 */
-	emptyCache: function(table) {
-		delete this._cache[table];
-	},
-
-	/**
-	 * @param {Date|String} value
-	 * @return {String}
-	 */
-	formatDate: function(value, fieldType) {
-		if (fieldType && fieldType === Model.FIELD_TYPE_TIMESTAMP) {
-			return this.formatDateTime(value);
-		}
-		if (!(value instanceof Date)) {
-			value = new Date(value);
-		}
-		return value.getFullYear() + '-' + _sPad(value.getMonth() + 1) + '-' + _sPad(value.getDate());
-	},
-
-	/**
-	 * @param {Date|String} value
-	 * @return {String}
-	 */
-	formatDateTime: function(value) {
-		if (!(value instanceof Date)) {
-			value = new Date(value);
-		}
-		return this.formatDate(value) + ' ' + _sPad(value.getHours()) + ':' + _sPad(value.getMinutes()) + ':' + _sPad(value.getSeconds());
-	},
-
-	/**
-	 * @param {Class} model class
-	 */
-	findQuery: function(model) {
-		var a = Array.prototype.slice.call(arguments),
-			q = new Query().setTable(model.getTableName());
-		a.shift();
-		var len = a.length;
-
-		if (len === 0) {
-			return q;
-		}
-		if (len === 1) {
-			if (!isNaN(parseInt(a[0], 10))) {
-				q.add(model.getPrimaryKey(), a[0]);
-			} else if (typeof a[0] === 'object') {
-				if (a[0] instanceof Query) {
-					q = a[0];
-				} else {
-					// hash
-				}
-			} else if (typeof a[0] === 'string') {
-				// where clause string
-				if (a[1] instanceof Array) {
-					// arguments
-				}
-			}
-		} else if (len === 2 && typeof a[0] === 'string') {
-			q.add(a[0], a[1]);
+	revert: function() {
+		if (this._values) {
+			this._values = copy(this._originalValues);
 		} else {
-			// if arguments list is greater than 1 and the first argument is not a string
-			var pks = model.getPrimaryKeys();
-			if (len === pks.len) {
-				for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
-					var pk = pks[x],
-					pkVal = a[x];
-
-					if (pkVal === null || typeof pkVal === 'undefined') {
-						return null;
-					}
-					q.add(pk, pkVal);
-				}
-			} else {
-				throw new Error('Find called with ' + len + ' arguments');
+			for (var fieldName in this._originalValues) {
+				this[fieldName] = this._originalValues[fieldName];
 			}
 		}
-		return q;
+		return this;
 	},
 
 	/**
-	 * @param {Class} model class
+	 * Populates this with the values of an associative Array.
+	 * Array keys must match field names to be used.
+	 * @param {Object} values
+	 * @return {Model}
 	 */
-	find: function(model){
-		throw new Error('find not implemented for this adapter');
+	setValues: function(values) {
+		for (var fieldName in this.constructor._fields) {
+			if (!(fieldName in values)) {
+				continue;
+			}
+			this[fieldName] = values[fieldName];
+		}
+		return this;
 	},
 
 	/**
-	 * @param {Class} model class
+	 * Returns an associative Array with the values of this.
+	 * Array keys match field names.
+	 * @return {Object}
 	 */
-	findAll: function(model) {
-		throw new Error('findAll not implemented for this adapter');
+	getValues: function() {
+		var values = {},
+			fieldName,
+			value;
+
+		for (fieldName in this.constructor._fields) {
+			value = this[fieldName];
+			if (!this._inGetValues && value instanceof Model) {
+				this._inGetValues = true;
+				value = value.getValues();
+				delete this._inGetValues;
+			}
+			if (value instanceof Array) {
+				for (var x = 0, l = value.length; x < l; ++x) {
+					if (!this._inGetValues && value[x] instanceof Model) {
+						this._inGetValues = true;
+						value[x] = value[x].getValues();
+						delete this._inGetValues;
+					}
+				}
+			}
+			values[fieldName] = value;
+		}
+
+		return values;
 	},
 
 	/**
-	 * @param {Class} model class
-	 * @param {Query} q
+	 * Returns true if this table has primary keys and if all of the primary values are not null
+	 * @return {Boolean}
 	 */
-	countAll: function(model, q) {
-		throw new Error('countAll not implemented for this adapter');
+	hasPrimaryKeyValues: function() {
+		var pks = this.constructor._keys;
+		if (pks.length === 0) {
+			return false;
+		}
+		for (var x = 0, len = pks.length; x < len; ++x) {
+			var pk = pks[x];
+			if (this[pk] === null) {
+				return false;
+			}
+		}
+		return true;
 	},
 
 	/**
-	 * @param {Class} model class
-	 * @param {Query} q
+	 * Returns an array of all primary key values.
+	 *
+	 * @return {Array}
 	 */
-	destroyAll: function(model, q) {
-		throw new Error('destroyAll not implemented for this adapter');
+	getPrimaryKeyValues: function() {
+		var arr = [],
+			pks = this.constructor._keys;
+
+		for (var x = 0, len = pks.length; x < len; ++x) {
+			var pk = pks[x];
+			arr.push(this[pk]);
+		}
+		return arr;
 	},
 
 	/**
-	 * @param {Model} instance
+	 * Returns true if this has not yet been saved to the database
+	 * @return {Boolean}
 	 */
-	insert: function(instance) {
-		throw new Error('insert not implemented for this adapter');
+	isNew: function() {
+		return this._isNew;
 	},
 
 	/**
-	 * @param {Model} instance
+	 * Indicate whether this object has been saved to the database
+	 * @param {Boolean} bool
+	 * @return {Model}
 	 */
-	update: function(instance) {
-		throw new Error('update not implemented for this adapter');
+	setNew: function (bool) {
+		this._isNew = (bool === true);
+		return this;
 	},
 
 	/**
-	 * @param {Model} instance
+	 * Returns true if the field values validate.
+	 * @return {Boolean}
 	 */
-	destroy: function(instance) {
-		throw new Error('destroy not implemented for this adapter');
+	validate: function() {
+		this._validationErrors = [];
+
+		for (var fieldName in this.constructor._fields) {
+			var field = this.constructor._fields[fieldName];
+			if (!field.required) {
+				continue;
+			}
+			var value = this[fieldName];
+			if (!value || (value instanceof Array && value.length === 0)) {
+				this._validationErrors.push(fieldName + ' is required.');
+			}
+		}
+
+		return this._validationErrors.length === 0;
+	},
+
+	/**
+	 * See this.validate()
+	 * @return {Array} Array of errors that occured when validating object
+	 */
+	getValidationErrors: function() {
+		return this._validationErrors;
+	},
+
+	/**
+	 * Saves the values of this using either insert or update
+	 * @param {function} success Success callback
+	 * @param {function} failure callback
+	 * @return {Promise}
+	 */
+	save: function(success, failure) {
+		if (this.isNew()) {
+			return this.insert(success, failure);
+		} else {
+			return this.update(success, failure);
+		}
+	},
+
+	/**
+	 * Stores a new record with that values in this object
+	 * @param {function} success Success callback
+	 * @param {function} failure callback
+	 * @return {Promise}
+	 */
+	insert: function(success, failure) {
+		return this.callAsync(function(){
+			var model = this.constructor;
+
+			if (!this.validate()) {
+				throw new Error('Cannot save ' + model._table + ' with validation errors:\n' + this.getValidationErrors().join('\n'));
+			}
+
+			if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
+				this.created = new Date();
+			}
+			if ((this.isNew() || this.isModified()) && model.hasField('updated') && !this.isModified('updated')) {
+				this.updated = new Date();
+			}
+
+			return this.constructor._adapter.insert(this);
+		}, success, failure);
+	},
+
+	/**
+	 * Updates the stored record representing this object.
+	 * @param {Object} values
+	 * @param {function} success Success callback
+	 * @param {function} failure callback
+	 * @return {Promise}
+	 */
+	update: function(values, success, failure) {
+		if (typeof values === 'function') {
+			success = values;
+			failure = success;
+		}
+
+		return this.callAsync(function(){
+			var model = this.constructor;
+
+			if (!this.validate()) {
+				throw new Error('Cannot save ' + model._table + ' with validation errors:\n' + this.getValidationErrors().join('\n'));
+			}
+
+			if (model._keys.length === 0) {
+				throw new Error('Cannot save without primary keys');
+			}
+
+			if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
+				this.created = new Date();
+			}
+			if ((this.isNew() || this.isModified()) && model.hasField('updated') && !this.isModified('updated')) {
+				this.updated = new Date();
+			}
+
+			if (typeof values === 'object') {
+				this.setValues(values);
+			}
+
+			return model._adapter.update(this);
+		}, success, failure);
+	},
+
+	/**
+	 * Deletes any records with a primary key(s) that match this
+	 * NOTE/BUG: If you alter pre-existing primary key(s) before deleting, then you will be
+	 * deleting based on the new primary key(s) and not the originals,
+	 * leaving the original row unchanged(if it exists).  Also, since NULL isn't an accurate way
+	 * to look up a row, I return if one of the primary keys is null.
+	 * @return {Promise}
+	 */
+	destroy: function(success, failure) {
+		return this.callAsync(function(){
+			return this.constructor._adapter.destroy(this);
+		}, success, failure);
 	}
+
 });
+
+Model.models = {};
+
+Model._fields = Model._keys = Model._table = null;
+
+Model._autoIncrement = false;
+
+Model.FIELD_TYPE_TEXT = 'TEXT';
+Model.FIELD_TYPE_NUMERIC = 'NUMERIC';
+Model.FIELD_TYPE_INTEGER = 'INTEGER';
+Model.FIELD_TYPE_DATE = 'DATE';
+Model.FIELD_TYPE_TIME = 'TIME';
+Model.FIELD_TYPE_TIMESTAMP = 'TIMESTAMP';
+
+Model.FIELD_TYPES = {
+	TEXT: Model.FIELD_TYPE_TEXT,
+	NUMERIC: Model.FIELD_TYPE_NUMERIC,
+	INTEGER: Model.FIELD_TYPE_INTEGER,
+	DATE: Model.FIELD_TYPE_DATE,
+	TIME: Model.FIELD_TYPE_TIME,
+	TIMESTAMP: Model.FIELD_TYPE_TIMESTAMP
+};
+
+Model.TEXT_TYPES = {
+	TEXT: Model.FIELD_TYPE_TEXT,
+	DATE: Model.FIELD_TYPE_DATE,
+	TIME: Model.FIELD_TYPE_TIME,
+	TIMESTAMP: Model.FIELD_TYPE_TIMESTAMP
+};
+
+Model.INTEGER_TYPES = {
+	INTEGER: Model.FIELD_TYPE_INTEGER
+};
+
+Model.TEMPORAL_TYPES = {
+	DATE: Model.FIELD_TYPE_DATE,
+	TIME: Model.FIELD_TYPE_TIME,
+	TIMESTAMP: Model.FIELD_TYPE_TIMESTAMP
+};
+
+Model.NUMERIC_TYPES = {
+	INTEGER: Model.FIELD_TYPE_INTEGER,
+	NUMERIC: Model.FIELD_TYPE_NUMERIC
+};
+
+/**
+ * @param {String} type
+ * @returns {Boolean}
+ */
+Model.isFieldType = function(type) {
+	return (type in Model.FIELD_TYPES || this.isObjectType(type));
+};
+
+/**
+ * Whether passed type is a temporal (date/time/timestamp) type.
+ * @param {String} type
+ * @return {Boolean}
+ */
+Model.isTemporalType = function(type) {
+	return (type in this.TEMPORAL_TYPES);
+};
+
+/**
+ * Returns true if values for the type need to be quoted.
+ * @param {String} type
+ * @return {Boolean}
+ */
+Model.isTextType = function(type) {
+	return (type in this.TEXT_TYPES);
+};
+
+/**
+ * Returns true if values for the type are numeric.
+ * @param {String} type
+ * @return {Boolean}
+ */
+Model.isNumericType = function(type) {
+	return (type in this.NUMERIC_TYPES);
+};
+
+/**
+ * Returns true if values for the type are integer.
+ * @param {String} type
+ * @return {Boolean}
+ */
+Model.isIntegerType = function(type) {
+	return (type in this.INTEGER_TYPES);
+};
+
+/**
+ * Returns true if values for the type are objects or arrays.
+ * @param {String} type
+ * @return {Boolean}
+ */
+Model.isObjectType = function(type) {
+	return typeof type === 'function';
+};
+
+/**
+ * Sets the value of a field
+ * @param {String} fieldName
+ * @param {mixed} value
+ * @param {Object} field
+ * @return {mixed}
+ */
+Model.coerceValue = function(fieldName, value, field) {
+	if (!field) {
+		field = this.getField(fieldName);
+	}
+	var fieldType = field.type;
+
+	if (typeof value === 'undefined' || value === null) {
+		if (fieldType === Array) {
+			return [];
+		}
+		return null;
+	}
+
+	var temporal = this.isTemporalType(fieldType),
+		numeric = this.isNumericType(fieldType),
+		intVal,
+		floatVal;
+
+	if (numeric || temporal) {
+		if ('' === value) {
+			return null;
+		}
+		if (numeric) {
+			if (this.isIntegerType(fieldType)) {
+				// validate and cast
+				intVal = parseInt(value, 10);
+				if (isNaN(intVal) || intVal.toString() !== value.toString()) {
+					throw new Error(value + ' is not a valid integer');
+				}
+				value = intVal;
+			} else {
+				// validate and cast
+				floatVal = parseFloat(value, 10);
+				if (isNaN(floatVal) || floatVal.toString() !== value.toString()) {
+					throw new Error(value + ' is not a valid float');
+				}
+				value = floatVal;
+			}
+		} else if (temporal && !(value instanceof Date)) {
+			value = new Date(value);
+			if (isNaN(value.getTime())) {
+				throw new Error(value + ' is not a valid date');
+			}
+		}
+	} else if (fieldType === Array) {
+		if (field.elementType) {
+			for (var x = 0, l = value.length; x < l; ++x) {
+				if (value[x] !== null) {
+					value[x] = cast(value[x], field.elementType);
+				}
+			}
+		}
+	} else if (this.isObjectType(fieldType)) {
+		if (value !== null) {
+			value = cast(value, fieldType);
+		}
+	}
+	return value;
+};
+
+/**
+ * @returns {Adapter}
+ */
+Model.getAdapter = function(){
+	return this._adapter;
+};
+
+/**
+ * @param {Adapter} adapter
+ * @returns {Model}
+ */
+Model.setAdapter = function(adapter){
+	this._adapter = adapter;
+	return this;
+};
+
+/**
+ * @param {Object} values
+ * @returns {Model}
+ */
+Model.inflate = function(values) {
+	var pk = this.getPrimaryKey(),
+		adapter = this.getAdapter(),
+		instance;
+	if (pk && values[pk]) {
+		instance = adapter.cache(this._table, values[pk]);
+		if (instance) {
+			return instance;
+		}
+	}
+	instance = new this(values)
+		.resetModified()
+		.setNew(false);
+
+	if (pk && instance[pk]) {
+		adapter.cache(this._table, instance[pk], instance);
+	}
+	return instance;
+};
+
+/**
+ * Returns string representation of table name
+ * @return {String}
+ */
+Model.getTableName = function() {
+	return this._table;
+};
+
+/**
+ * Access to array of field types, indexed by field name
+ * @return {Object}
+ */
+Model.getFields = function() {
+	return copy(this._fields);
+};
+
+/**
+ * Get the type of a field
+ * @param {String} fieldName
+ * @return {Object}
+ */
+Model.getField = function(fieldName) {
+	return copy(this._fields[fieldName]);
+};
+
+/**
+ * Get the type of a field
+ * @param {String} fieldName
+ * @return {mixed}
+ */
+Model.getFieldType = function(fieldName) {
+	return this._fields[fieldName].type;
+};
+
+/**
+ * @param {String} fieldName
+ * @return {Boolean}
+ */
+Model.hasField = function(fieldName) {
+	return fieldName in this._fields;
+};
+
+/**
+ * Access to array of primary keys
+ * @return {Array}
+ */
+Model.getPrimaryKeys = function() {
+	return this._keys.slice(0);
+};
+
+/**
+ * Access to name of primary key
+ * @return {Array}
+ */
+Model.getPrimaryKey = function() {
+	return this._keys.length === 1 ? this._keys[0] : null;
+};
+
+/**
+ * Returns true if the primary key field for this table is auto-increment
+ * @return {Boolean}
+ */
+Model.isAutoIncrement = function() {
+	return this._autoIncrement;
+};
+
+/**
+ * @param {String} fieldName
+ * @param {mixed} field
+ */
+Model.addField = function(fieldName, field) {
+	var get, set, self = this;
+
+	if (!field.type) {
+		field = {
+			type: field
+		};
+	}
+
+	if (typeof field.type === 'string') {
+		field.type = field.type.toUpperCase();
+	}
+
+	switch (field.type) {
+		case String:
+			field.type = self.FIELD_TYPE_TEXT;
+			break;
+		case Number:
+			field.type = self.FIELD_TYPE_NUMERIC;
+			break;
+		case Date:
+			field.type = self.FIELD_TYPE_TIMESTAMP;
+			break;
+		case 'INT':
+			field.type = self.FIELD_TYPE_INTEGER;
+			break;
+	}
+
+	if (field.key) {
+		this._keys.push(fieldName);
+	}
+	if (field.computed) {
+		this._autoIncrement = true;
+	}
+
+	if (!this.isFieldType(field.type)) {
+		throw new Error(field.type + ' is not a valide field type');
+	}
+
+	this._fields[fieldName] = field;
+
+	if (!this.prototype.__defineGetter__ && !Object.defineProperty) {
+		return;
+	}
+
+	get = function() {
+		var value = this._values[fieldName];
+		return typeof value === 'undefined' ? null : value;
+	};
+	set = function(value) {
+		this._values[fieldName] = self.coerceValue(fieldName, value, field);
+	};
+
+	try {
+		if (Object.defineProperty) {
+			Object.defineProperty(this.prototype, fieldName, {
+				get: get,
+				set: set,
+				enumerable: true
+			});
+		} else {
+			this.prototype.__defineGetter__(fieldName, get);
+			this.prototype.__defineSetter__(fieldName, set);
+		}
+	} catch (e) {}
+};
+
+/**
+ * @param {String} table
+ * @param {Object} opts
+ * @return {Model}
+ */
+Model.extend = function(table, opts) {
+	var newClass,
+		fieldName,
+		prop;
+
+	if (typeof table === 'undefined') {
+		throw new Error('Must provide a table when exending Model');
+	}
+	if (!opts.fields) {
+		throw new Error('Must provide fields when exending Model');
+	}
+
+	newClass = Class.extend.call(this, opts.prototype);
+	delete opts.prototype;
+
+	if (!this._table && !this._fields) {
+		newClass._keys = [];
+		newClass._fields = {};
+	} else {
+		newClass._keys = copy(this._keys);
+		newClass._fields = copy(this._fields);
+	}
+
+	newClass._table = table;
+
+	for (prop in opts) {
+		switch (prop) {
+			// private static properties
+			case 'url':
+			case 'adapter':
+				newClass['_' + prop] = opts[prop];
+				break;
+
+			// public static methods and properties
+			default:
+				newClass[prop] = opts[prop];
+				break;
+		}
+	}
+
+	for (fieldName in opts.fields) {
+		newClass.addField(fieldName, opts.fields[fieldName]);
+	}
+
+	Model.models[table] = newClass;
+
+	return newClass;
+};
+
+/**
+ * Gives Model classes and their instances the ability to call methods on themselves using
+ * a standard asynchronous API
+ * @param {function} func A method that can return a Promise or a normal return value
+ * @param {function} success Success callback
+ * @param {function} failure callback
+ */
+Model.callAsync = Model.prototype.callAsync = function callAsync(func, success, failure) {
+	var deferred = new Deferred(),
+		promise = deferred.promise();
+
+	try {
+		var result = func.call(this);
+		if (result instanceof promise.constructor) {
+			promise = result;
+		} else {
+			deferred.resolve(result);
+		}
+	} catch (e) {
+		deferred.fail({
+			errors: [e]
+		});
+	}
+
+	if (typeof success === 'function' || typeof failure === 'function') {
+		promise.then(success, failure);
+	}
+
+	return promise;
+};
+
+Model.isModel = true;
+
+Model.toString = function() {
+	return this._table;
+};
+
+/*
+ * Adapter lookup methods
+ */
+
+var adapterMethods = ['countAll', 'findAll', 'find', 'destroyAll', 'updateAll'];
+for (var i = 0, l = adapterMethods.length; i < l; ++i) {
+	var method = adapterMethods[i];
+	Model[method] = (function(method){
+		return function() {
+			var args = Array.prototype.slice.call(arguments),
+				con = this.getAdapter(),
+				success = null,
+				failure = null,
+				x = args.length - 1;
+			while (x > -1 && !(args[x] instanceof Model) && typeof args[x] === 'function') {
+				if (!success) {
+					success = args.pop();
+					--x;
+					continue;
+				}
+
+				failure = success;
+				success = args.pop();
+				break;
+			}
+			args.unshift(this);
+			return this.callAsync(function(){
+				return con[method].apply(con, args);
+			}, success, failure);
+		};
+	})(method);
+}
+
+var findAliases = ['findBy', 'retrieveByField', 'retrieveByPK', 'retrieveByPKs', 'findByPKs'];
+for (var x = 0, len = findAliases.length; x < len; ++x) {
+	Model[findAliases[x]] = Model.find;
+}
+
+/*
+ * Helper functions
+ */
+
+function cast(obj, type) {
+	if (type.isModel) {
+		if (obj.constructor === type) {
+			return obj;
+		}
+		return type.inflate(obj);
+	}
+	return obj;
+}
+
+function copy(obj) {
+	if (obj === null) {
+		return null;
+	}
+
+	if (obj instanceof Model) {
+		return obj.copy();
+	}
+
+	if (obj instanceof Array) {
+		return obj.slice(0);
+	}
+
+	switch (typeof obj) {
+		case 'string':
+		case 'boolean':
+		case 'number':
+		case 'undefined':
+		case 'function':
+			return obj;
+	}
+
+	var target = {};
+	for (var i in obj) {
+		if (obj.hasOwnProperty(i)) {
+			target[i] = obj[i];
+		}
+	}
+	return target;
+}
+
+function equals(a, b) {
+	if (a instanceof Date && b instanceof Date) {
+		return a.getTime() === b.getTime();
+	}
+
+	if (typeof a === 'object') {
+		return JSON.stringify(a) === JSON.stringify(b);
+	}
+	return a === b;
+}
 
 })();
 
-/* 03-Query.js */
+/* Condition.js */
 (function(){
 
-function Condition(left, right, operator, quote) {
-	this._conds = [];
-	if (arguments.length !== 0) {
-		this.addAnd.apply(this, arguments);
-	}
-}
-
-/**
- * escape only the first parameter
- */
-Condition.QUOTE_LEFT = 1;
-
-/**
- * escape only the second param
- */
-Condition.QUOTE_RIGHT = 2;
-
-/**
- * escape both params
- */
-Condition.QUOTE_BOTH = 3;
-
-/**
- * escape no params
- */
-Condition.QUOTE_NONE = 4;
-
-Condition.prototype = {
-
+this.Condition = Class.extend({
 	_conds : null,
+
+	init: function Condition(left, operator, right, quote) {
+		this._conds = [];
+		if (arguments.length !== 0) {
+			this.and.apply(this, arguments);
+		}
+	},
 
 	/**
 	 * @param {mixed} left
-	 * @param {mixed} right
 	 * @param {String} operator
+	 * @param {mixed} right
 	 * @param {Number} quote
 	 * @return {QueryStatement}
 	 */
-	_processCondition : function(left, right, operator, quote) {
+	_processCondition : function(left, operator, right, quote) {
 
 		switch (arguments.length) {
 			case 0:
@@ -597,8 +1294,20 @@ Condition.prototype = {
 				if (left instanceof QueryStatement) {
 					return left;
 				}
+				// Left can be a Condition
+				if (left instanceof Condition) {
+					clauseStatement = left.getQueryStatement();
+					if (null === clauseStatement) {
+						return null;
+					}
+					clauseStatement.setString('(' + clauseStatement._qString + ')');
+					return clauseStatement;
+				}
+				return null;
 			case 2:
-				operator = Query.EQUAL;
+				right = operator;
+				operator = Condition.EQUAL;
+				// pass through...
 			case 3:
 				quote = Condition.QUOTE_RIGHT;
 		}
@@ -610,20 +1319,21 @@ Condition.prototype = {
 			isArray = right instanceof Array,
 			arrayLen;
 
-		// Left can be a Condition
-		if (left instanceof Condition) {
-			clauseStatement = left.getQueryStatement();
-			if (null === clauseStatement) {
-				return null;
-			}
-			clauseStatement.setString('(' + clauseStatement._qString + ')');
-			return clauseStatement;
-		}
-
 		// Escape left
 		if (quote === Condition.QUOTE_LEFT || quote === Condition.QUOTE_BOTH) {
 			statement.addParam(left);
 			left = '?';
+		}
+
+		if (operator === Condition.CONTAINS) {
+			operator = Condition.LIKE;
+			right = '%' + right + '%';
+		} else if (operator === Condition.BEGINS_WITH) {
+			operator = Condition.LIKE;
+			right += '%';
+		} else if (operator === Condition.ENDS_WITH) {
+			operator = Condition.LIKE;
+			right = '%' + right;
 		}
 
 		// right can be an array
@@ -631,16 +1341,18 @@ Condition.prototype = {
 			if (false === isQuery || 1 !== right.getLimit()) {
 				// Convert any sort of equality operator to something suitable for arrays
 				switch (operator) {
+					case Condition.BETWEEN:
+						break;
 					// Various forms of equal
-					case Query.IN:
-					case Query.EQUAL:
-						operator = Query.IN;
+					case Condition.IN:
+					case Condition.EQUAL:
+						operator = Condition.IN;
 						break;
 					// Various forms of not equal
-					case Query.NOT_IN:
-					case Query.NOT_EQUAL:
-					case Query.ALT_NOT_EQUAL:
-						operator = Query.NOT_IN;
+					case Condition.NOT_IN:
+					case Condition.NOT_EQUAL:
+					case Condition.ALT_NOT_EQUAL:
+						operator = Condition.NOT_IN;
 						break;
 					default:
 						throw new Error(operator + ' unknown for comparing an array.');
@@ -666,16 +1378,16 @@ Condition.prototype = {
 			} else if (isArray) {
 				arrayLen = right.length;
 				// BETWEEN
-				if (2 === arrayLen && operator === Query.BETWEEN) {
+				if (2 === arrayLen && operator === Condition.BETWEEN) {
 					statement.setString(left + ' ' + operator + ' ? AND ?');
 					statement.addParams(right);
 					return statement;
 				} else if (0 === arrayLen) {
 					// Handle empty arrays
-					if (operator === Query.IN) {
+					if (operator === Condition.IN) {
 						statement.setString('(0 = 1)');
 						return statement;
-					} else if (operator === Query.NOT_IN) {
+					} else if (operator === Condition.NOT_IN) {
 						return null;
 					}
 				} else if (quote === Condition.QUOTE_RIGHT || quote === Condition.QUOTE_BOTH) {
@@ -692,83 +1404,41 @@ Condition.prototype = {
 			}
 		} else {
 			if (null === right) {
-				if (operator === Query.NOT_EQUAL || operator === Query.ALT_NOT_EQUAL) {
+				if (operator === Condition.NOT_EQUAL || operator === Condition.ALT_NOT_EQUAL) {
 					// IS NOT NULL
-					operator = Query.IS_NOT_NULL;
-				} else if (operator === Query.EQUAL) {
+					operator = Condition.IS_NOT_NULL;
+				} else if (operator === Condition.EQUAL) {
 					// IS NULL
-					operator = Query.IS_NULL;
+					operator = Condition.IS_NULL;
 				}
 			}
 
-			if (operator === Query.IS_NULL || operator === Query.IS_NOT_NULL) {
+			if (operator === Condition.IS_NULL || operator === Condition.IS_NOT_NULL) {
 				right = null;
 			} else if (quote === Condition.QUOTE_RIGHT || quote === Condition.QUOTE_BOTH) {
 				statement.addParam(right);
 				right = '?';
 			}
 		}
-		statement.setString(left + ' ' + operator + ' ' + right);
+		statement.setString(left + ' ' + operator + (right === null ? '' : ' ' + right));
 
 		return statement;
 	},
 
 	/**
-	 * Alias of addAnd
-	 * @return {Condition}
-	 */
-	add : function(left, right, operator, quote) {
-		return this.addAnd.apply(this, arguments);
-	},
-
-	/**
-	 * Alias of addAnd
-	 * @return {Condition}
-	 */
-	and : function(left, right, operator, quote) {
-		return this.addAnd.apply(this, arguments);
-	},
-
-	/**
-	 * Alias of addAnd, but with operator and right switched
-	 * @return {Condition}
-	 */
-	filter : function(left, operator, right, quote) {
-		var a = Array.prototype.slice.call(arguments);
-		if (a.length === 2) {
-			var right = a[1],
-				operator = Query.EQUAL;
-		} else {
-			var right = a[2],
-				operator = a[1];
-		}
-		a[1] = right;
-		a[2] = operator;
-		return this.addAnd.apply(this, a);
-	},
-
-	/**
-	 * Alias of filter
-	 * @return {Condition}
-	 */
-	where : function(left, operator, right, quote) {
-		return this.filter.apply(this, arguments);
-	},
-
-	/**
 	 * Adds an "AND" condition to the array of conditions.
 	 * @param left mixed
-	 * @param right mixed[optional]
 	 * @param operator string[optional]
+	 * @param right mixed[optional]
 	 * @param quote int[optional]
 	 * @return {Condition}
 	 */
-	addAnd : function(left, right, operator, quote) {
+	and : function(left, operator, right, quote) {
 		var key;
 
 		if (left.constructor === Object) {
 			for (key in left) {
-				this.addAnd(key, left[key]);
+				this.and(key, left[key]);
 			}
 			return this;
 		}
@@ -784,27 +1454,51 @@ Condition.prototype = {
 	},
 
 	/**
-	 * Alias of addAnd
+	 * Alias of and
 	 * @return {Condition}
 	 */
-	or : function(left, right, operator, quote) {
-		return this.addOr.apply(this, arguments);
+	addAnd : function(left, operator, right, quote) {
+		return this.and.apply(this, arguments);
 	},
 
 	/**
-	 * Adds an "OR" condition to the array of conditions
+	 * Alias of and
+	 * @return {Condition}
+	 */
+	add : function(left, operator, right, quote) {
+		return this.and.apply(this, arguments);
+	},
+
+	/**
+	 * Alias of and
+	 * @return {Condition}
+	 */
+	filter : function(left, operator, right, quote) {
+		return this.and.apply(this, arguments);
+	},
+
+	/**
+	 * Alias of and
+	 * @return {Condition}
+	 */
+	where : function(left, operator, right, quote) {
+		return this.and.apply(this, arguments);
+	},
+
+	/**
+	 * Adds an "OR" condition to the array of conditions.
 	 * @param left mixed
-	 * @param right mixed[optional]
 	 * @param operator string[optional]
+	 * @param right mixed[optional]
 	 * @param quote int[optional]
 	 * @return {Condition}
 	 */
-	addOr : function(left, right, operator, quote) {
+	or : function(left, operator, right, quote) {
 		var key;
 
 		if (left.constructor === Object) {
 			for (key in left) {
-				this.addOr(key, left[key]);
+				this.or(key, left[key]);
 			}
 			return this;
 		}
@@ -820,185 +1514,201 @@ Condition.prototype = {
 	},
 
 	/**
+	 * Alias of or
+	 * @return {Condition}
+	 */
+	addOr : function(left, operator, right, quote) {
+		return this.or.apply(this, arguments);
+	},
+
+	/**
+	 * Alias of or
+	 * @return {Condition}
+	 */
+	orWhere : function(left, operator, right, quote) {
+		return this.or.apply(this, arguments);
+	},
+
+	/**
 	 * @return {Condition}
 	 */
 	andNot : function(column, value) {
-		return this.addAnd(column, value, Query.NOT_EQUAL);
+		return this.and(column, Condition.NOT_EQUAL, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andLike : function(column, value) {
-		return this.addAnd(column, value, Query.LIKE);
+		return this.and(column, Condition.LIKE, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andNotLike : function(column, value) {
-		return this.addAnd(column, value, Query.NOT_LIKE);
+		return this.and(column, Condition.NOT_LIKE, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andGreater : function(column, value) {
-		return this.addAnd(column, value, Query.GREATER_THAN);
+		return this.and(column, Condition.GREATER_THAN, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andGreaterEqual : function(column, value) {
-		return this.addAnd(column, value, Query.GREATER_EQUAL);
+		return this.and(column, Condition.GREATER_EQUAL, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andLess : function(column, value) {
-		return this.addAnd(column, value, Query.LESS_THAN);
+		return this.and(column, Condition.LESS_THAN, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andLessEqual : function(column, value) {
-		return this.addAnd(column, value, Query.LESS_EQUAL);
+		return this.and(column, Condition.LESS_EQUAL, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andNull : function(column) {
-		return this.addAnd(column, null);
+		return this.and(column, null);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andNotNull : function(column) {
-		return this.addAnd(column, null, Query.NOT_EQUAL);
+		return this.and(column, Condition.NOT_EQUAL, null);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andBetween : function(column, from, to) {
-		return this.addAnd(column, array(from, to), Query.BETWEEN);
+		return this.and(column, Condition.BETWEEN, [from, to]);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andBeginsWith : function(column, value) {
-		return this.addAnd(column, value, Query.BEGINS_WITH);
+		return this.and(column, Condition.BEGINS_WITH, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andEndsWith : function(column, value) {
-		return this.addAnd(column, value, Query.ENDS_WITH);
+		return this.and(column, Condition.ENDS_WITH, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	andContains : function(column, value) {
-		return this.addAnd(column, value, Query.CONTAINS);
+		return this.and(column, Condition.CONTAINS, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orNot : function(column, value) {
-		return this.addOr(column, value, Query.NOT_EQUAL);
+		return this.or(column, Condition.NOT_EQUAL, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orLike : function(column, value) {
-		return this.addOr(column, value, Query.LIKE);
+		return this.or(column, Condition.LIKE, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orNotLike : function(column, value) {
-		return this.addOr(column, value, Query.NOT_LIKE);
+		return this.or(column, Condition.NOT_LIKE, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orGreater : function(column, value) {
-		return this.addOr(column, value, Query.GREATER_THAN);
+		return this.or(column, Condition.GREATER_THAN, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orGreaterEqual : function(column, value) {
-		return this.addOr(column, value, Query.GREATER_EQUAL);
+		return this.or(column, Condition.GREATER_EQUAL, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orLess : function(column, value) {
-		return this.addOr(column, value, Query.LESS_THAN);
+		return this.or(column, Condition.LESS_THAN, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orLessEqual : function(column, value) {
-		return this.addOr(column, value, Query.LESS_EQUAL);
+		return this.or(column, Condition.LESS_EQUAL, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orNull : function(column) {
-		return this.addOr(column, null);
+		return this.or(column, null);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orNotNull : function(column) {
-		return this.addOr(column, null, Query.NOT_EQUAL);
+		return this.or(column, Condition.NOT_EQUAL, null);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orBetween : function(column, from, to) {
-		return this.addOr(column, array(from, to), Query.BETWEEN);
+		return this.or(column, Condition.BETWEEN, [from, to]);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orBeginsWith : function(column, value) {
-		return this.addOr(column, value, Query.BEGINS_WITH);
+		return this.or(column, Condition.BEGINS_WITH, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orEndsWith : function(column, value) {
-		return this.addOr(column, value, Query.ENDS_WITH);
+		return this.or(column, Condition.ENDS_WITH, value);
 	},
 
 	/**
 	 * @return {Condition}
 	 */
 	orContains : function(column, value) {
-		return this.addOr(column, value, Query.CONTAINS);
+		return this.or(column, Condition.CONTAINS, value);
 	},
 
 	/**
@@ -1064,122 +1774,99 @@ Condition.prototype = {
 			if ('AND' !== cond.type) {
 				throw new Error('OR conditions not supported.');
 			}
-			if (cond.length !== 2 && !(cond.length === 3 && cond[2] === Query.EQUAL)) {
+			if (cond.length === 2) {
+				r[cond[0]] = cond[1];
+			} else if (cond.length === 3 && cond[1] === Condition.EQUAL) {
+				r[cond[0]] = cond[2];
+			} else {
 				throw new Error('Cannot export complex condition: "' + cond.processed + '"');
 			}
-			r[cond[0]] = cond[1];
 		}
 		return r;
 	}
-
-};
-
-/**
- * Creates new instance of Query, parameters will be passed to the
- * setTable() method.
- * @return self
- * @param {String} table
- * @param {String} alias
- */
-function Query (table, alias) {
-	this._columns = [];
-	this._joins = [];
-	this._orders = [];
-	this._groups = [];
-	this._where = new Condition;
-
-	if (typeof table === 'object' && !(table instanceof Query)) {
-		for (var i in table) {
-			this.addAnd(i, table[i]);
-		}
-	}
-
-	if (table) {
-		this.setTable(table, alias);
-	}
-	return this;
-}
-
-Query.ACTION_COUNT = 'COUNT';
-Query.ACTION_DELETE = 'DELETE';
-Query.ACTION_SELECT = 'SELECT';
+});
 
 // Comparison types
-Query.EQUAL = '=';
-Query.NOT_EQUAL = '<>';
-Query.ALT_NOT_EQUAL = '!=';
-Query.GREATER_THAN = '>';
-Query.LESS_THAN = '<';
-Query.GREATER_EQUAL = '>=';
-Query.LESS_EQUAL = '<=';
-Query.LIKE = 'LIKE';
-Query.BEGINS_WITH = 'BEGINS_WITH';
-Query.ENDS_WITH = 'ENDS_WITH';
-Query.CONTAINS = 'CONTAINS';
-Query.NOT_LIKE = 'NOT LIKE';
-Query.CUSTOM = 'CUSTOM';
-Query.DISTINCT = 'DISTINCT';
-Query.IN = 'IN';
-Query.NOT_IN = 'NOT IN';
-Query.ALL = 'ALL';
-Query.IS_NULL = 'IS NULL';
-Query.IS_NOT_NULL = 'IS NOT NULL';
-Query.BETWEEN = 'BETWEEN';
+Condition.EQUAL = '=';
+Condition.NOT_EQUAL = '<>';
+Condition.ALT_NOT_EQUAL = '!=';
+Condition.GREATER_THAN = '>';
+Condition.LESS_THAN = '<';
+Condition.GREATER_EQUAL = '>=';
+Condition.LESS_EQUAL = '<=';
+Condition.LIKE = 'LIKE';
+Condition.BEGINS_WITH = 'BEGINS_WITH';
+Condition.ENDS_WITH = 'ENDS_WITH';
+Condition.CONTAINS = 'CONTAINS';
+Condition.NOT_LIKE = 'NOT LIKE';
+Condition.CUSTOM = 'CUSTOM';
+Condition.DISTINCT = 'DISTINCT';
+Condition.IN = 'IN';
+Condition.NOT_IN = 'NOT IN';
+Condition.ALL = 'ALL';
+Condition.IS_NULL = 'IS NULL';
+Condition.IS_NOT_NULL = 'IS NOT NULL';
+Condition.BETWEEN = 'BETWEEN';
+Condition.BINARY_AND = '&';
+Condition.BINARY_OR = '|';
 
-// Comparison type for update
-Query.CUSTOM_EQUAL = 'CUSTOM_EQUAL';
+/**
+ * escape only the first parameter
+ */
+Condition.QUOTE_LEFT = 1;
 
-// PostgreSQL comparison types
-Query.ILIKE = 'ILIKE';
-Query.NOT_ILIKE = 'NOT ILIKE';
+/**
+ * escape only the second param
+ */
+Condition.QUOTE_RIGHT = 2;
 
-// JOIN TYPES
-Query.JOIN = 'JOIN';
-Query.LEFT_JOIN = 'LEFT JOIN';
-Query.RIGHT_JOIN = 'RIGHT JOIN';
-Query.INNER_JOIN = 'INNER JOIN';
-Query.OUTER_JOIN = 'OUTER JOIN';
+/**
+ * escape both params
+ */
+Condition.QUOTE_BOTH = 3;
 
-// Binary AND
-Query.BINARY_AND = '&';
+/**
+ * escape no params
+ */
+Condition.QUOTE_NONE = 4;
 
-// Binary OR
-Query.BINARY_OR = '|';
+})();
 
-// 'Order by' qualifiers
-Query.ASC = 'ASC';
-Query.DESC = 'DESC';
+/* Query.js */
+(function(){
 
 /**
  * Used to build query strings using OOP
  */
-Query.prototype = {
+this.Query = Condition.extend({
 
-	_action : Query.ACTION_SELECT,
+	_action : 'SELECT',
+
 	/**
 	 * @var array
 	 */
 	_columns : null,
+
 	/**
 	 * @var mixed
 	 */
 	_table : null,
+
 	/**
 	 * @var string
 	 */
 	_tableAlias : null,
+
 	/**
 	 * @var array
 	 */
 	_extraTables: null,
+
 	/**
 	 * @var QueryJoin[]
 	 */
 	_joins: null,
-	/**
-	 * @var Condition
-	 */
-	_where : null,
+
 	/**
 	 * @var array
 	 */
@@ -1205,10 +1892,34 @@ Query.prototype = {
 	 */
 	_distinct : false,
 
+	/**
+	 * Creates new instance of Query, parameters will be passed to the
+	 * setTable() method.
+	 * @return self
+	 * @param {String} table
+	 * @param {String} alias
+	 */
+	init: function Query(table, alias) {
+		this._super();
+
+		this._columns = [];
+		this._joins = [];
+		this._orders = [];
+		this._groups = [];
+
+		if (!table) {
+			return;
+		}
+
+		if (table.constructor === Object) {
+			this.and(table);
+		} else if (table) {
+			this.setTable(table, alias);
+		}
+	},
+
+
 	//	__clone : function() {
-	//		if (this._where instanceof Condition) {
-	//			this._where = clone this._where;
-	//		}
 	//		if (this._having instanceof Condition) {
 	//			this._having = clone this._having;
 	//		}
@@ -1234,6 +1945,16 @@ Query.prototype = {
 	 * @param {String} action
 	 */
 	setAction : function(action) {
+		switch (action) {
+			case 'SELECT':
+			case 'DELETE':
+			case 'COUNT':
+				break;
+			default:
+				throw new Error('"' + action + '" is not an allowed Query action.');
+				break;
+		}
+
 		this._action = action;
 		return this;
 	},
@@ -1319,6 +2040,10 @@ Query.prototype = {
 		return this;
 	},
 
+	from: function(table, alias) {
+		return this.setTable.apply(this, arguments);
+	},
+
 	/**
 	 * Returns a String representation of the table being queried,
 	 * NOT including its alias.
@@ -1358,33 +2083,15 @@ Query.prototype = {
 			alias = tableName;
 		}
 
+		if (alias === this._tableAlias || alias === this._table) {
+			throw new Error('The alias "' + alias + '" is is already in use');
+		}
+
 		if (this._extraTables === null) {
 			this._extraTables = {};
 		}
 		this._extraTables[alias] = tableName;
 		return this;
-	},
-
-	/**
-	 * Provide the Condition object to generate the WHERE clause of
-	 * the query.
-	 *
-	 * @param {Condition} w
-	 * @return {Query}
-	 */
-	setWhere : function(w) {
-		this._where = w;
-		return this;
-	},
-
-	/**
-	 * Returns the Condition object that generates the WHERE clause
-	 * of the query.
-	 *
-	 * @return {Condition}
-	 */
-	getWhere : function() {
-		return this._where;
 	},
 
 	/**
@@ -1466,281 +2173,6 @@ Query.prototype = {
 	},
 
 	/**
-	 * Shortcut to adding an AND statement to the Query's WHERE Condition.
-	 * @return {Query}
-	 * @param {mixed} column
-	 * @param {mixed} value
-	 * @param {String} operator
-	 * @param {Number} quote
-	 */
-	addAnd : function(column, value, operator, quote) {
-		this._where.addAnd.apply(this._where, arguments);
-		return this;
-	},
-
-	/**
-	 * Alias of {@link addAnd()}
-	 * @return {Query}
-	 */
-	add : function(column, value, operator, quote) {
-		return this.addAnd.apply(this, arguments);
-	},
-
-	/**
-	 * Alias of addAnd
-	 * @return {Condition}
-	 */
-	and : function(left, right, operator, quote) {
-		return this.addAnd.apply(this, arguments);
-	},
-
-	/**
-	 * Alias of addAnd, but with operator and right switched
-	 * @return {Condition}
-	 */
-	filter : function(left, operator, right, quote) {
-		this._where.filter.apply(this._where, arguments);
-		return this;
-	},
-
-	/**
-	 * Alias of filter
-	 * @return {Condition}
-	 */
-	where : function(left, operator, right, quote) {
-		return this.filter.apply(this, arguments);
-	},
-
-	/**
-	 * Alias of addOr
-	 * @return {Condition}
-	 */
-	or : function(left, right, operator, quote) {
-		return this.addOr.apply(this, arguments);
-	},
-
-	/**
-	 * Shortcut to adding an OR statement to the Query's WHERE Condition.
-	 * @return {Query}
-	 * @param {mixed} column
-	 * @param {mixed} value
-	 * @param {String} operator
-	 * @param {Number} quote
-	 */
-	addOr : function(column, value, operator, quote) {
-		this._where.addOr.apply(this._where, arguments);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andNot : function(column, value) {
-		this._where.andNot(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andLike : function(column, value) {
-		this._where.andLike(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andNotLike : function(column, value) {
-		this._where.andNotLike(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andGreater : function(column, value) {
-		this._where.andGreater(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andGreaterEqual : function(column, value) {
-		this._where.andGreaterEqual(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andLess : function(column, value) {
-		this._where.andLess(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andLessEqual : function(column, value) {
-		this._where.andLessEqual(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andNull : function(column) {
-		this._where.andNull(column);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andNotNull : function(column) {
-		this._where.andNotNull(column);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andBetween : function(column, from, to) {
-		this._where.andBetween(column, from, to);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andBeginsWith : function(column, value) {
-		this._where.andBeginsWith(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andEndsWith : function(column, value) {
-		this._where.andEndsWith(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	andContains : function(column, value) {
-		this._where.andContains(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orNot : function(column, value) {
-		this._where.orNot(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orLike : function(column, value) {
-		this._where.orLike(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orNotLike : function(column, value) {
-		this._where.orNotLike(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orGreater : function(column, value) {
-		this._where.orGreater(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orGreaterEqual : function(column, value) {
-		this._where.orGreaterEqual(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orLess : function(column, value) {
-		this._where.orLess(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orLessEqual : function(column, value) {
-		this._where.orLessEqual(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orNull : function(column) {
-		this._where.orNull(column);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orNotNull : function(column) {
-		this._where.orNotNull(column);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orBetween : function(column, from, to) {
-		this._where.orBetween(column, from, to);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orBeginsWith : function(column, value) {
-		this._where.orBeginsWith(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orEndsWith : function(column, value) {
-		this._where.orEndsWith(column, value);
-		return this;
-	},
-
-	/**
-	 * @return {Query}
-	 */
-	orContains : function(column, value) {
-		this._where.orContains(column, value);
-		return this;
-	},
-
-	/**
 	 * Adds a clolumn to GROUP BY
 	 * @return {Query}
 	 * @param {String} column
@@ -1785,14 +2217,14 @@ Query.prototype = {
 	 * @param {Number} limit
 	 * @param {Number} offset
 	 */
-	setLimit : function(limit, offset) {
+	limit : function(limit, offset) {
 		limit = parseInt(limit);
 		if (isNaN(limit)) {
 			throw new Error('Not a number');
 		}
 		this._limit = limit;
 
-		if (offset) {
+		if (arguments.length > 1) {
 			this.setOffset(offset);
 		}
 		return this;
@@ -1812,7 +2244,7 @@ Query.prototype = {
 	 * @return {Query}
 	 * @param {Number} offset
 	 */
-	setOffset : function(offset) {
+	offset : function(offset) {
 		offset = parseInt(offset);
 		if (isNaN(offset)) {
 			throw new Error('Not a number.');
@@ -1980,7 +2412,7 @@ Query.prototype = {
 	 */
 	getTablesClause : function(conn) {
 
-		var table = this.getTable(),
+		var table = this._table,
 			statement,
 			alias,
 			tableStatement,
@@ -1995,7 +2427,7 @@ Query.prototype = {
 		}
 
 		statement = new QueryStatement(conn),
-		alias = this.getAlias();
+		alias = this._tableAlias;
 
 		// if table is a Query, get its QueryStatement
 		if (table instanceof Query) {
@@ -2061,10 +2493,10 @@ Query.prototype = {
 	 * @return {QueryStatement}
 	 */
 	getColumnsClause : function(conn) {
-		var table = this.getTable(),
+		var table = this._table,
 			column,
 			statement = new QueryStatement(conn),
-			alias = this.getAlias(),
+			alias = this._tableAlias,
 			action = this._action,
 			x,
 			len,
@@ -2131,14 +2563,14 @@ Query.prototype = {
 	 * @return {QueryStatement}
 	 */
 	getWhereClause : function(conn) {
-		return this._where.getQueryStatement(conn);
+		return this.getQueryStatement(conn);
 	},
 
 	/**
 	 * @return {String}
 	 */
 	toString : function() {
-		if (!this.getTable())
+		if (!this._table)
 			this.setTable('{UNSPECIFIED-TABLE}');
 		return this.getQuery().toString();
 	},
@@ -2148,7 +2580,7 @@ Query.prototype = {
 	 * @returns {QueryStatement}
 	 */
 	getCountQuery : function(conn) {
-		if (!this.getTable()) {
+		if (!this._table) {
 			throw new Error('No table specified.');
 		}
 
@@ -2161,7 +2593,7 @@ Query.prototype = {
 	 * @returns {QueryStatement}
 	 */
 	getDeleteQuery : function(conn) {
-		if (!this.getTable()) {
+		if (!this._table) {
 			throw new Error('No table specified.');
 		}
 
@@ -2174,7 +2606,7 @@ Query.prototype = {
 	 * @returns {QueryStatement}
 	 */
 	getSelectQuery : function(conn) {
-		if (!this.getTable()) {
+		if (!this._table) {
 			throw new Error('No table specified.');
 		}
 
@@ -2196,7 +2628,7 @@ Query.prototype = {
 //			throw new Error('Grouping cannot be exported.');
 //		}
 
-		var r = this._where.toArray();
+		var r = this._super();
 
 		if (this._limit) {
 			r.limit = this._limit;
@@ -2215,12 +2647,31 @@ Query.prototype = {
 
 		return r;
 	}
-};
+});
 
+Query.ACTION_COUNT = 'COUNT';
+Query.ACTION_DELETE = 'DELETE';
+Query.ACTION_SELECT = 'SELECT';
+
+// JOIN TYPES
+Query.JOIN = 'JOIN';
+Query.LEFT_JOIN = 'LEFT JOIN';
+Query.RIGHT_JOIN = 'RIGHT JOIN';
+Query.INNER_JOIN = 'INNER JOIN';
+Query.OUTER_JOIN = 'OUTER JOIN';
+
+// 'Order by' qualifiers
+Query.ASC = 'ASC';
+Query.DESC = 'DESC';
+
+})();
+
+/* QueryJoin.js */
+(function(){
 
 var isIdent = /^\w+\.\w+$/;
 
-function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
+this.QueryJoin = function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
 	if (arguments.length < 3) {
 		joinType = Query.JOIN;
 	}
@@ -2414,7 +2865,12 @@ QueryJoin.prototype = {
 
 };
 
-function QueryStatement(conn) {
+})();
+
+/* QueryStatement.js */
+(function(){
+
+this.QueryStatement = function QueryStatement(conn) {
 	this._params = [];
 	if (conn) {
 		this._conn = conn;
@@ -2545,14 +3001,180 @@ QueryStatement.prototype = {
 	}
 };
 
-this.Condition = Condition;
-this.Query = Query;
-this.QueryStatement = QueryStatement;
-this.QueryJoin = QueryJoin;
+})();
+
+/* Adapter.js */
+(function(){
+
+function _sPad(value) {
+	value = value + '';
+	return value.length === 2 ? value : '0' + value;
+}
+
+this.Adapter = Class.extend({
+
+	_cache: null,
+
+	init: function Adapter() {
+		this._cache = {};
+	},
+
+	/**
+	 * @param {String} table
+	 * @param {mixed} key
+	 * @param {Model} value
+	 * @return {Model|Adapter}
+	 */
+	cache: function(table, key, value) {
+		if (!this._cache[table]) {
+			this._cache[table] = {};
+		}
+		if (arguments.length < 3) {
+			if (!this._cache[table][key]) {
+				return null;
+			}
+			return this._cache[table][key];
+		}
+		this._cache[table][key] = value;
+		return this;
+	},
+
+	/**
+	 * @param {String} table
+	 */
+	emptyCache: function(table) {
+		delete this._cache[table];
+	},
+
+	/**
+	 * @param {Date|String} value
+	 * @return {String}
+	 */
+	formatDate: function(value, fieldType) {
+		if (fieldType && fieldType === Model.FIELD_TYPE_TIMESTAMP) {
+			return this.formatDateTime(value);
+		}
+		if (!(value instanceof Date)) {
+			value = new Date(value);
+		}
+		return value.getFullYear() + '-' + _sPad(value.getMonth() + 1) + '-' + _sPad(value.getDate());
+	},
+
+	/**
+	 * @param {Date|String} value
+	 * @return {String}
+	 */
+	formatDateTime: function(value) {
+		if (!(value instanceof Date)) {
+			value = new Date(value);
+		}
+		return this.formatDate(value) + ' ' + _sPad(value.getHours()) + ':' + _sPad(value.getMinutes()) + ':' + _sPad(value.getSeconds());
+	},
+
+	/**
+	 * @param {Class} model class
+	 */
+	findQuery: function(model) {
+		var a = Array.prototype.slice.call(arguments),
+			q = new Query().setTable(model.getTableName());
+		a.shift();
+		var len = a.length;
+
+		if (len === 0) {
+			return q;
+		}
+		if (len === 1) {
+			if (!isNaN(parseInt(a[0], 10))) {
+				q.add(model.getPrimaryKey(), a[0]);
+			} else if (typeof a[0] === 'object') {
+				if (a[0] instanceof Query) {
+					q = a[0];
+				} else {
+					// hash
+				}
+			} else if (typeof a[0] === 'string') {
+				// where clause string
+				if (a[1] instanceof Array) {
+					// arguments
+				}
+			}
+		} else if (len === 2 && typeof a[0] === 'string') {
+			q.add(a[0], a[1]);
+		} else {
+			// if arguments list is greater than 1 and the first argument is not a string
+			var pks = model.getPrimaryKeys();
+			if (len === pks.len) {
+				for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
+					var pk = pks[x],
+					pkVal = a[x];
+
+					if (pkVal === null || typeof pkVal === 'undefined') {
+						return null;
+					}
+					q.add(pk, pkVal);
+				}
+			} else {
+				throw new Error('Find called with ' + len + ' arguments');
+			}
+		}
+		return q;
+	},
+
+	/**
+	 * @param {Class} model class
+	 */
+	find: function(model){
+		throw new Error('find not implemented for this adapter');
+	},
+
+	/**
+	 * @param {Class} model class
+	 */
+	findAll: function(model) {
+		throw new Error('findAll not implemented for this adapter');
+	},
+
+	/**
+	 * @param {Class} model class
+	 * @param {Query} q
+	 */
+	countAll: function(model, q) {
+		throw new Error('countAll not implemented for this adapter');
+	},
+
+	/**
+	 * @param {Class} model class
+	 * @param {Query} q
+	 */
+	destroyAll: function(model, q) {
+		throw new Error('destroyAll not implemented for this adapter');
+	},
+
+	/**
+	 * @param {Model} instance
+	 */
+	insert: function(instance) {
+		throw new Error('insert not implemented for this adapter');
+	},
+
+	/**
+	 * @param {Model} instance
+	 */
+	update: function(instance) {
+		throw new Error('update not implemented for this adapter');
+	},
+
+	/**
+	 * @param {Model} instance
+	 */
+	destroy: function(instance) {
+		throw new Error('destroy not implemented for this adapter');
+	}
+});
 
 })();
 
-/* 04-RESTAdapter.js */
+/* RESTAdapter.js */
 (function($){
 
 function _sPad(value) {
@@ -2673,14 +3295,15 @@ this.RESTAdapter = Adapter.extend({
 			data[fieldName] = value;
 		}
 
-		data._method = method;
-
 		$.ajax({
 			url: route.url(data),
 			type: 'POST',
 			data: JSON.stringify(data),
 			contentType: 'application/json;charset=utf-8',
 			dataType: 'json',
+			headers: {
+				'X-HTTP-Method-Override': method
+			},
 			success: function(r) {
 				if (!r || (r.errors && r.errors.length)) {
 					def.reject(r);
@@ -2742,16 +3365,15 @@ this.RESTAdapter = Adapter.extend({
 			pk = model.getPrimaryKey(),
 			self = this;
 
-		var data = {
-			_method: 'DELETE'
-		};
-
 		$.ajax({
 			url: route.url(instance.getValues()),
 			type: 'POST',
-			data: JSON.stringify(data),
+			data: {},
 			contentType: 'application/json;charset=utf-8',
 			dataType: 'json',
+			headers: {
+				'X-HTTP-Method-Override': 'DELETE'
+			},
 			success: function(r) {
 				if (r && r.errors && r.errors.length) {
 					def.reject(r);
@@ -2789,16 +3411,18 @@ this.RESTAdapter = Adapter.extend({
 				def.resolve(instance);
 				return def.promise();
 			}
-			data[pk] = id;
-		} else {
-			q = this.findQuery.apply(this, arguments);
-			data = q.toArray();
 		}
+		q = this.findQuery.apply(this, arguments);
+		q.limit(1);
+		data = q.toArray();
 
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);
 				return;
+			}
+			if (r instanceof Array) {
+				r = r.shift();
 			}
 			def.resolve(model.inflate(r));
 		})
@@ -2824,11 +3448,12 @@ this.RESTAdapter = Adapter.extend({
 				def.reject(r);
 				return;
 			}
+			if (!(r instanceof Array)) {
+				r = [r];
+			}
 			var collection = [];
-			if (r instanceof Array) {
-				for (var x = 0, len = r.length; x < len; ++x) {
-					collection.push(model.inflate(r[x]));
-				}
+			for (var x = 0, len = r.length; x < len; ++x) {
+				collection.push(model.inflate(r[x]));
 			}
 			def.resolve(collection);
 		})
@@ -2845,7 +3470,7 @@ this.RESTAdapter = Adapter.extend({
 
 })(jQuery);
 
-/* 04-SQLAdapter.js */
+/* SQLAdapter.js */
 (function(){
 
 this.SQLAdapter = Adapter.extend({
@@ -2918,6 +3543,11 @@ this.SQLAdapter = Adapter.extend({
 		return rows;
 	},
 
+	/**
+	 * @param {String} sql
+	 * @param {Array} params
+	 * @returns {Number}
+	 */
 	count: function(sql, params) {
 		sql = 'SELECT COUNT(0) AS rCount FROM (' + sql + ') AS a';
 		var rows = this.execute(sql, params);
@@ -2966,7 +3596,6 @@ this.SQLAdapter = Adapter.extend({
 	 * @param {String} sql
 	 * @param {Number} offset
 	 * @param {Number} limit
-	 * @see		DABLPDO::applyLimit()
 	 */
 	applyLimit: function(sql, offset, limit) {
 		if ( limit > 0 ) {
@@ -3031,7 +3660,9 @@ this.SQLAdapter = Adapter.extend({
 
 	/**
 	 * Executes a select query and returns the PDO result
-	 * @return Array
+	 * @param {Model} model
+	 * @param {Query} q
+	 * @return {Array}
 	 */
 	selectRS: function(model, q) {
 		q = q || new Query;
@@ -3062,7 +3693,7 @@ this.SQLAdapter = Adapter.extend({
 	/**
 	 * @param {Model} model
 	 * @param {Query} q
-	 * @return int
+	 * @return {Number}
 	 */
 	countAll: function(model, q) {
 		q = q instanceof Query ? q : new Query(q);
@@ -3218,7 +3849,7 @@ this.SQLAdapter = Adapter.extend({
 			if (pkVal === null) {
 				throw new Error('Cannot destroy using NULL primary key.');
 			}
-			q.addAnd(pk, pkVal);
+			q.and(pk, pkVal);
 		}
 
 		var count = this.updateAll(model, data, q);
@@ -3246,1231 +3877,360 @@ this.SQLAdapter = Adapter.extend({
 			if (pkVal === null) {
 				throw new Error('Cannot destroy using NULL primary key.');
 			}
-			q.addAnd(pk, pkVal);
+			q.and(pk, pkVal);
 		}
 
 		return this.destroyAll(model, q);
 	}
 });
 
-})();
-
-/* 05-AsyncSQLAdapter.js */
-(function(){
-
-var asyncMethods = [
-	'find',
-	'findAll',
-	'countAll',
-	'destroyAll',
-	'updateAll',
-	'insert',
-	'update',
-	'destroy'
-];
-
-var props = {
-	init: function AsyncSQLAdapter(db) {
-		this._super(db);
-	}
-};
-
-for (var x = 0, l = asyncMethods.length; x < l; ++x) {
-	var method = asyncMethods[x];
-	props[method] = function() {
-		var def = new Deferred();
-		try {
-			def.resolve(this._super.apply(this, arguments));
-		} catch (e) {
-			def.reject({
-				errors: [e]
-			});
-		}
-		return def.promise();
-	};
-}
-
-this.AsyncSQLAdapter = SQLAdapter.extend(props);
-
-})();
-
-/* 06-Model.js */
-(function(){
-
-var Model = Class.extend({
-	/**
-	 * This will contain the field values IF __defineGetter__ and __defineSetter__
-	 * are supported by the JavaScript engine, otherwise the properties will be
-	 * set and accessed directly on the object
-	 */
-	_values: null,
-
-	/**
-	 * Object containing names of modified fields
-	 */
-	_originalValues: null,
-
-	/**
-	 * Whether or not this is a new object
-	 */
-	_isNew: true,
-
-	/**
-	 * Errors from the validate() step of saving
-	 */
-	_validationErrors: null,
-
-	/**
-	 * @param {Object} values
-	 */
-	init : function Model(values) {
-		this._validationErrors = [];
-		this._values = {};
-		for (var fieldName in this.constructor._fields) {
-			var field = this.constructor._fields[fieldName];
-			if (typeof field.value !== 'undefined') {
-				this[fieldName] = copy(field.value);
-			} else if (field.type === Array) {
-				this[fieldName] = [];
+SQLAdapter.Migration = Class.extend({
+	adapter: null,
+	schema: null,
+	// Primary method for initializing Migration via manual or automigration
+	init: function(sqlAdapter) {
+		this.adapter = sqlAdapter;
+		this.schema = Model.extend('schema_definitions', {
+			adapter: sqlAdapter,
+			fields: {
+				id: { type: Model.FIELD_TYPE_INTEGER, computed: true, key: true },
+				table_name: Model.FIELD_TYPE_TEXT,
+				column_names: Model.FIELD_TYPE_INTEGER,
+				column_types: Model.FIELD_TYPE_INTEGER
 			}
-		}
-		this.resetModified();
-		if (values) {
-			this.setValues(values);
-		}
-	},
-
-	toString: function() {
-		return this.constructor.name + ':' + this.getPrimaryKeyValues().join('-');
-	},
-
-	get: function(field) {
-		return this[field];
-	},
-
-	set: function(field, value) {
-		this[field] = value;
-		return this;
-	},
-
-	/**
-	 * Creates new instance of self and with the same values as this, except
-	 * the primary key value is cleared
-	 * @return {Model}
-	 */
-	copy: function() {
-		var newObject = new this.constructor,
-			pks = this.constructor._keys,
-			x,
-			len,
-			pk;
-
-		newObject.setValues(this.getValues());
-
-		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x];
-			newObject[pk] = null;
-		}
-		return newObject;
-	},
-
-	/**
-	 * If field is provided, checks whether that field has been modified
-	 * If no field is provided, checks whether any of the fields have been modified from the database values.
-	 *
-	 * @param {String} fieldName
-	 * @return bool
-	 */
-	isModified: function(fieldName) {
-		if (fieldName) {
-			return this[fieldName] !== this._originalValues[fieldName];
-		}
-		for (var fieldName in this.constructor._fields) {
-			if (this[fieldName] !== this._originalValues[fieldName]) {
-				return true;
-			}
-		}
-		return false;
-	},
-
-	/**
-	 * Returns an array of the names of modified fields
-	 * @return {Object}
-	 */
-	getModified: function() {
-		var modified = {};
-		for (var fieldName in this.constructor._fields) {
-			if (this[fieldName] !== this._originalValues[fieldName]) {
-				modified[fieldName] = true;
-			}
-		}
-		return modified;
-	},
-
-	/**
-	 * Clears the array of modified field names
-	 * @return {Model}
-	 */
-	resetModified: function() {
-		this._originalValues = {};
-		for (var fieldName in this.constructor._fields) {
-			this._originalValues[fieldName] = this[fieldName];
-		}
-		return this;
-	},
-
-	/**
-	 * Resets the object to the state it was in before changes were made
-	 */
-	revert: function() {
-		if (this._values) {
-			this._values = copy(this._originalValues);
-		} else {
-			for (var fieldName in this._originalValues) {
-				this[fieldName] = this._originalValues[fieldName];
-			}
-		}
-		return this;
-	},
-
-	/**
-	 * Populates this with the values of an associative Array.
-	 * Array keys must match field names to be used.
-	 * @param {Object} values
-	 * @return {Model}
-	 */
-	setValues: function(values) {
-		for (var fieldName in this.constructor._fields) {
-			if (!(fieldName in values)) {
-				continue;
-			}
-			this[fieldName] = values[fieldName];
-		}
-		return this;
-	},
-
-	/**
-	 * Returns an associative Array with the values of this.
-	 * Array keys match field names.
-	 * @return {Object}
-	 */
-	getValues: function() {
-		var values = {},
-			fieldName,
-			value;
-
-		for (fieldName in this.constructor._fields) {
-			value = this[fieldName];
-			if (!this._inGetValues && value instanceof Model) {
-				this._inGetValues = true;
-				value = value.getValues();
-				delete this._inGetValues;
-			}
-			if (value instanceof Array) {
-				for (var x = 0, l = value.length; x < l; ++x) {
-					if (!this._inGetValues && value[x] instanceof Model) {
-						this._inGetValues = true;
-						value[x] = value[x].getValues();
-						delete this._inGetValues;
-					}
-				}
-			}
-			values[fieldName] = value;
-		}
-
-		return values;
-	},
-
-	/**
-	 * Returns true if this table has primary keys and if all of the primary values are not null
-	 * @return {Boolean}
-	 */
-	hasPrimaryKeyValues: function() {
-		var pks = this.constructor._keys,
-			x,
-			len,
-			pk;
-		if (pks.length === 0) {
-			return false;
-		}
-		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x];
-			if (this[pk] === null) {
-				return false;
-			}
-		}
-		return true;
-	},
-
-	/**
-	 * Returns an array of all primary key values.
-	 *
-	 * @return {Array}
-	 */
-	getPrimaryKeyValues: function() {
-		var arr = [],
-			pks = this.constructor._keys,
-			x,
-			len,
-			pk;
-
-		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x];
-			arr.push(this[pk]);
-		}
-		return arr;
-	},
-
-	/**
-	 * Returns true if this has not yet been saved to the database
-	 * @return {Boolean}
-	 */
-	isNew: function() {
-		return this._isNew;
-	},
-
-	/**
-	 * Indicate whether this object has been saved to the database
-	 * @param {Boolean} bool
-	 * @return {Model}
-	 */
-	setNew: function (bool) {
-		this._isNew = (bool === true);
-		return this;
-	},
-
-	/**
-	 * Returns true if the field values validate.
-	 * @return {Boolean}
-	 */
-	validate: function() {
-		this._validationErrors = [];
-
-		for (var fieldName in this.constructor._fields) {
-			var field = this.constructor._fields[fieldName];
-			if (!field.required) {
-				continue;
-			}
-			var value = this[fieldName];
-			if (!value || (value instanceof Array && value.length === 0)) {
-				this._validationErrors.push(fieldName + ' is required.');
-			}
-		}
-
-		return this._validationErrors.length === 0;
-	},
-
-	/**
-	 * See this.validate()
-	 * @return {Array} Array of errors that occured when validating object
-	 */
-	getValidationErrors: function() {
-		return this._validationErrors;
-	},
-
-	/**
-	 * Saves the values of this using either insert or update
-	 * @return {Promise}
-	 */
-	save: function() {
-		var model = this.constructor;
-
-		if (!this.validate()) {
-			throw new Error('Cannot save ' + model._table + ' with validation errors:\n' + this.getValidationErrors().join('\n'));
-		}
-
-		if (model._keys.length === 0) {
-			throw new Error('Cannot save without primary keys');
-		}
-
-		if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
-			this.created = new Date();
-		}
-
-		if ((this.isNew() || this.isModified()) && model.hasField('updated') && !this.isModified('updated')) {
-			this.updated = new Date();
-		}
-
-		if (this.isNew()) {
-			return this.insert();
-		} else {
-			return this.update();
-		}
-	},
-
-	/**
-	 * Stores a new record with that values in this object
-	 * @return {Promise}
-	 */
-	insert: function() {
-		return this.constructor._adapter.insert(this);
-	},
-
-	/**
-	 * Updates the stored record representing this object.
-	 * @param {Object} values
-	 * @return {Promise}
-	 */
-	update: function(values) {
-		if (typeof values === 'object') {
-			this.setValues(values);
-		}
-		return this.constructor._adapter.update(this);
-	},
-
-	/**
-	 * Deletes any records with a primary key(s) that match this
-	 * NOTE/BUG: If you alter pre-existing primary key(s) before deleting, then you will be
-	 * deleting based on the new primary key(s) and not the originals,
-	 * leaving the original row unchanged(if it exists).  Also, since NULL isn't an accurate way
-	 * to look up a row, I return if one of the primary keys is null.
-	 * @return {Promise}
-	 */
-	destroy: function() {
-		return this.constructor._adapter.destroy(this);
-	}
-});
-
-Model.FIELD_TYPE_TEXT = 'TEXT';
-Model.FIELD_TYPE_NUMERIC = 'NUMERIC';
-Model.FIELD_TYPE_INTEGER = 'INTEGER';
-Model.FIELD_TYPE_DATE = 'DATE';
-Model.FIELD_TYPE_TIME = 'TIME';
-Model.FIELD_TYPE_TIMESTAMP = 'TIMESTAMP';
-
-Model.FIELD_TYPES = {
-	TEXT: Model.FIELD_TYPE_TEXT,
-	NUMERIC: Model.FIELD_TYPE_NUMERIC,
-	INTEGER: Model.FIELD_TYPE_INTEGER,
-	DATE: Model.FIELD_TYPE_DATE,
-	TIME: Model.FIELD_TYPE_TIME,
-	TIMESTAMP: Model.FIELD_TYPE_TIMESTAMP
-};
-
-Model.TEXT_TYPES = {
-	TEXT: Model.FIELD_TYPE_TEXT,
-	DATE: Model.FIELD_TYPE_DATE,
-	TIME: Model.FIELD_TYPE_TIME,
-	TIMESTAMP: Model.FIELD_TYPE_TIMESTAMP
-};
-
-Model.INTEGER_TYPES = {
-	INTEGER: Model.FIELD_TYPE_INTEGER
-};
-
-Model.TEMPORAL_TYPES = {
-	DATE: Model.FIELD_TYPE_DATE,
-	TIME: Model.FIELD_TYPE_TIME,
-	TIMESTAMP: Model.FIELD_TYPE_TIMESTAMP
-};
-
-Model.NUMERIC_TYPES = {
-	INTEGER: Model.FIELD_TYPE_INTEGER,
-	NUMERIC: Model.FIELD_TYPE_NUMERIC
-};
-
-/**
- * @param {String} type
- * @returns {Boolean}
- */
-Model.isFieldType = function(type) {
-	return (type in Model.FIELD_TYPES || this.isObjectType(type));
-};
-
-/**
- * Whether passed type is a temporal (date/time/timestamp) type.
- * @param {String} type
- * @return {Boolean}
- */
-Model.isTemporalType = function(type) {
-	return (type in this.TEMPORAL_TYPES);
-};
-
-/**
- * Returns true if values for the type need to be quoted.
- * @param {String} type
- * @return {Boolean}
- */
-Model.isTextType = function(type) {
-	return (type in this.TEXT_TYPES);
-};
-
-/**
- * Returns true if values for the type are numeric.
- * @param {String} type
- * @return {Boolean}
- */
-Model.isNumericType = function(type) {
-	return (type in this.NUMERIC_TYPES);
-};
-
-/**
- * Returns true if values for the type are integer.
- * @param {String} type
- * @return {Boolean}
- */
-Model.isIntegerType = function(type) {
-	return (type in this.INTEGER_TYPES);
-};
-
-/**
- * Returns true if values for the type are objects or arrays.
- * @param {String} type
- * @return {Boolean}
- */
-Model.isObjectType = function(type) {
-	return typeof type === 'function';
-};
-
-/**
- * @param {mixed} value
- * @param {String} fieldType
- * @returns {Date}
- */
-Model.coerceTemporalValue = function(value, fieldType) {
-	var x, date, l;
-	if (value.constructor === Array) {
-		for (x = 0, l = value.length; x < l; ++x) {
-			value[x] = this.coerceTemporalValue(value[x], fieldType);
-		}
-		return value;
-	}
-	date = new Date(value);
-	if (isNaN(date.getTime())) {
-		throw new Error(value + ' is not a valid date');
-	}
-	return date;
-};
-
-/**
- * Sets the value of a field
- * @param {String} fieldName
- * @param {mixed} value
- * @param {Object} field
- * @return {mixed}
- */
-Model.coerceValue = function(fieldName, value, field) {
-	if (!field) {
-		field = this.getField(fieldName);
-	}
-	var fieldType = field.type;
-
-	value = typeof value === 'undefined' ? null : value;
-
-	var temporal = this.isTemporalType(fieldType),
-		numeric = this.isNumericType(fieldType),
-		intVal,
-		floatVal;
-
-	if (numeric || temporal) {
-		if ('' === value) {
-			value = null;
-		} else if (null !== value) {
-			if (numeric) {
-				if (this.isIntegerType(fieldType)) {
-					// validate and cast
-					intVal = parseInt(value, 10);
-					if (intVal.toString() !== value.toString()) {
-						throw new Error(value + ' is not a valid integer');
-					}
-					value = intVal;
-				} else {
-					// only validates, doesn't cast...yet
-					floatVal = parseFloat(value, 10);
-					if (floatVal.toString() !== value.toString()) {
-						throw new Error(value + ' is not a valid float');
-					}
-				}
-			} else if (temporal) {
-				value = this.coerceTemporalValue(value, fieldType);
-			}
-		}
-	} else if (fieldType === Array) {
-		if (value === null) {
-			value = [];
-		} else if (field.elementType && value instanceof Array) {
-			for (var x = 0, l = value.length; x < l; ++x) {
-				if (value[x] !== null) {
-					value[x] = cast(value[x], field.elementType);
-				}
-			}
-		}
-	} else if (this.isObjectType(fieldType)) {
-		if (value !== null) {
-			value = cast(value, fieldType);
-		}
-	}
-	return value;
-};
-
-function cast(obj, type) {
-	if (type._table && typeof type === 'function') {
-		if (obj.constructor === type) {
-			return obj;
-		}
-		return type.inflate(obj);
-	}
-//	if (type.valueOf) {
-//		return type.valueOf(obj);
-//	}
-	return obj;
-}
-
-function copy(obj) {
-	if (obj === null) {
-		return null;
-	}
-
-	if (obj instanceof Array) {
-		return obj.slice(0);
-	}
-
-	switch (typeof obj) {
-		case 'string':
-		case 'boolean':
-		case 'number':
-		case 'undefined':
-		case 'function':
-			return obj;
-	}
-
-	var target = {};
-	for (var i in obj) {
-		if (obj.hasOwnProperty(i)) {
-			target[i] = obj[i];
-		}
-	}
-	return target;
-}
-
-Model._fields = Model._keys = Model._table = null;
-
-Model._autoIncrement = false;
-
-/**
- * @returns {Adapter}
- */
-Model.getAdapter = function(){
-	return this._adapter;
-};
-
-/**
- * @param {Adapter} adapter
- * @returns {Model}
- */
-Model.setAdapter = function(adapter){
-	this._adapter = adapter;
-	return this;
-};
-
-Model.inflate = function(values) {
-	var pk = this.getPrimaryKey(),
-		adapter = this.getAdapter(),
-		instance;
-	if (pk && values[pk]) {
-		instance = adapter.cache(this._table, values[pk]);
-		if (instance) {
-			return instance;
-		}
-	}
-	instance = new this(values)
-		.resetModified()
-		.setNew(false);
-
-	if (pk && instance[pk]) {
-		adapter.cache(this._table, instance[pk], instance);
-	}
-	return instance;
-};
-
-/**
- * Returns string representation of table name
- * @return {String}
- */
-Model.getTableName = function() {
-	return this._table;
-};
-
-/**
- * Access to array of field types, indexed by field name
- * @return {Object}
- */
-Model.getFields = function() {
-	return copy(this._fields);
-};
-
-/**
- * Get the type of a field
- * @param {String} fieldName
- * @return {Object}
- */
-Model.getField = function(fieldName) {
-	return this._fields[fieldName];
-};
-
-/**
- * Get the type of a field
- * @param {String} fieldName
- * @return {mixed}
- */
-Model.getFieldType = function(fieldName) {
-	return this._fields[fieldName].type;
-};
-
-/**
- * @param {String} fieldName
- * @return {Boolean}
- */
-Model.hasField = function(fieldName) {
-	for (var f in this._fields) {
-		if (f === fieldName) {
-			return true;
-		}
-	}
-	return false;
-};
-
-/**
- * Access to array of primary keys
- * @return {Array}
- */
-Model.getPrimaryKeys = function() {
-	return this._keys.slice(0);
-};
-
-/**
- * Access to name of primary key
- * @return {Array}
- */
-Model.getPrimaryKey = function() {
-	return this._keys.length === 1 ? this._keys[0] : null;
-};
-
-/**
- * Returns true if the primary key field for this table is auto-increment
- * @return {Boolean}
- */
-Model.isAutoIncrement = function() {
-	return this._autoIncrement;
-};
-
-var adapterMethods = ['countAll', 'findAll', 'find', 'destroyAll', 'updateAll'];
-
-for (var i = 0, l = adapterMethods.length; i < l; ++i) {
-	var method = adapterMethods[i];
-	Model[method] = (function(method){
-		return function() {
-			var args = Array.prototype.slice.call(arguments),
-				con = this.getAdapter();
-			args.unshift(this);
-			return con[method].apply(con, args);
-		};
-	})(method);
-}
-
-var findAliases = ['findBy', 'retrieveByField', 'retrieveByPK', 'retrieveByPKs', 'findByPKs'];
-
-for (var x = 0, len = findAliases.length; x < len; ++x) {
-	Model[findAliases[x]] = Model.find;
-}
-
-/**
- * @param {String} fieldName
- * @param {mixed} field
- */
-Model.addField = function(fieldName, field) {
-	var get, set, self = this;
-
-	if (!field.type) {
-		field = {
-			type: field
-		};
-	}
-
-	if (typeof field.type === 'string') {
-		field.type = field.type.toUpperCase();
-	}
-
-	switch (field.type) {
-		case String:
-			field.type = self.FIELD_TYPE_TEXT;
-			break;
-		case Number:
-			field.type = self.FIELD_TYPE_NUMERIC;
-			break;
-		case Date:
-			field.type = self.FIELD_TYPE_TIMESTAMP;
-			break;
-		case 'INT':
-			field.type = self.FIELD_TYPE_INTEGER;
-			break;
-	}
-
-	if (field.key) {
-		this._keys.push(fieldName);
-	}
-	if (field.computed) {
-		this._autoIncrement = true;
-	}
-
-	if (!this.isFieldType(field.type)) {
-		throw new Error(field.type + ' is not a valide field type');
-	}
-
-	this._fields[fieldName] = field;
-
-	if (!this.prototype.__defineGetter__ && !Object.defineProperty) {
-		return;
-	}
-
-	get = function() {
-		var value = this._values[fieldName];
-		return typeof value === 'undefined' ? null : value;
-	};
-	set = function(value) {
-		this._values[fieldName] = self.coerceValue(fieldName, value, field);
-	};
-
-	try {
-		if (Object.defineProperty) {
-			Object.defineProperty(this.prototype, fieldName, {
-				get: get,
-				set: set,
-				enumerable: true
-			});
-		} else {
-			this.prototype.__defineGetter__(fieldName, get);
-			this.prototype.__defineSetter__(fieldName, set);
-		}
-	} catch (e) {}
-};
-
-Model.models = {};
-
-/**
- * @param {String} table
- * @param {Object} opts
- * @return {Model}
- */
-Model.extend = function(table, opts) {
-	var newClass,
-		fieldName,
-		prop;
-
-	if (typeof table === 'undefined') {
-		throw new Error('Must provide a table when exending Model');
-	}
-	if (!opts.fields) {
-		throw new Error('Must provide fields when exending Model');
-	}
-
-	newClass = Class.extend.call(this, opts.prototype);
-	delete opts.prototype;
-
-	if (!this._table && !this._fields) {
-		newClass._keys = [];
-		newClass._fields = {};
-	} else {
-		newClass._keys = copy(this._keys);
-		newClass._fields = copy(this._fields);
-	}
-
-	newClass._table = table;
-
-	for (prop in opts) {
-		switch (prop) {
-			// private static properties
-			case 'url':
-			case 'adapter':
-				newClass['_' + prop] = opts[prop];
-				break;
-
-			// public static methods and properties
-			default:
-				newClass[prop] = opts[prop];
-				break;
-		}
-	}
-
-	for (fieldName in opts.fields) {
-		newClass.addField(fieldName, opts.fields[fieldName]);
-	}
-
-	Model.models[table] = newClass;
-
-	return newClass;
-};
-
-this.Model = Model;
-})();
-
-/* 07-Migration.js */
-(function(){
-
-var Migration = {};
-
-Migration.schema = Model.extend('schema_definitions', {
-	fields: {
-		id: { type: Model.FIELD_TYPE_INTEGER, computed: true, key: true },
-		table_name: Model.FIELD_TYPE_TEXT,
-		column_names: Model.FIELD_TYPE_INTEGER,
-		column_types: Model.FIELD_TYPE_INTEGER
-	}
-});
-
-// Primary method for initializing Migration via manual or automigration
-Migration.migrate = function(options) {
-	if (!options) {
-		options = {};
-	}
-
-	var tableName, migrations = {}, startVersion, targetVersion, i;
-
-	// Drop tables
-	if (options.refresh) {
-		for (tableName in Model.models){
-			SQLAdapter.execute('DROP TABLE IF EXISTS ' + tableName);
-//				Migration.each(model.options.hasAndBelongsToMany, function(assocTable) {
-//					var mappingTable = [model.table, assocTable].sort().toString().replace(',', '_');
-//					var sql = 'DROP TABLE IF EXISTS ' + mappingTable;
-//					SQLAdapter.execute(sql);
-//				});
-		}
-		Migration.setupSchema(true);
-	} else {
-		Migration.setupSchema();
-	}
-
-	if (Migration.migrations)
-		migrations = Migration.migrations;
-
-	// test for apparently-valid obj literal based on migration 1 being present
-	if (migrations[1] && migrations[1].constructor === Object) {
-		startVersion = Migration.currentSchemaVersion();
-		targetVersion = Infinity;
-
-		// did user specify a migration number?
-		if (options.number !== null && typeof options.number !== 'undefined')
-			targetVersion = options.number;
-		else if (typeof options === 'number')
-			targetVersion = options;
-
-		// actually handle a migrations object
-		i = startVersion;
-
-		do {
-			// schema is already up to date
-			if (i === targetVersion) {
-				// up to date
-				return;
-			}
-			// migrate up
-			else if (i < targetVersion) {
-				i += 1;
-				if (migrations[i] !== null && typeof migrations[i] !== 'undefined')
-					migrations[i].up();
-				else
-					break;
-			}
-			// migrate down
-			else {
-				migrations[i].down();
-				i -= 1;
-			}
-			Migration.updateSchemaVersion(i);
-		} while(migrations[i]);
-	} else {
-		// developer can choose to use automigrations while in dev mode
-//		Migration.models.each(function(model) {
-//			var sql = 'CREATE TABLE IF NOT EXISTS ' + model.table + '(id INTEGER PRIMARY KEY AUTOINCREMENT';
-//			for (var colName in model._fields) {
-//				var colType = model._fields[colName];
-//				if (colName !== 'id')
-//					sql += (', ' + colName + ' ' + colType.toUpperCase());
-//			}
-//			sql += ')';
-//			SQLAdapter.execute(sql);
-
-//			Migration.each(model.options.hasAndBelongsToMany, function(assocTable, association) {
-//				var mappingTable = [model.table, assocTable].sort().toString().replace(',', '_');
-//				var localKey = model.options.foreignKey;
-//				var foreignKey = Migration.models.get(assocTable).options.foreignKey;
-//				var keys = [localKey, foreignKey].sort();
-//				var sql = 'CREATE TABLE IF NOT EXISTS ' + mappingTable + '(' + keys[0] + ' INTEGER, ' + keys[1] + ' INTEGER)';
-//				SQLAdapter.execute(sql);
-//			});
-//
-//			model._fields.id = 'INTEGER';
-//		});
-	}
-
-	// handle fixture data, if passed in fixtures erase all old data
-//	if (options && options.refresh && Migration.fixtures)
-//		Migration.loadFixtures();
-};
-
-//Migration.loadFixtures = function() {
-//	var fixtures = Migration.fixtures;
-//	Migration.each(fixtures.tables, function(tableData, tableName) {
-//		Migration.each(tableData, function(record) {
-//			Migration.models.get(tableName).create(record);
-//		});
-//	});
-//
-//	if (!fixtures.mappingTables)
-//		return;
-//
-//	Migration.each(fixtures.mappingTables, function(tableData, tableName) {
-//		Migration.each(tableData, function(colData) {
-//			var dataHash = new Migration.Hash(colData);
-//			var sql = 'INSERT INTO ' + tableName + ' (' + dataHash.getKeys().toString() + ') VALUES(' + dataHash.getValues().toString() + ')';
-//			SQLAdapter.execute(sql);
-//		});
-//	});
-//};
-
-// used elsewhere
-
-Migration.setupSchema = function(force) {
-	var sql;
-	Migration.createTable('schema_migrations', {
-		version: Model.FIELD_TYPE_TEXT
-	});
-	if (SQLAdapter.count('SELECT * FROM schema_migrations') === 0) {
-		sql = 'INSERT INTO schema_migrations (version) VALUES(0)';
-		SQLAdapter.execute(sql);
-	}
-	if (force && SQLAdapter.count('SELECT * FROM schema_migrations') === 1) {
-		sql = 'UPDATE schema_migrations set version = 0';
-		SQLAdapter.execute(sql);
-	}
-	Migration.createTable('schema_definitions', {
-		id: Model.FIELD_TYPE_INTEGER,
-		table_name: Model.FIELD_TYPE_TEXT,
-		column_names: Model.FIELD_TYPE_INTEGER,
-		column_types: Model.FIELD_TYPE_INTEGER
-	});
-};
-
-Migration.writeSchema = function(tableName, cols) {
-	if (tableName === 'schema_definitions' || tableName === 'schema_migrations')
-		return;
-	var keys = [],
-		values = [],
-		cName,
-		names,
-		types,
-		table;
-	for (cName in cols) {
-		keys.push(cName);
-		values.push(cols[cName]);
-	}
-	names = keys.join();
-	types = keys.join();
-	table = Migration.schema.findBy('table_name', tableName);
-	if (table) {
-		table.column_names = names;
-		table.column_types = types;
-		table.save();
-	} else {
-		table = new Migration.schema;
-		table.setValues({
-			table_name: tableName,
-			column_names: names,
-			column_types: types
 		});
-		table.save();
-	}
-};
+	},
+	migrate: function(options) {
+		if (!options) {
+			options = {};
+		}
 
-Migration.readSchema = function(tableName) {
-	if (tableName === 'schema_definitions' || tableName === 'schema_migrations')
-		return null;
-	var table = Migration.schema.findBy('table_name', tableName),
-		column_names = table.column_names.split(','),
-		column_types = table.column_types.split(','),
-		cols = {},
-		i,
-		len = column_names.length,
-		col;
-	for (i = 0; i < len; ++i){
-		col = column_names[i];
-		cols[col] = column_types[i];
-	}
-	return cols;
-};
+		var tableName,
+			migrations = {},
+			startVersion,
+			targetVersion,
+			i;
 
-Migration.currentSchemaVersion = function() {
-	var sql = 'SELECT version FROM schema_migrations LIMIT 1';
+		// Drop tables
+		if (options.refresh) {
+			for (tableName in Model.models){
+				this.adapter.execute('DROP TABLE IF EXISTS ' + tableName);
+	//				Migration.each(model.options.hasAndBelongsToMany, function(assocTable) {
+	//					var mappingTable = [model.table, assocTable].sort().toString().replace(',', '_');
+	//					var sql = 'DROP TABLE IF EXISTS ' + mappingTable;
+	//					this.adapter.execute(sql);
+	//				});
+			}
+			this.setupSchema(true);
+		} else {
+			this.setupSchema();
+		}
 
-	return parseInt(SQLAdapter.execute(sql)[0].version, 10);
-};
+		if (this.adapter.migrations) {
+			migrations = this.adapter.migrations;
+		}
 
-Migration.updateSchemaVersion = function(number) {
-	var sql = 'UPDATE schema_migrations SET version = ' + number;
-	SQLAdapter.execute(sql);
-};
+		// test for apparently-valid obj literal based on migration 1 being present
+		if (migrations[1] && migrations[1].constructor === Object) {
+			startVersion = this.currentSchemaVersion();
+			targetVersion = Infinity;
 
-Migration.modifyColumn = function(tableName, columnName, options) {
+			// did user specify a migration number?
+			if (options.number !== null && typeof options.number !== 'undefined') {
+				targetVersion = options.number;
+			} else if (typeof options === 'number') {
+				targetVersion = options;
+			}
 
-	if (!options) {
-		throw new Error('MIGRATION_EXCEPTION: Not a valid column modification');
-	}
+			// actually handle a migrations object
+			i = startVersion;
 
-	var oldCols = Migration.readSchema(tableName),
-		newCols = {},
-		colName,
-		colType;
-
-	for (colName in oldCols) {
-		colType = oldCols[colName];
-		switch(options['modification']) {
-			case 'remove':
-				if (colName !== columnName)
-					newCols[colName] = colType;
-				break;
-
-			case 'rename':
-				if (colName !== columnName) {
-					newCols[colName] = colType;
+			do {
+				// schema is already up to date
+				if (i === targetVersion) {
+					// up to date
+					return;
+				} else if (i < targetVersion) {
+					// migrate up
+					i += 1;
+					if (migrations[i] !== null && typeof migrations[i] !== 'undefined')
+						migrations[i].up();
+					else
+						break;
+				} else {
+					// migrate down
+					migrations[i].down();
+					i -= 1;
 				}
-				else {
-					newCols[options.newName] = colType;
-				}
-				break;
+				this.updateSchemaVersion(i);
+			} while(migrations[i]);
+		} else {
+			// developer can choose to use automigrations while in dev mode
+	//		Migration.models.each(function(model) {
+	//			var sql = 'CREATE TABLE IF NOT EXISTS ' + model.table + '(id INTEGER PRIMARY KEY AUTOINCREMENT';
+	//			for (var colName in model._fields) {
+	//				var colType = model._fields[colName];
+	//				if (colName !== 'id')
+	//					sql += (', ' + colName + ' ' + colType.toUpperCase());
+	//			}
+	//			sql += ')';
+	//			this.adapter.execute(sql);
 
-			case 'change':
-				if (colName !== columnName) {
-					newCols[colName] = colType;
-				}
-				else {
-					newCols[colName] = options.newType;
-				}
-				break;
-
-			default:
-				throw('MIGRATION_EXCEPTION: Not a valid column modification');
+	//			Migration.each(model.options.hasAndBelongsToMany, function(assocTable, association) {
+	//				var mappingTable = [model.table, assocTable].sort().toString().replace(',', '_');
+	//				var localKey = model.options.foreignKey;
+	//				var foreignKey = Migration.models.get(assocTable).options.foreignKey;
+	//				var keys = [localKey, foreignKey].sort();
+	//				var sql = 'CREATE TABLE IF NOT EXISTS ' + mappingTable + '(' + keys[0] + ' INTEGER, ' + keys[1] + ' INTEGER)';
+	//				this.adapter.execute(sql);
+	//			});
+	//
+	//			model._fields.id = 'INTEGER';
+	//		});
 		}
+
+		// handle fixture data, if passed in fixtures erase all old data
+		if (options && options.refresh)
+			this.loadFixtures();
+	},
+	setupSchema: function(force) {
+		var sql;
+		this.createTable('schema_migrations', {
+			version: Model.FIELD_TYPE_TEXT
+		});
+		if (this.adapter.count('SELECT * FROM schema_migrations') === 0) {
+			sql = 'INSERT INTO schema_migrations (version) VALUES(0)';
+			this.adapter.execute(sql);
+		}
+		if (force && this.adapter.count('SELECT * FROM schema_migrations') === 1) {
+			sql = 'UPDATE schema_migrations set version = 0';
+			this.adapter.execute(sql);
+		}
+		this.createTable('schema_definitions', {
+			id: Model.FIELD_TYPE_INTEGER,
+			table_name: Model.FIELD_TYPE_TEXT,
+			column_names: Model.FIELD_TYPE_INTEGER,
+			column_types: Model.FIELD_TYPE_INTEGER
+		});
+	},
+	writeSchema: function(tableName, cols) {
+		if (tableName === 'schema_definitions' || tableName === 'schema_migrations')
+			return;
+		var keys = [],
+			values = [],
+			names,
+			types,
+			table;
+		for (var cName in cols) {
+			keys.push(cName);
+			values.push(cols[cName]);
+		}
+		names = keys.join();
+		types = keys.join();
+		table = this.schema.findBy('table_name', tableName);
+		if (table) {
+			table.column_names = names;
+			table.column_types = types;
+			table.save();
+		} else {
+			table = new this.schema;
+			table.setValues({
+				table_name: tableName,
+				column_names: names,
+				column_types: types
+			});
+			table.save();
+		}
+	},
+	readSchema: function(tableName) {
+		if (tableName === 'schema_definitions' || tableName === 'schema_migrations')
+			return null;
+		var table = this.schema.findBy('table_name', tableName),
+			column_names = table.column_names.split(','),
+			column_types = table.column_types.split(','),
+			cols = {},
+			col;
+		for (var i = 0, len = column_names.length; i < len; ++i){
+			col = column_names[i];
+			cols[col] = column_types[i];
+		}
+		return cols;
+	},
+	currentSchemaVersion: function() {
+		var sql = 'SELECT version FROM schema_migrations LIMIT 1';
+
+		return parseInt(this.adapter.execute(sql)[0].version, 10);
+	},
+	updateSchemaVersion: function(number) {
+		var sql = 'UPDATE schema_migrations SET version = ' + number;
+		return this.adapter.execute(sql);
+	},
+	modifyColumn: function(tableName, columnName, options) {
+		if (!options) {
+			throw new Error('MIGRATION_EXCEPTION: Not a valid column modification');
+		}
+
+		var oldCols = this.readSchema(tableName),
+			newCols = {},
+			colName,
+			colType;
+
+		for (colName in oldCols) {
+			colType = oldCols[colName];
+			switch(options['modification']) {
+				case 'remove':
+					if (colName !== columnName)
+						newCols[colName] = colType;
+					break;
+
+				case 'rename':
+					if (colName !== columnName) {
+						newCols[colName] = colType;
+					}
+					else {
+						newCols[options.newName] = colType;
+					}
+					break;
+
+				case 'change':
+					if (colName !== columnName) {
+						newCols[colName] = colType;
+					}
+					else {
+						newCols[colName] = options.newType;
+					}
+					break;
+
+				default:
+					throw('MIGRATION_EXCEPTION: Not a valid column modification');
+			}
+		}
+
+		this.adapter.transaction(function() {
+			var records = this.adapter.execute('SELECT * FROM ' + tableName);
+			if (records.length !== 0) {
+				throw new Error('Modify column not quite ready yet...');
+			}
+
+			this.dropTable(tableName);
+			this.createTable(tableName, newCols);
+
+			for (var i = 0, len = records.length; i < len; ++i) {
+				 var record = records[i];
+				 switch (options.modification) {
+					 case 'remove':
+						 delete record[columnName];
+						 Model.insert(tableName, record);
+						 break;
+					 case 'rename':
+						 record[options.newName] = record[columnName];
+						 delete record[columnName];
+						 Model.insert(tableName, record);
+						 break;
+					 case 'change':
+						 Model.insert(tableName, record);
+						 break;
+					 default:
+						 throw('MIGRATION_EXCEPTION: Not a valid column modification');
+				 }
+			}
+		});
+	},
+	createTable: function(name, columns) {
+		if (!name || !columns) {
+			return;
+		}
+		var sql = 'CREATE TABLE IF NOT EXISTS ' + name + "\n",
+			colName,
+			colType,
+			i = 0;
+
+		sql += '(';
+		for (colName in columns) {
+			colType = columns[colName];
+			if (0 !== i) {
+				sql += ",\n";
+			}
+			sql += (colName + ' ' + colType);
+			if (colType === Model.FIELD_TYPE_INTEGER && colName === 'id') {
+				sql += ' PRIMARY KEY AUTOINCREMENT';
+			}
+			++i;
+		}
+		sql += ')';
+		this.adapter.execute(sql);
+
+		this.writeSchema(name, columns);
+	},
+	dropTable: function(name) {
+		var sql = 'DROP TABLE IF EXISTS ' + name,
+			schemaTable;
+		this.adapter.execute(sql);
+		schemaTable = this.schema.findBy('table_name', name);
+		schemaTable.destroy();
+	},
+	renameTable: function(oldName, newName) {
+		var sql = 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName,
+			schemaTable;
+		this.adapter.execute(sql);
+		schemaTable = this.schema.findBy('table_name', oldName);
+		schemaTable.table_name = newName;
+		schemaTable.save();
+	},
+	addColumn: function(tableName, columnName, dataType) {
+		var sql = 'ALTER TABLE ' + tableName + ' ADD COLUMN ' + columnName + ' ' + dataType,
+			cols;
+		this.adapter.execute(sql);
+		cols = this.readSchema(tableName);
+		cols[columnName] = dataType;
+		this.writeSchema(tableName, cols);
+	},
+	removeColumn: function(tableName, columnName) {
+		return this.modifyColumn(tableName, columnName, {
+			modification: 'remove'
+		});
+	},
+	renameColumn: function(tableName, columnName, newColumnName) {
+		var options = {
+			modification: 'rename',
+			newName: newColumnName
+		};
+		return this.modifyColumn(tableName, columnName, options);
+	},
+	changeColumn: function(tableName, columnName, type) {
+		var options = {
+			modification: 'change',
+			newType: type
+		};
+		return this.modifyColumn(tableName, columnName, options);
+	},
+	addIndex: function(tableName, columnName, unique) {
+		var sql = 'CREATE' + (unique ? ' UNIQUE ' : ' ') + 'INDEX IF NOT EXISTS ' + tableName + '_' + columnName + '_index ON ' + tableName + ' (' + columnName + ')';
+		return this.adapter.execute(sql);
+	},
+	removeIndex: function(tableName, columnName) {
+		var sql = 'DROP INDEX IF EXISTS ' + tableName + '_' + columnName + '_index';
+		return this.adapter.execute(sql);
+	},
+	loadFixtures: function() {
+//		var fixtures = Migration.fixtures;
+//		Migration.each(fixtures.tables, function(tableData, tableName) {
+//			Migration.each(tableData, function(record) {
+//				Migration.models.get(tableName).create(record);
+//			});
+//		});
+//
+//		if (!fixtures.mappingTables)
+//			return;
+//
+//		Migration.each(fixtures.mappingTables, function(tableData, tableName) {
+//			Migration.each(tableData, function(colData) {
+//				var dataHash = new Migration.Hash(colData);
+//				var sql = 'INSERT INTO ' + tableName + ' (' + dataHash.getKeys().toString() + ') VALUES(' + dataHash.getValues().toString() + ')';
+//				this.adapter.execute(sql);
+//			});
+//		});
 	}
+});
 
-	SQLAdapter.transaction(function() {
-		var records = SQLAdapter.execute('SELECT * FROM ' + tableName);
-		if (records.length !== 0) {
-			throw new Error('Modify column not quite ready yet...');
-		}
-
-		Migration.dropTable(tableName);
-		Migration.createTable(tableName, newCols);
-
-		for (var i = 0, len = records.length; i < len; ++i) {
-			 var record = records[i];
-			 switch (options.modification) {
-				 case 'remove':
-					 delete record[columnName];
-					 Model.insert(tableName, record, SQLAdapter.getConnection());
-					 break;
-				 case 'rename':
-					 record[options.newName] = record[columnName];
-					 delete record[columnName];
-					 Model.insert(tableName, record, SQLAdapter.getConnection());
-					 break;
-				 case 'change':
-					 Model.insert(tableName, record, SQLAdapter.getConnection());
-					 break;
-				 default:
-					 throw('MIGRATION_EXCEPTION: Not a valid column modification');
-			 }
-		}
-	});
-};
-
-
-// used in actual migrations
-
-Migration.createTable = function(name, columns) {
-	if (!name || !columns) {
-		return;
-	}
-	var sql = 'CREATE TABLE IF NOT EXISTS ' + name + "\n",
-		colName,
-		colType,
-		i = 0;
-
-	sql += '(';
-	for (colName in columns) {
-		colType = columns[colName];
-		if (0 !== i) {
-			sql += ",\n";
-		}
-		sql += (colName + ' ' + colType);
-		if (colType === Model.FIELD_TYPE_INTEGER && colName === 'id') {
-			sql += ' PRIMARY KEY AUTOINCREMENT';
-		}
-		++i;
-	}
-	sql += ')';
-	SQLAdapter.execute(sql);
-
-	Migration.writeSchema(name, columns);
-};
-
-Migration.dropTable = function(name) {
-	var sql = 'DROP TABLE IF EXISTS ' + name,
-		schemaTable;
-	SQLAdapter.execute(sql);
-	schemaTable = Migration.schema.findBy('table_name', name);
-	schemaTable.destroy();
-};
-
-Migration.renameTable = function(oldName, newName) {
-	var sql = 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName,
-		schemaTable;
-	SQLAdapter.execute(sql);
-	schemaTable = Migration.schema.findBy('table_name', oldName);
-	schemaTable.table_name = newName;
-	schemaTable.save();
-};
-
-Migration.addColumn = function(tableName, columnName, dataType) {
-	var sql = 'ALTER TABLE ' + tableName + ' ADD COLUMN ' + columnName + ' ' + dataType,
-		cols;
-	SQLAdapter.execute(sql);
-	cols = Migration.readSchema(tableName);
-	cols[columnName] = dataType;
-	Migration.writeSchema(tableName, cols);
-};
-
-Migration.removeColumn = function(tableName, columnName) {
-	Migration.modifyColumn(tableName, columnName, {
-		modification: 'remove'
-	});
-};
-
-Migration.renameColumn = function(tableName, columnName, newColumnName) {
-	var options = {
-		modification: 'rename',
-		newName: newColumnName
-	};
-	Migration.modifyColumn(tableName, columnName, options);
-};
-
-Migration.changeColumn = function(tableName, columnName, type) {
-	var options = {
-		modification: 'change',
-		newType: type
-	};
-	Migration.modifyColumn(tableName, columnName, options);
-};
-
-Migration.addIndex = function(tableName, columnName, unique) {
-	var sql = 'CREATE' + (unique ? ' UNIQUE ' : ' ') + 'INDEX IF NOT EXISTS ' + tableName + '_' + columnName + '_index ON ' + tableName + ' (' + columnName + ')';
-	SQLAdapter.execute(sql);
-};
-
-Migration.removeIndex = function(tableName, columnName) {
-	var sql = 'DROP INDEX IF EXISTS ' + tableName + '_' + columnName + '_index';
-	SQLAdapter.execute(sql);
-};
-
-this.Migration = Migration;
 })();

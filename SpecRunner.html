@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Jasmine Spec Runner</title>
+
+		<link rel="shortcut icon" type="image/png" href="/~Manifest-MacBook/jasmine/jasmine_favicon.png">
+		<link rel="stylesheet" type="text/css" href="/~Manifest-MacBook/jasmine/jasmine.css">
+
+		<script language="Javascript" type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.js"></script>
+		<script type="text/javascript" src="/~Manifest-MacBook/jasmine/jasmine.js"></script>
+		<script type="text/javascript" src="/~Manifest-MacBook/jasmine/jasmine-html.js"></script>
+
+		<!-- include source files here... -->
+		<script type="text/javascript" src="dabl.js"></script>
+
+		<!-- include spec files here... -->
+		<script type="text/javascript" src="spec/QuerySpec.js"></script>
+
+		<script type="text/javascript">
+			(function() {
+				var jasmineEnv = jasmine.getEnv();
+				jasmineEnv.updateInterval = 1000;
+
+				var htmlReporter = new jasmine.HtmlReporter();
+
+				jasmineEnv.addReporter(htmlReporter);
+
+				jasmineEnv.specFilter = function(spec) {
+					return htmlReporter.specFilter(spec);
+				};
+
+				var currentWindowOnload = window.onload;
+
+				window.onload = function() {
+					if (currentWindowOnload) {
+						currentWindowOnload();
+					}
+					execJasmine();
+				};
+
+				function execJasmine() {
+					jasmineEnv.execute();
+				}
+			})();
+		</script>
+
+	</head>
+
+	<body>
+	</body>
+</html>

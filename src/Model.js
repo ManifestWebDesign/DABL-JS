@@ -1,6 +1,6 @@
 (function(){
 
-var Model = Class.extend({
+this.Model = Class.extend({
 	/**
 	 * This will contain the field values IF __defineGetter__ and __defineSetter__
 	 * are supported by the JavaScript engine, otherwise the properties will be
@@ -47,31 +47,17 @@ var Model = Class.extend({
 		return this.constructor.name + ':' + this.getPrimaryKeyValues().join('-');
 	},
 
-	get: function(field) {
-		return this[field];
-	},
-
-	set: function(field, value) {
-		this[field] = value;
-		return this;
-	},
-
 	/**
 	 * Creates new instance of self and with the same values as this, except
 	 * the primary key value is cleared
 	 * @return {Model}
 	 */
 	copy: function() {
-		var newObject = new this.constructor,
-			pks = this.constructor._keys,
-			x,
-			len,
-			pk;
+		var model = this.constructor,
+			newObject = new model(this),
+			pk = model.getPrimaryKey();
 
-		newObject.setValues(this.getValues());
-
-		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x];
+		if (pk) {
 			newObject[pk] = null;
 		}
 		return newObject;
@@ -81,15 +67,15 @@ var Model = Class.extend({
 	 * If field is provided, checks whether that field has been modified
 	 * If no field is provided, checks whether any of the fields have been modified from the database values.
 	 *
-	 * @param {String} fieldName
+	 * @param {String} fieldName Optional
 	 * @return bool
 	 */
 	isModified: function(fieldName) {
 		if (fieldName) {
-			return this[fieldName] !== this._originalValues[fieldName];
+			return !equals(this[fieldName], this._originalValues[fieldName]);
 		}
 		for (var fieldName in this.constructor._fields) {
-			if (this[fieldName] !== this._originalValues[fieldName]) {
+			if (this.isModified(fieldName)) {
 				return true;
 			}
 		}
@@ -103,7 +89,7 @@ var Model = Class.extend({
 	getModified: function() {
 		var modified = {};
 		for (var fieldName in this.constructor._fields) {
-			if (this[fieldName] !== this._originalValues[fieldName]) {
+			if (this.isModified(fieldName)) {
 				modified[fieldName] = true;
 			}
 		}
@@ -189,15 +175,12 @@ var Model = Class.extend({
 	 * @return {Boolean}
 	 */
 	hasPrimaryKeyValues: function() {
-		var pks = this.constructor._keys,
-			x,
-			len,
-			pk;
+		var pks = this.constructor._keys;
 		if (pks.length === 0) {
 			return false;
 		}
-		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x];
+		for (var x = 0, len = pks.length; x < len; ++x) {
+			var pk = pks[x];
 			if (this[pk] === null) {
 				return false;
 			}
@@ -212,13 +195,10 @@ var Model = Class.extend({
 	 */
 	getPrimaryKeyValues: function() {
 		var arr = [],
-			pks = this.constructor._keys,
-			x,
-			len,
-			pk;
+			pks = this.constructor._keys;
 
-		for (x = 0, len = pks.length; x < len; ++x) {
-			pk = pks[x];
+		for (var x = 0, len = pks.length; x < len; ++x) {
+			var pk = pks[x];
 			arr.push(this[pk]);
 		}
 		return arr;
@@ -273,52 +253,80 @@ var Model = Class.extend({
 
 	/**
 	 * Saves the values of this using either insert or update
+	 * @param {function} success Success callback
+	 * @param {function} failure callback
 	 * @return {Promise}
 	 */
-	save: function() {
-		var model = this.constructor;
-
-		if (!this.validate()) {
-			throw new Error('Cannot save ' + model._table + ' with validation errors:\n' + this.getValidationErrors().join('\n'));
-		}
-
-		if (model._keys.length === 0) {
-			throw new Error('Cannot save without primary keys');
-		}
-
-		if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
-			this.created = new Date();
-		}
-
-		if ((this.isNew() || this.isModified()) && model.hasField('updated') && !this.isModified('updated')) {
-			this.updated = new Date();
-		}
-
+	save: function(success, failure) {
 		if (this.isNew()) {
-			return this.insert();
+			return this.insert(success, failure);
 		} else {
-			return this.update();
+			return this.update(success, failure);
 		}
 	},
 
 	/**
 	 * Stores a new record with that values in this object
+	 * @param {function} success Success callback
+	 * @param {function} failure callback
 	 * @return {Promise}
 	 */
-	insert: function() {
-		return this.constructor._adapter.insert(this);
+	insert: function(success, failure) {
+		return this.callAsync(function(){
+			var model = this.constructor;
+
+			if (!this.validate()) {
+				throw new Error('Cannot save ' + model._table + ' with validation errors:\n' + this.getValidationErrors().join('\n'));
+			}
+
+			if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
+				this.created = new Date();
+			}
+			if ((this.isNew() || this.isModified()) && model.hasField('updated') && !this.isModified('updated')) {
+				this.updated = new Date();
+			}
+
+			return this.constructor._adapter.insert(this);
+		}, success, failure);
 	},
 
 	/**
 	 * Updates the stored record representing this object.
 	 * @param {Object} values
+	 * @param {function} success Success callback
+	 * @param {function} failure callback
 	 * @return {Promise}
 	 */
-	update: function(values) {
-		if (typeof values === 'object') {
-			this.setValues(values);
+	update: function(values, success, failure) {
+		if (typeof values === 'function') {
+			success = values;
+			failure = success;
 		}
-		return this.constructor._adapter.update(this);
+
+		return this.callAsync(function(){
+			var model = this.constructor;
+
+			if (!this.validate()) {
+				throw new Error('Cannot save ' + model._table + ' with validation errors:\n' + this.getValidationErrors().join('\n'));
+			}
+
+			if (model._keys.length === 0) {
+				throw new Error('Cannot save without primary keys');
+			}
+
+			if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
+				this.created = new Date();
+			}
+			if ((this.isNew() || this.isModified()) && model.hasField('updated') && !this.isModified('updated')) {
+				this.updated = new Date();
+			}
+
+			if (typeof values === 'object') {
+				this.setValues(values);
+			}
+
+			return model._adapter.update(this);
+		}, success, failure);
 	},
 
 	/**
@@ -329,10 +337,19 @@ var Model = Class.extend({
 	 * to look up a row, I return if one of the primary keys is null.
 	 * @return {Promise}
 	 */
-	destroy: function() {
-		return this.constructor._adapter.destroy(this);
+	destroy: function(success, failure) {
+		return this.callAsync(function(){
+			return this.constructor._adapter.destroy(this);
+		}, success, failure);
 	}
+
 });
+
+Model.models = {};
+
+Model._fields = Model._keys = Model._table = null;
+
+Model._autoIncrement = false;
 
 Model.FIELD_TYPE_TEXT = 'TEXT';
 Model.FIELD_TYPE_NUMERIC = 'NUMERIC';
@@ -426,26 +443,6 @@ Model.isObjectType = function(type) {
 };
 
 /**
- * @param {mixed} value
- * @param {String} fieldType
- * @returns {Date}
- */
-Model.coerceTemporalValue = function(value, fieldType) {
-	var x, date, l;
-	if (value.constructor === Array) {
-		for (x = 0, l = value.length; x < l; ++x) {
-			value[x] = this.coerceTemporalValue(value[x], fieldType);
-		}
-		return value;
-	}
-	date = new Date(value);
-	if (isNaN(date.getTime())) {
-		throw new Error(value + ' is not a valid date');
-	}
-	return date;
-};
-
-/**
  * Sets the value of a field
  * @param {String} fieldName
  * @param {mixed} value
@@ -458,7 +455,12 @@ Model.coerceValue = function(fieldName, value, field) {
 	}
 	var fieldType = field.type;
 
-	value = typeof value === 'undefined' ? null : value;
+	if (typeof value === 'undefined' || value === null) {
+		if (fieldType === Array) {
+			return [];
+		}
+		return null;
+	}
 
 	var temporal = this.isTemporalType(fieldType),
 		numeric = this.isNumericType(fieldType),
@@ -467,31 +469,32 @@ Model.coerceValue = function(fieldName, value, field) {
 
 	if (numeric || temporal) {
 		if ('' === value) {
-			value = null;
-		} else if (null !== value) {
-			if (numeric) {
-				if (this.isIntegerType(fieldType)) {
-					// validate and cast
-					intVal = parseInt(value, 10);
-					if (intVal.toString() !== value.toString()) {
-						throw new Error(value + ' is not a valid integer');
-					}
-					value = intVal;
-				} else {
-					// only validates, doesn't cast...yet
-					floatVal = parseFloat(value, 10);
-					if (floatVal.toString() !== value.toString()) {
-						throw new Error(value + ' is not a valid float');
-					}
+			return null;
+		}
+		if (numeric) {
+			if (this.isIntegerType(fieldType)) {
+				// validate and cast
+				intVal = parseInt(value, 10);
+				if (isNaN(intVal) || intVal.toString() !== value.toString()) {
+					throw new Error(value + ' is not a valid integer');
 				}
-			} else if (temporal) {
-				value = this.coerceTemporalValue(value, fieldType);
+				value = intVal;
+			} else {
+				// validate and cast
+				floatVal = parseFloat(value, 10);
+				if (isNaN(floatVal) || floatVal.toString() !== value.toString()) {
+					throw new Error(value + ' is not a valid float');
+				}
+				value = floatVal;
+			}
+		} else if (temporal && !(value instanceof Date)) {
+			value = new Date(value);
+			if (isNaN(value.getTime())) {
+				throw new Error(value + ' is not a valid date');
 			}
 		}
 	} else if (fieldType === Array) {
-		if (value === null) {
-			value = [];
-		} else if (field.elementType && value instanceof Array) {
+		if (field.elementType) {
 			for (var x = 0, l = value.length; x < l; ++x) {
 				if (value[x] !== null) {
 					value[x] = cast(value[x], field.elementType);
@@ -505,50 +508,6 @@ Model.coerceValue = function(fieldName, value, field) {
 	}
 	return value;
 };
-
-function cast(obj, type) {
-	if (type._table && typeof type === 'function') {
-		if (obj.constructor === type) {
-			return obj;
-		}
-		return type.inflate(obj);
-	}
-//	if (type.valueOf) {
-//		return type.valueOf(obj);
-//	}
-	return obj;
-}
-
-function copy(obj) {
-	if (obj === null) {
-		return null;
-	}
-
-	if (obj instanceof Array) {
-		return obj.slice(0);
-	}
-
-	switch (typeof obj) {
-		case 'string':
-		case 'boolean':
-		case 'number':
-		case 'undefined':
-		case 'function':
-			return obj;
-	}
-
-	var target = {};
-	for (var i in obj) {
-		if (obj.hasOwnProperty(i)) {
-			target[i] = obj[i];
-		}
-	}
-	return target;
-}
-
-Model._fields = Model._keys = Model._table = null;
-
-Model._autoIncrement = false;
 
 /**
  * @returns {Adapter}
@@ -566,6 +525,10 @@ Model.setAdapter = function(adapter){
 	return this;
 };
 
+/**
+ * @param {Object} values
+ * @returns {Model}
+ */
 Model.inflate = function(values) {
 	var pk = this.getPrimaryKey(),
 		adapter = this.getAdapter(),
@@ -608,7 +571,7 @@ Model.getFields = function() {
  * @return {Object}
  */
 Model.getField = function(fieldName) {
-	return this._fields[fieldName];
+	return copy(this._fields[fieldName]);
 };
 
 /**
@@ -625,12 +588,7 @@ Model.getFieldType = function(fieldName) {
  * @return {Boolean}
  */
 Model.hasField = function(fieldName) {
-	for (var f in this._fields) {
-		if (f === fieldName) {
-			return true;
-		}
-	}
-	return false;
+	return fieldName in this._fields;
 };
 
 /**
@@ -656,26 +614,6 @@ Model.getPrimaryKey = function() {
 Model.isAutoIncrement = function() {
 	return this._autoIncrement;
 };
-
-var adapterMethods = ['countAll', 'findAll', 'find', 'destroyAll', 'updateAll'];
-
-for (var i = 0, l = adapterMethods.length; i < l; ++i) {
-	var method = adapterMethods[i];
-	Model[method] = (function(method){
-		return function() {
-			var args = Array.prototype.slice.call(arguments),
-				con = this.getAdapter();
-			args.unshift(this);
-			return con[method].apply(con, args);
-		};
-	})(method);
-}
-
-var findAliases = ['findBy', 'retrieveByField', 'retrieveByPK', 'retrieveByPKs', 'findByPKs'];
-
-for (var x = 0, len = findAliases.length; x < len; ++x) {
-	Model[findAliases[x]] = Model.find;
-}
 
 /**
  * @param {String} fieldName
@@ -748,8 +686,6 @@ Model.addField = function(fieldName, field) {
 	} catch (e) {}
 };
 
-Model.models = {};
-
 /**
  * @param {String} table
  * @param {Object} opts
@@ -804,5 +740,135 @@ Model.extend = function(table, opts) {
 	return newClass;
 };
 
-this.Model = Model;
+/**
+ * Gives Model classes and their instances the ability to call methods on themselves using
+ * a standard asynchronous API
+ * @param {function} func A method that can return a Promise or a normal return value
+ * @param {function} success Success callback
+ * @param {function} failure callback
+ */
+Model.callAsync = Model.prototype.callAsync = function callAsync(func, success, failure) {
+	var deferred = new Deferred(),
+		promise = deferred.promise();
+
+	try {
+		var result = func.call(this);
+		if (result instanceof promise.constructor) {
+			promise = result;
+		} else {
+			deferred.resolve(result);
+		}
+	} catch (e) {
+		deferred.fail({
+			errors: [e]
+		});
+	}
+
+	if (typeof success === 'function' || typeof failure === 'function') {
+		promise.then(success, failure);
+	}
+
+	return promise;
+};
+
+Model.isModel = true;
+
+Model.toString = function() {
+	return this._table;
+};
+
+/*
+ * Adapter lookup methods
+ */
+
+var adapterMethods = ['countAll', 'findAll', 'find', 'destroyAll', 'updateAll'];
+for (var i = 0, l = adapterMethods.length; i < l; ++i) {
+	var method = adapterMethods[i];
+	Model[method] = (function(method){
+		return function() {
+			var args = Array.prototype.slice.call(arguments),
+				con = this.getAdapter(),
+				success = null,
+				failure = null,
+				x = args.length - 1;
+			while (x > -1 && !(args[x] instanceof Model) && typeof args[x] === 'function') {
+				if (!success) {
+					success = args.pop();
+					--x;
+					continue;
+				}
+
+				failure = success;
+				success = args.pop();
+				break;
+			}
+			args.unshift(this);
+			return this.callAsync(function(){
+				return con[method].apply(con, args);
+			}, success, failure);
+		};
+	})(method);
+}
+
+var findAliases = ['findBy', 'retrieveByField', 'retrieveByPK', 'retrieveByPKs', 'findByPKs'];
+for (var x = 0, len = findAliases.length; x < len; ++x) {
+	Model[findAliases[x]] = Model.find;
+}
+
+/*
+ * Helper functions
+ */
+
+function cast(obj, type) {
+	if (type.isModel) {
+		if (obj.constructor === type) {
+			return obj;
+		}
+		return type.inflate(obj);
+	}
+	return obj;
+}
+
+function copy(obj) {
+	if (obj === null) {
+		return null;
+	}
+
+	if (obj instanceof Model) {
+		return obj.copy();
+	}
+
+	if (obj instanceof Array) {
+		return obj.slice(0);
+	}
+
+	switch (typeof obj) {
+		case 'string':
+		case 'boolean':
+		case 'number':
+		case 'undefined':
+		case 'function':
+			return obj;
+	}
+
+	var target = {};
+	for (var i in obj) {
+		if (obj.hasOwnProperty(i)) {
+			target[i] = obj[i];
+		}
+	}
+	return target;
+}
+
+function equals(a, b) {
+	if (a instanceof Date && b instanceof Date) {
+		return a.getTime() === b.getTime();
+	}
+
+	if (typeof a === 'object') {
+		return JSON.stringify(a) === JSON.stringify(b);
+	}
+	return a === b;
+}
+
 })();

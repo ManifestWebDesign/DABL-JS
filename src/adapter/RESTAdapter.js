@@ -118,14 +118,15 @@ this.RESTAdapter = Adapter.extend({
 			data[fieldName] = value;
 		}
 
-		data._method = method;
-
 		$.ajax({
 			url: route.url(data),
 			type: 'POST',
 			data: JSON.stringify(data),
 			contentType: 'application/json;charset=utf-8',
 			dataType: 'json',
+			headers: {
+				'X-HTTP-Method-Override': method
+			},
 			success: function(r) {
 				if (!r || (r.errors && r.errors.length)) {
 					def.reject(r);
@@ -187,16 +188,15 @@ this.RESTAdapter = Adapter.extend({
 			pk = model.getPrimaryKey(),
 			self = this;
 
-		var data = {
-			_method: 'DELETE'
-		};
-
 		$.ajax({
 			url: route.url(instance.getValues()),
 			type: 'POST',
-			data: JSON.stringify(data),
+			data: {},
 			contentType: 'application/json;charset=utf-8',
 			dataType: 'json',
+			headers: {
+				'X-HTTP-Method-Override': 'DELETE'
+			},
 			success: function(r) {
 				if (r && r.errors && r.errors.length) {
 					def.reject(r);
@@ -234,16 +234,18 @@ this.RESTAdapter = Adapter.extend({
 				def.resolve(instance);
 				return def.promise();
 			}
-			data[pk] = id;
-		} else {
-			q = this.findQuery.apply(this, arguments);
-			data = q.toArray();
 		}
+		q = this.findQuery.apply(this, arguments);
+		q.limit(1);
+		data = q.toArray();
 
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);
 				return;
+			}
+			if (r instanceof Array) {
+				r = r.shift();
 			}
 			def.resolve(model.inflate(r));
 		})
@@ -269,11 +271,12 @@ this.RESTAdapter = Adapter.extend({
 				def.reject(r);
 				return;
 			}
+			if (!(r instanceof Array)) {
+				r = [r];
+			}
 			var collection = [];
-			if (r instanceof Array) {
-				for (var x = 0, len = r.length; x < len; ++x) {
-					collection.push(model.inflate(r[x]));
-				}
+			for (var x = 0, len = r.length; x < len; ++x) {
+				collection.push(model.inflate(r[x]));
 			}
 			def.resolve(collection);
 		})

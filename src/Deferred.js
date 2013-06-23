@@ -1,5 +1,10 @@
-// https://github.com/warpdesign/Standalone-Deferred
 (function(global, $) {
+	// https://github.com/warpdesign/Standalone-Deferred
+
+	if (typeof global.Deferred !== 'undefined') {
+		return;
+	}
+
 	if ($ && $.Deferred) {
 		global.Deferred = jQuery.Deferred;
 		return;
