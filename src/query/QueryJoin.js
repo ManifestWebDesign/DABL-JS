@@ -2,7 +2,7 @@
 
 var isIdent = /^\w+\.\w+$/;
 
-this.QueryJoin = function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
+this.Query.Join = function Join(tableOrColumn, onClauseOrColumn, joinType) {
 	if (arguments.length < 3) {
 		joinType = Query.JOIN;
 	}
@@ -27,7 +27,7 @@ this.QueryJoin = function QueryJoin(tableOrColumn, onClauseOrColumn, joinType) {
 	.setJoinType(joinType);
 };
 
-QueryJoin.prototype = {
+Query.Join.prototype = {
 
 	/**
 	 * @var mixed
@@ -76,7 +76,7 @@ QueryJoin.prototype = {
 
 	/**
 	 * @param {String} tableName
-	 * @return {QueryJoin}
+	 * @return {Query.Join}
 	 */
 	setTable : function(tableName) {
 		var space = tableName.lastIndexOf(' '),
@@ -95,7 +95,7 @@ QueryJoin.prototype = {
 
 	/**
 	 * @param {String} alias
-	 * @return {QueryJoin}
+	 * @return {Query.Join}
 	 */
 	setAlias : function(alias) {
 		this._alias = alias;
@@ -104,7 +104,7 @@ QueryJoin.prototype = {
 
 	/**
 	 * @param {Condition} onClause
-	 * @return {QueryJoin}
+	 * @return {Query.Join}
 	 */
 	setOnClause : function(onClause) {
 		this._isLikePropel = false;
@@ -114,7 +114,7 @@ QueryJoin.prototype = {
 
 	/**
 	 * @param {String} joinType
-	 * @return {QueryJoin}
+	 * @return {Query.Join}
 	 */
 	setJoinType : function(joinType) {
 		this._joinType = joinType;
@@ -123,7 +123,7 @@ QueryJoin.prototype = {
 
 	/**
 	 * @param {Adapter} conn
-	 * @return {QueryStatement}
+	 * @return {Query.Statement}
 	 */
 	getQueryStatement : function(conn) {
 		var statement,
@@ -138,7 +138,7 @@ QueryJoin.prototype = {
 			table = '(' + statement._qString + ')';
 			statement.setString('');
 		} else {
-			statement = new QueryStatement(conn);
+			statement = new Query.Statement(conn);
 		}
 
 		if (alias) {

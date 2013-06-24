@@ -1,6 +1,6 @@
 (function(){
 
-this.QueryStatement = function QueryStatement(conn) {
+this.Query.Statement = function Statement(conn) {
 	this._params = [];
 	if (conn) {
 		this._conn = conn;
@@ -14,7 +14,7 @@ this.QueryStatement = function QueryStatement(conn) {
  * @param conn
  * @return {String}
  */
-QueryStatement.embedParams = function(string, params, conn) {
+Query.Statement.embedParams = function(string, params, conn) {
 	if (conn) {
 		params = conn.prepareInput(params);
 	}
@@ -46,7 +46,7 @@ QueryStatement.embedParams = function(string, params, conn) {
 	return string;
 };
 
-QueryStatement.prototype = {
+Query.Statement.prototype = {
 
 	/**
 	 * @var string
@@ -127,7 +127,7 @@ QueryStatement.prototype = {
 	 * @return {String}
 	 */
 	toString : function() {
-		return QueryStatement.embedParams(this._qString, this._params.slice(0), this._conn);
+		return Query.Statement.embedParams(this._qString, this._params.slice(0), this._conn);
 	}
 };
 

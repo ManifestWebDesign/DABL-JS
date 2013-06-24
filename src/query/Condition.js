@@ -15,7 +15,7 @@ this.Condition = Class.extend({
 	 * @param {String} operator
 	 * @param {mixed} right
 	 * @param {Number} quote
-	 * @return {QueryStatement}
+	 * @return {Query.Statement}
 	 */
 	_processCondition : function(left, operator, right, quote) {
 
@@ -24,7 +24,7 @@ this.Condition = Class.extend({
 				return null;
 				break;
 			case 1:
-				if (left instanceof QueryStatement) {
+				if (left instanceof Query.Statement) {
 					return left;
 				}
 				// Left can be a Condition
@@ -45,7 +45,7 @@ this.Condition = Class.extend({
 				quote = Condition.QUOTE_RIGHT;
 		}
 
-		var statement = new QueryStatement,
+		var statement = new Query.Statement,
 			clauseStatement,
 			x,
 			isQuery = right instanceof Query,
@@ -446,7 +446,7 @@ this.Condition = Class.extend({
 
 	/**
 	 * Builds and returns a string representation of this Condition
-	 * @return {QueryStatement}
+	 * @return {Query.Statement}
 	 */
 	getQueryStatement : function(conn) {
 
@@ -454,7 +454,7 @@ this.Condition = Class.extend({
 			return null;
 		}
 
-		var statement = new QueryStatement(conn),
+		var statement = new Query.Statement(conn),
 			string = '',
 			x,
 			cond,

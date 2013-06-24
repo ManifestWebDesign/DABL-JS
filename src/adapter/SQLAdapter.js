@@ -21,7 +21,7 @@ this.SQLAdapter = Adapter.extend({
 			sql = sql.getQuery(this);
 		}
 
-		if (sql instanceof QueryStatement) {
+		if (sql instanceof Query.Statement) {
 			sql.setConnection(this);
 			return this.execute(sql.getString(), sql.getParams());
 		}
@@ -257,7 +257,7 @@ this.SQLAdapter = Adapter.extend({
 		var quotedTable = this.quoteIdentifier(model.getTableName()),
 			fields = [],
 			values = [],
-			statement = new QueryStatement(this),
+			statement = new Query.Statement(this),
 			x,
 			queryString,
 			whereClause = q.getWhereClause(this);
@@ -292,7 +292,7 @@ this.SQLAdapter = Adapter.extend({
 			fields = [],
 			values = [],
 			placeholders = [],
-			statement = new QueryStatement(this),
+			statement = new Query.Statement(this),
 			queryString,
 			fieldName,
 			value,

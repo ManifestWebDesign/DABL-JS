@@ -28,7 +28,7 @@ this.Query = Condition.extend({
 	_extraTables: null,
 
 	/**
-	 * @var QueryJoin[]
+	 * @var Query.Join[]
 	 */
 	_joins: null,
 
@@ -126,7 +126,7 @@ this.Query = Condition.extend({
 
 	/**
 	 * Returns the action of the query.  Should be SELECT, DELETE, or COUNT.
-	 * @param {String} action
+	 * @return {String}
 	 */
 	getAction : function() {
 		return this._action;
@@ -269,7 +269,7 @@ this.Query = Condition.extend({
 	 * @return {Query}
 	 */
 	addJoin : function(tableOrColumn, onClauseOrColumn, joinType) {
-		if (tableOrColumn instanceof QueryJoin) {
+		if (tableOrColumn instanceof Query.Join) {
 			this._joins.push(tableOrColumn);
 			return this;
 		}
@@ -282,7 +282,7 @@ this.Query = Condition.extend({
 			onClauseOrColumn = '1 = 1';
 		}
 
-		this._joins.push(new QueryJoin(tableOrColumn, onClauseOrColumn, joinType));
+		this._joins.push(new Query.Join(tableOrColumn, onClauseOrColumn, joinType));
 		return this;
 	},
 
@@ -471,15 +471,15 @@ this.Query = Condition.extend({
 	 * Builds and returns the query string
 	 *
 	 * @param {SQLAdapter} conn
-	 * @return {QueryStatement}
+	 * @return {Query.Statement}
 	 */
 	getQuery : function(conn) {
 		if (typeof conn === 'undefined') {
 			conn = new SQLAdapter;
 		}
 
-		// the QueryStatement for the Query
-		var statement = new QueryStatement(conn),
+		// the Query.Statement for the Query
+		var statement = new Query.Statement(conn),
 			queryS,
 			columnsStatement,
 			tableStatement,
@@ -573,7 +573,7 @@ this.Query = Condition.extend({
 	/**
 	 * Protected for now.  Likely to be public in the future.
 	 * @param {SQLAdapter} conn
-	 * @return {QueryStatement}
+	 * @return {Query.Statement}
 	 */
 	getTablesClause : function(conn) {
 
@@ -591,10 +591,10 @@ this.Query = Condition.extend({
 			throw new Error('No table specified.');
 		}
 
-		statement = new QueryStatement(conn),
+		statement = new Query.Statement(conn),
 		alias = this._tableAlias;
 
-		// if table is a Query, get its QueryStatement
+		// if table is a Query, get its Query.Statement
 		if (table instanceof Query) {
 			tableStatement = table.getQuery(conn),
 			tableString = '(' + tableStatement._qString + ')';
@@ -655,12 +655,12 @@ this.Query = Condition.extend({
 	/**
 	 * Protected for now.  Likely to be public in the future.
 	 * @param {SQLAdapter} conn
-	 * @return {QueryStatement}
+	 * @return {Query.Statement}
 	 */
 	getColumnsClause : function(conn) {
 		var table = this._table,
 			column,
-			statement = new QueryStatement(conn),
+			statement = new Query.Statement(conn),
 			alias = this._tableAlias,
 			action = this._action,
 			x,
@@ -725,7 +725,7 @@ this.Query = Condition.extend({
 	/**
 	 * Protected for now.  Likely to be public in the future.
 	 * @param {SQLAdapter} conn
-	 * @return {QueryStatement}
+	 * @return {Query.Statement}
 	 */
 	getWhereClause : function(conn) {
 		return this.getQueryStatement(conn);
@@ -742,7 +742,7 @@ this.Query = Condition.extend({
 
 	/**
 	 * @param {SQLAdapter} conn
-	 * @returns {QueryStatement}
+	 * @returns {Query.Statement}
 	 */
 	getCountQuery : function(conn) {
 		if (!this._table) {
@@ -755,7 +755,7 @@ this.Query = Condition.extend({
 
 	/**
 	 * @param {SQLAdapter} conn
-	 * @returns {QueryStatement}
+	 * @returns {Query.Statement}
 	 */
 	getDeleteQuery : function(conn) {
 		if (!this._table) {
@@ -768,7 +768,7 @@ this.Query = Condition.extend({
 
 	/**
 	 * @param {SQLAdapter} conn
-	 * @returns {QueryStatement}
+	 * @returns {Query.Statement}
 	 */
 	getSelectQuery : function(conn) {
 		if (!this._table) {
