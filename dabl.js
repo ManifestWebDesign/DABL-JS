@@ -426,6 +426,8 @@ this.Model = Class.extend({
 				this[fieldName] = copy(field.value);
 			} else if (field.type === Array) {
 				this[fieldName] = [];
+			} else {
+				this[fieldName] = null;
 			}
 		}
 		this.resetModified();
@@ -446,7 +448,7 @@ this.Model = Class.extend({
 	copy: function() {
 		var model = this.constructor,
 			newObject = new model(this),
-			pk = model.getPrimaryKey();
+			pk = model.getKey();
 
 		if (pk) {
 			newObject[pk] = null;
@@ -503,8 +505,10 @@ this.Model = Class.extend({
 	 * Resets the object to the state it was in before changes were made
 	 */
 	revert: function() {
+		var val;
 		for (var fieldName in this.constructor._fields) {
-			this[fieldName] = this._originalValues[fieldName];
+			val =  this._originalValues[fieldName];
+			this[fieldName] = typeof val === 'undefined' ? null : val;
 		}
 		return this;
 	},
@@ -563,7 +567,7 @@ this.Model = Class.extend({
 	},
 
 	/**
-	 * Returns true if this table has primary keys and if all of the primary values are not null
+	 * Returns true if this table has primary keys and if all of the key values are not null
 	 * @return {Boolean}
 	 */
 	hasKeyValues: function() {
@@ -703,7 +707,7 @@ this.Model = Class.extend({
 			}
 
 			if (model._keys.length === 0) {
-				throw new Error('Cannot save without primary keys');
+				throw new Error('Cannot update without primary keys');
 			}
 
 			if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
@@ -924,7 +928,7 @@ Model.setAdapter = function(adapter){
  * @returns {Model}
  */
 Model.inflate = function(values) {
-	var pk = this.getPrimaryKey(),
+	var pk = this.getKey(),
 		adapter = this.getAdapter(),
 		instance;
 	if (pk && values[pk]) {
@@ -989,7 +993,7 @@ Model.hasField = function(fieldName) {
  * Access to array of primary keys
  * @return {Array}
  */
-Model.getPrimaryKeys = function() {
+Model.getKeys = function() {
 	return this._keys.slice(0);
 };
 
@@ -997,7 +1001,7 @@ Model.getPrimaryKeys = function() {
  * Access to name of primary key
  * @return {Array}
  */
-Model.getPrimaryKey = function() {
+Model.getKey = function() {
 	return this._keys.length === 1 ? this._keys[0] : null;
 };
 
@@ -1153,7 +1157,7 @@ Model.callAsync = Model.prototype.callAsync = function callAsync(func, success, 
 			deferred.resolve(result);
 		}
 	} catch (e) {
-		deferred.fail({
+		deferred.reject({
 			errors: [e]
 		});
 	}
@@ -2882,7 +2886,7 @@ this.QueryStatement = function QueryStatement(conn) {
 	if (conn) {
 		this._conn = conn;
 	}
-}
+};
 
 /**
  * Emulates a prepared statement.  Should only be used as a last resort.
@@ -3092,7 +3096,7 @@ this.Adapter = Class.extend({
 		}
 		if (len === 1) {
 			if (!isNaN(parseInt(a[0], 10))) {
-				q.add(model.getPrimaryKey(), a[0]);
+				q.add(model.getKey(), a[0]);
 			} else if (typeof a[0] === 'object') {
 				if (a[0] instanceof Query) {
 					q = a[0];
@@ -3109,7 +3113,7 @@ this.Adapter = Class.extend({
 			q.add(a[0], a[1]);
 		} else {
 			// if arguments list is greater than 1 and the first argument is not a string
-			var pks = model.getPrimaryKeys();
+			var pks = model.getKeys();
 			if (len === pks.len) {
 				for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
 					var pk = pks[x],
@@ -3290,7 +3294,7 @@ this.RESTAdapter = Adapter.extend({
 			route = this._route(model._url),
 			data = {},
 			def = new Deferred(),
-			pk = model.getPrimaryKey(),
+			pk = model.getKey(),
 			self = this;
 
 		for (fieldName in model._fields) {
@@ -3369,7 +3373,7 @@ this.RESTAdapter = Adapter.extend({
 		var model = instance.constructor,
 			route = this._route(model._url),
 			def = new Deferred(),
-			pk = model.getPrimaryKey(),
+			pk = model.getKey(),
 			self = this;
 
 		$.ajax({
@@ -3404,14 +3408,14 @@ this.RESTAdapter = Adapter.extend({
 	},
 
 	find: function(model, id) {
-		var pk = model.getPrimaryKey(),
+		var pk = model.getKey(),
 			route = this._route(model._url),
 			data = {},
 			def = new Deferred(),
 			instance = null,
 			q;
 
-		if (typeof id === 'number' || typeof id === 'string') {
+		if (arguments.length === 2 && (typeof id === 'number' || typeof id === 'string')) {
 			// look for it in the cache
 			instance = this.cache(model._table, id);
 			if (instance) {
@@ -3768,7 +3772,7 @@ this.SQLAdapter = Adapter.extend({
 	insert: function(instance) {
 
 		var model = instance.constructor,
-			pk = model.getPrimaryKey(),
+			pk = model.getKey(),
 			fields = [],
 			values = [],
 			placeholders = [],
@@ -3824,7 +3828,7 @@ this.SQLAdapter = Adapter.extend({
 		var data = {},
 			q = new Query,
 			model = instance.constructor,
-			pks = model.getPrimaryKeys(),
+			pks = model.getKeys(),
 			modFields = instance.getModified(),
 			x,
 			len,
@@ -3867,7 +3871,7 @@ this.SQLAdapter = Adapter.extend({
 
 	destroy: function(instance) {
 		var model = instance.constructor,
-			pks = model.getPrimaryKeys(),
+			pks = model.getKeys(),
 			q = new Query,
 			x,
 			len,

@@ -106,7 +106,7 @@ this.RESTAdapter = Adapter.extend({
 			route = this._route(model._url),
 			data = {},
 			def = new Deferred(),
-			pk = model.getPrimaryKey(),
+			pk = model.getKey(),
 			self = this;
 
 		for (fieldName in model._fields) {
@@ -185,7 +185,7 @@ this.RESTAdapter = Adapter.extend({
 		var model = instance.constructor,
 			route = this._route(model._url),
 			def = new Deferred(),
-			pk = model.getPrimaryKey(),
+			pk = model.getKey(),
 			self = this;
 
 		$.ajax({
@@ -220,14 +220,14 @@ this.RESTAdapter = Adapter.extend({
 	},
 
 	find: function(model, id) {
-		var pk = model.getPrimaryKey(),
+		var pk = model.getKey(),
 			route = this._route(model._url),
 			data = {},
 			def = new Deferred(),
 			instance = null,
 			q;
 
-		if (typeof id === 'number' || typeof id === 'string') {
+		if (arguments.length === 2 && (typeof id === 'number' || typeof id === 'string')) {
 			// look for it in the cache
 			instance = this.cache(model._table, id);
 			if (instance) {

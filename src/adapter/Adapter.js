@@ -79,7 +79,7 @@ this.Adapter = Class.extend({
 		}
 		if (len === 1) {
 			if (!isNaN(parseInt(a[0], 10))) {
-				q.add(model.getPrimaryKey(), a[0]);
+				q.add(model.getKey(), a[0]);
 			} else if (typeof a[0] === 'object') {
 				if (a[0] instanceof Query) {
 					q = a[0];
@@ -96,7 +96,7 @@ this.Adapter = Class.extend({
 			q.add(a[0], a[1]);
 		} else {
 			// if arguments list is greater than 1 and the first argument is not a string
-			var pks = model.getPrimaryKeys();
+			var pks = model.getKeys();
 			if (len === pks.len) {
 				for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
 					var pk = pks[x],

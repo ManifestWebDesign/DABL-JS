@@ -288,7 +288,7 @@ this.SQLAdapter = Adapter.extend({
 	insert: function(instance) {
 
 		var model = instance.constructor,
-			pk = model.getPrimaryKey(),
+			pk = model.getKey(),
 			fields = [],
 			values = [],
 			placeholders = [],
@@ -344,7 +344,7 @@ this.SQLAdapter = Adapter.extend({
 		var data = {},
 			q = new Query,
 			model = instance.constructor,
-			pks = model.getPrimaryKeys(),
+			pks = model.getKeys(),
 			modFields = instance.getModified(),
 			x,
 			len,
@@ -387,7 +387,7 @@ this.SQLAdapter = Adapter.extend({
 
 	destroy: function(instance) {
 		var model = instance.constructor,
-			pks = model.getPrimaryKeys(),
+			pks = model.getKeys(),
 			q = new Query,
 			x,
 			len,

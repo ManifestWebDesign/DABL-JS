@@ -35,6 +35,8 @@ this.Model = Class.extend({
 				this[fieldName] = copy(field.value);
 			} else if (field.type === Array) {
 				this[fieldName] = [];
+			} else {
+				this[fieldName] = null;
 			}
 		}
 		this.resetModified();
@@ -55,7 +57,7 @@ this.Model = Class.extend({
 	copy: function() {
 		var model = this.constructor,
 			newObject = new model(this),
-			pk = model.getPrimaryKey();
+			pk = model.getKey();
 
 		if (pk) {
 			newObject[pk] = null;
@@ -112,8 +114,10 @@ this.Model = Class.extend({
 	 * Resets the object to the state it was in before changes were made
 	 */
 	revert: function() {
+		var val;
 		for (var fieldName in this.constructor._fields) {
-			this[fieldName] = this._originalValues[fieldName];
+			val =  this._originalValues[fieldName];
+			this[fieldName] = typeof val === 'undefined' ? null : val;
 		}
 		return this;
 	},
@@ -172,7 +176,7 @@ this.Model = Class.extend({
 	},
 
 	/**
-	 * Returns true if this table has primary keys and if all of the primary values are not null
+	 * Returns true if this table has primary keys and if all of the key values are not null
 	 * @return {Boolean}
 	 */
 	hasKeyValues: function() {
@@ -312,7 +316,7 @@ this.Model = Class.extend({
 			}
 
 			if (model._keys.length === 0) {
-				throw new Error('Cannot save without primary keys');
+				throw new Error('Cannot update without primary keys');
 			}
 
 			if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
@@ -533,7 +537,7 @@ Model.setAdapter = function(adapter){
  * @returns {Model}
  */
 Model.inflate = function(values) {
-	var pk = this.getPrimaryKey(),
+	var pk = this.getKey(),
 		adapter = this.getAdapter(),
 		instance;
 	if (pk && values[pk]) {
@@ -598,7 +602,7 @@ Model.hasField = function(fieldName) {
  * Access to array of primary keys
  * @return {Array}
  */
-Model.getPrimaryKeys = function() {
+Model.getKeys = function() {
 	return this._keys.slice(0);
 };
 
@@ -606,7 +610,7 @@ Model.getPrimaryKeys = function() {
  * Access to name of primary key
  * @return {Array}
  */
-Model.getPrimaryKey = function() {
+Model.getKey = function() {
 	return this._keys.length === 1 ? this._keys[0] : null;
 };
 
@@ -762,7 +766,7 @@ Model.callAsync = Model.prototype.callAsync = function callAsync(func, success, 
 			deferred.resolve(result);
 		}
 	} catch (e) {
-		deferred.fail({
+		deferred.reject({
 			errors: [e]
 		});
 	}

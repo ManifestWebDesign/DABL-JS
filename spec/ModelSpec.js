@@ -16,7 +16,8 @@ describe('Model', function() {
 			fields: {
 				id: { type: 'int', key: true, computed: true }
 			}
-		});
+		}),
+		asyncSpy;
 
 	Foo.addField('bar', {
 		type: Bar
@@ -24,6 +25,7 @@ describe('Model', function() {
 
 	beforeEach(function() {
 		foo = new Foo;
+		asyncSpy = jasmine.createSpy('asyncCallback');
 	});
 
 	describe('init', function(){
@@ -183,26 +185,63 @@ describe('Model', function() {
 	});
 
 	describe('save', function() {
-		it ('should return a Promise', function(){
-			expect(foo.save().constructor).toBe(Deferred().promise().constructor);
+		it ('should return a Promise and accept success and error callbacks', function(){
+			var result = foo.save(asyncSpy, asyncSpy);
+			expect(result.constructor).toBe(Deferred().promise().constructor);
+			expect(asyncSpy).toHaveBeenCalled();
+			expect(asyncSpy.calls.length).toBe(1);
 		});
 	});
 
 	describe('insert', function() {
-		it ('should return a Promise', function(){
-			expect(foo.insert().constructor).toBe(Deferred().promise().constructor);
+		it ('should return a Promise and accept success and error callbacks', function(){
+			var result = foo.insert(asyncSpy, asyncSpy);
+			expect(result.constructor).toBe(Deferred().promise().constructor);
+			expect(asyncSpy).toHaveBeenCalled();
+			expect(asyncSpy.calls.length).toBe(1);
 		});
 	});
 
 	describe('update', function() {
-		it ('should return a Promise', function(){
-			expect(foo.update().constructor).toBe(Deferred().promise().constructor);
+		it ('should return a Promise and accept success and error callbacks', function(){
+			var result = foo.update(asyncSpy, asyncSpy);
+			expect(result.constructor).toBe(Deferred().promise().constructor);
+			expect(asyncSpy).toHaveBeenCalled();
+			expect(asyncSpy.calls.length).toBe(1);
 		});
 	});
 
 	describe('destroy', function() {
-		it ('should return a Promise', function(){
-			expect(foo.destroy().constructor).toBe(Deferred().promise().constructor);
+		it ('should return a Promise and accept success and error callbacks', function(){
+			var result = foo.destroy(asyncSpy, asyncSpy);
+			expect(result.constructor).toBe(Deferred().promise().constructor);
+			expect(asyncSpy).toHaveBeenCalled();
+			expect(asyncSpy.calls.length).toBe(1);
+		});
+	});
+
+	describe('inflate', function() {
+		it ('should return an instance of the model', function(){
+			expect(Foo.inflate({}) instanceof Foo).toBe(true);
+		});
+		it ('should return an instance with isNew and isModified false', function(){
+			foo = Foo.inflate({
+				id: 23,
+				name: 'joe',
+				created: new Date()
+			});
+			expect(foo.isNew()).toBe(false);
+			expect(foo.isModified()).toBe(false);
+		});
+		it ('should use the model\'s adapter cache to avoid duplicate instances for the same key', function(){
+			foo = Foo.inflate({
+				id: 1
+			});
+			Foo.getAdapter().cache(Foo.getTableName(), 1, foo);
+			var foo2 = Foo.inflate({
+				id: 1
+			});
+			expect(foo).toBe(foo2);
 		});
 	});
 });

@@ -5,7 +5,7 @@ this.QueryStatement = function QueryStatement(conn) {
 	if (conn) {
 		this._conn = conn;
 	}
-}
+};
 
 /**
  * Emulates a prepared statement.  Should only be used as a last resort.
