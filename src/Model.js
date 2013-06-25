@@ -29,16 +29,19 @@ var Model = this.Class.extend({
 	init : function Model(values) {
 		this._validationErrors = [];
 		this._values = {};
-		for (var fieldName in this.constructor._fields) {
-			var field = this.constructor._fields[fieldName];
+		var defaults = {},
+			model = this.constructor;
+		for (var fieldName in model._fields) {
+			var field = model._fields[fieldName];
 			if (typeof field.value !== 'undefined') {
-				this[fieldName] = copy(field.value);
+				defaults[fieldName] = copy(field.value);
 			} else if (field.type === Array) {
-				this[fieldName] = [];
+				defaults[fieldName] = [];
 			} else {
-				this[fieldName] = null;
+				defaults[fieldName] = null;
 			}
 		}
+		this.fromJSON(defaults);
 		this.resetModified();
 		if (values) {
 			this.fromJSON(values);
@@ -129,12 +132,14 @@ var Model = this.Class.extend({
 	 * @return {Model}
 	 */
 	fromJSON: function(values) {
-		for (var fieldName in this.constructor._fields) {
+		var model = this.constructor;
+		for (var fieldName in model._fields) {
 			if (!(fieldName in values)) {
 				continue;
 			}
 			this[fieldName] = values[fieldName];
 		}
+		model.coerceValues(this);
 		return this;
 	},
 
@@ -146,14 +151,18 @@ var Model = this.Class.extend({
 	toJSON: function() {
 		var values = {},
 			fieldName,
-			value;
+			value,
+			model = this.constructor;
 
-		if (this._inGetValues) {
+		// avoid infinite loops
+		if (this._inToJSON) {
 			return null;
 		}
-		this._inGetValues = true;
+		this._inToJSON = true;
 
-		for (fieldName in this.constructor._fields) {
+		model.coerceValues(this);
+
+		for (fieldName in model._fields) {
 			value = this[fieldName];
 			if (value instanceof Array) {
 				var newValue = [];
@@ -173,7 +182,7 @@ var Model = this.Class.extend({
 			values[fieldName] = value;
 		}
 
-		delete this._inGetValues;
+		delete this._inToJSON;
 
 		return values;
 	},
@@ -183,10 +192,13 @@ var Model = this.Class.extend({
 	 * @return {Boolean}
 	 */
 	hasKeyValues: function() {
-		var pks = this.constructor._keys;
+		var model = this.constructor,
+			pks = model._keys;
 		if (pks.length === 0) {
 			return false;
 		}
+
+		model.coerceValues(this);
 		for (var x = 0, len = pks.length; x < len; ++x) {
 			var pk = pks[x];
 			if (this[pk] === null) {
@@ -197,14 +209,16 @@ var Model = this.Class.extend({
 	},
 
 	/**
-	 * Returns an array of all primary key values.
+	 * Returns an object of key values, indexed by field name.
 	 *
-	 * @return {Array}
+	 * @return {Object}
 	 */
 	getKeyValues: function() {
 		var values = {},
-			pks = this.constructor._keys;
+			model = this.constructor,
+			pks = model._keys;
 
+		model.coerceValues(this);
 		for (var x = 0, len = pks.length; x < len; ++x) {
 			var pk = pks[x];
 			values[pk] = this[pk];
@@ -236,9 +250,11 @@ var Model = this.Class.extend({
 	 */
 	validate: function() {
 		this._validationErrors = [];
+		var model = this.constructor;
 
-		for (var fieldName in this.constructor._fields) {
-			var field = this.constructor._fields[fieldName];
+		model.coerceValues(this);
+		for (var fieldName in model._fields) {
+			var field = model._fields[fieldName];
 			if (!field.required) {
 				continue;
 			}
@@ -343,6 +359,8 @@ var Model = this.Class.extend({
 	 * deleting based on the new primary key(s) and not the originals,
 	 * leaving the original row unchanged(if it exists).  Also, since NULL isn't an accurate way
 	 * to look up a row, I return if one of the primary keys is null.
+	 * @param {function} success Success callback
+	 * @param {function} failure callback
 	 * @return {Promise}
 	 */
 	destroy: function(success, failure) {
@@ -468,36 +486,32 @@ Model.coerceValue = function(value, field) {
 	}
 
 	var temporal = this.isTemporalType(fieldType),
-		numeric = this.isNumericType(fieldType),
-		intVal,
-		floatVal;
+		numeric = this.isNumericType(fieldType);
 
 	if (numeric || temporal) {
 		if ('' === value) {
 			return null;
 		}
-		if (numeric) {
-			if (this.isIntegerType(fieldType)) {
-				// validate and cast
-				intVal = parseInt(value, 10);
-				if (isNaN(intVal) || intVal.toString() !== value.toString()) {
-					throw new Error(value + ' is not a valid integer');
-				}
-				value = intVal;
-			} else {
-				// validate and cast
-				floatVal = parseFloat(value, 10);
-				if (isNaN(floatVal) || floatVal.toString() !== value.toString()) {
-					throw new Error(value + ' is not a valid float');
-				}
-				value = floatVal;
+	}
+	if (numeric) {
+		if (this.isIntegerType(fieldType)) {
+			// validate and cast
+			value = parseInt(value, 10);
+			if (isNaN(value)) {
+				throw new Error(value + ' is not a valid integer');
 			}
-		} else if (temporal) {
-			if (!(value instanceof Date)) {
-				value = new Date(value);
-				if (isNaN(value.getTime())) {
-					throw new Error(value + ' is not a valid date');
-				}
+		} else {
+			// validate and cast
+			value = parseFloat(value, 10);
+			if (isNaN(value)) {
+				throw new Error(value + ' is not a valid float');
+			}
+		}
+	} else if (temporal) {
+		if (!(value instanceof Date)) {
+			value = new Date(value);
+			if (isNaN(value.getTime())) {
+				throw new Error(value + ' is not a valid date');
 			}
 		}
 	} else if (fieldType === Array) {
@@ -507,12 +521,32 @@ Model.coerceValue = function(value, field) {
 				value[x] = this.coerceValue(value[x], {type: field.elementType});
 			}
 		}
-	} else if (this.isObjectType(fieldType)) {
-		if (value !== null && fieldType.isModel && value.constructor !== fieldType) {
-			value = fieldType.inflate(value);
-		}
+	} else if (
+		this.isObjectType(fieldType)
+		&& fieldType.isModel
+		&& value.constructor !== fieldType
+	) {
+		value = fieldType.inflate(value);
 	}
 	return value;
+};
+
+Model.coerceValues = function(values) {
+	if (
+		null === values
+		|| typeof values === 'undefined'
+		|| (values.prototype && values.prototype.__defineGetter__)
+		|| Object.defineProperty
+	) {
+		return;
+	}
+	for (var fieldName in this._fields) {
+		if (!(fieldName in values)) {
+			continue;
+		}
+		values[fieldName] = this.coerceValue(values[fieldName], this._fields[fieldName]);
+	}
+	return this;
 };
 
 Model.modifyArray = function(array, elementType) {

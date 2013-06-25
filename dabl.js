@@ -453,16 +453,19 @@ var Model = this.Class.extend({
 	init : function Model(values) {
 		this._validationErrors = [];
 		this._values = {};
-		for (var fieldName in this.constructor._fields) {
-			var field = this.constructor._fields[fieldName];
+		var defaults = {},
+			model = this.constructor;
+		for (var fieldName in model._fields) {
+			var field = model._fields[fieldName];
 			if (typeof field.value !== 'undefined') {
-				this[fieldName] = copy(field.value);
+				defaults[fieldName] = copy(field.value);
 			} else if (field.type === Array) {
-				this[fieldName] = [];
+				defaults[fieldName] = [];
 			} else {
-				this[fieldName] = null;
+				defaults[fieldName] = null;
 			}
 		}
+		this.fromJSON(defaults);
 		this.resetModified();
 		if (values) {
 			this.fromJSON(values);
@@ -553,12 +556,14 @@ var Model = this.Class.extend({
 	 * @return {Model}
 	 */
 	fromJSON: function(values) {
-		for (var fieldName in this.constructor._fields) {
+		var model = this.constructor;
+		for (var fieldName in model._fields) {
 			if (!(fieldName in values)) {
 				continue;
 			}
 			this[fieldName] = values[fieldName];
 		}
+		model.coerceValues(this);
 		return this;
 	},
 
@@ -570,14 +575,18 @@ var Model = this.Class.extend({
 	toJSON: function() {
 		var values = {},
 			fieldName,
-			value;
+			value,
+			model = this.constructor;
 
-		if (this._inGetValues) {
+		// avoid infinite loops
+		if (this._inToJSON) {
 			return null;
 		}
-		this._inGetValues = true;
+		this._inToJSON = true;
 
-		for (fieldName in this.constructor._fields) {
+		model.coerceValues(this);
+
+		for (fieldName in model._fields) {
 			value = this[fieldName];
 			if (value instanceof Array) {
 				var newValue = [];
@@ -597,7 +606,7 @@ var Model = this.Class.extend({
 			values[fieldName] = value;
 		}
 
-		delete this._inGetValues;
+		delete this._inToJSON;
 
 		return values;
 	},
@@ -607,10 +616,13 @@ var Model = this.Class.extend({
 	 * @return {Boolean}
 	 */
 	hasKeyValues: function() {
-		var pks = this.constructor._keys;
+		var model = this.constructor,
+			pks = model._keys;
 		if (pks.length === 0) {
 			return false;
 		}
+
+		model.coerceValues(this);
 		for (var x = 0, len = pks.length; x < len; ++x) {
 			var pk = pks[x];
 			if (this[pk] === null) {
@@ -621,14 +633,16 @@ var Model = this.Class.extend({
 	},
 
 	/**
-	 * Returns an array of all primary key values.
+	 * Returns an object of key values, indexed by field name.
 	 *
-	 * @return {Array}
+	 * @return {Object}
 	 */
 	getKeyValues: function() {
 		var values = {},
-			pks = this.constructor._keys;
+			model = this.constructor,
+			pks = model._keys;
 
+		model.coerceValues(this);
 		for (var x = 0, len = pks.length; x < len; ++x) {
 			var pk = pks[x];
 			values[pk] = this[pk];
@@ -660,9 +674,11 @@ var Model = this.Class.extend({
 	 */
 	validate: function() {
 		this._validationErrors = [];
+		var model = this.constructor;
 
-		for (var fieldName in this.constructor._fields) {
-			var field = this.constructor._fields[fieldName];
+		model.coerceValues(this);
+		for (var fieldName in model._fields) {
+			var field = model._fields[fieldName];
 			if (!field.required) {
 				continue;
 			}
@@ -767,6 +783,8 @@ var Model = this.Class.extend({
 	 * deleting based on the new primary key(s) and not the originals,
 	 * leaving the original row unchanged(if it exists).  Also, since NULL isn't an accurate way
 	 * to look up a row, I return if one of the primary keys is null.
+	 * @param {function} success Success callback
+	 * @param {function} failure callback
 	 * @return {Promise}
 	 */
 	destroy: function(success, failure) {
@@ -892,36 +910,32 @@ Model.coerceValue = function(value, field) {
 	}
 
 	var temporal = this.isTemporalType(fieldType),
-		numeric = this.isNumericType(fieldType),
-		intVal,
-		floatVal;
+		numeric = this.isNumericType(fieldType);
 
 	if (numeric || temporal) {
 		if ('' === value) {
 			return null;
 		}
-		if (numeric) {
-			if (this.isIntegerType(fieldType)) {
-				// validate and cast
-				intVal = parseInt(value, 10);
-				if (isNaN(intVal) || intVal.toString() !== value.toString()) {
-					throw new Error(value + ' is not a valid integer');
-				}
-				value = intVal;
-			} else {
-				// validate and cast
-				floatVal = parseFloat(value, 10);
-				if (isNaN(floatVal) || floatVal.toString() !== value.toString()) {
-					throw new Error(value + ' is not a valid float');
-				}
-				value = floatVal;
+	}
+	if (numeric) {
+		if (this.isIntegerType(fieldType)) {
+			// validate and cast
+			value = parseInt(value, 10);
+			if (isNaN(value)) {
+				throw new Error(value + ' is not a valid integer');
 			}
-		} else if (temporal) {
-			if (!(value instanceof Date)) {
-				value = new Date(value);
-				if (isNaN(value.getTime())) {
-					throw new Error(value + ' is not a valid date');
-				}
+		} else {
+			// validate and cast
+			value = parseFloat(value, 10);
+			if (isNaN(value)) {
+				throw new Error(value + ' is not a valid float');
+			}
+		}
+	} else if (temporal) {
+		if (!(value instanceof Date)) {
+			value = new Date(value);
+			if (isNaN(value.getTime())) {
+				throw new Error(value + ' is not a valid date');
 			}
 		}
 	} else if (fieldType === Array) {
@@ -931,12 +945,32 @@ Model.coerceValue = function(value, field) {
 				value[x] = this.coerceValue(value[x], {type: field.elementType});
 			}
 		}
-	} else if (this.isObjectType(fieldType)) {
-		if (value !== null && fieldType.isModel && value.constructor !== fieldType) {
-			value = fieldType.inflate(value);
-		}
+	} else if (
+		this.isObjectType(fieldType)
+		&& fieldType.isModel
+		&& value.constructor !== fieldType
+	) {
+		value = fieldType.inflate(value);
 	}
 	return value;
+};
+
+Model.coerceValues = function(values) {
+	if (
+		null === values
+		|| typeof values === 'undefined'
+		|| (values.prototype && values.prototype.__defineGetter__)
+		|| Object.defineProperty
+	) {
+		return;
+	}
+	for (var fieldName in this._fields) {
+		if (!(fieldName in values)) {
+			continue;
+		}
+		values[fieldName] = this.coerceValue(values[fieldName], this._fields[fieldName]);
+	}
+	return this;
 };
 
 Model.modifyArray = function(array, elementType) {
@@ -2229,10 +2263,13 @@ var Query = this.Condition.extend({
 	/**
 	 * Provide the Condition object to generate the HAVING clause of the query
 	 * @return {Query}
-	 * @param {Condition} where
+	 * @param {Condition} condition
 	 */
-	setHaving : function(where) {
-		this._having = where;
+	setHaving : function(condition) {
+		if (null !== condition && !(condition instanceof Condition)) {
+			throw new Error('setHaving must be given an instance of Condition');
+		}
+		this._having = condition;
 		return this;
 	},
 
@@ -2275,6 +2312,17 @@ var Query = this.Condition.extend({
 	},
 
 	/**
+	 * Convenience function for limit
+	 * Sets the limit of rows that can be returned
+	 * @return {Query}
+	 * @param {Number} limit
+	 * @param {Number} offset
+	 */
+	top : function(limit, offset) {
+		return this.limit.apply(this, arguments);
+	},
+
+	/**
 	 * Returns the LIMIT integer for this Query, if it has one
 	 * @return {Number}
 	 */
@@ -2283,8 +2331,7 @@ var Query = this.Condition.extend({
 	},
 
 	/**
-	 * Sets the offset for the rows returned.  Used to build
-	 * the LIMIT part of the query.
+	 * Sets the offset for the rows returned.
 	 * @return {Query}
 	 * @param {Number} offset
 	 */
@@ -2295,6 +2342,16 @@ var Query = this.Condition.extend({
 		}
 		this._offset = offset;
 		return this;
+	},
+
+	/**
+	 * Convenience function for offset
+	 * Sets the offset for the rows returned.
+	 * @return {Query}
+	 * @param {Number} offset
+	 */
+	skip : function(offset) {
+		return this.offset.apply(this, arguments);
 	},
 
 	/**
@@ -2349,16 +2406,16 @@ var Query = this.Condition.extend({
 	/**
 	 * Builds and returns the query string
 	 *
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @return {Query.Statement}
 	 */
-	getQuery : function(conn) {
-		if (typeof conn === 'undefined') {
-			conn = new SQLAdapter;
+	getQuery : function(adapter) {
+		if (typeof adapter === 'undefined') {
+			adapter = new SQLAdapter;
 		}
 
 		// the Query.Statement for the Query
-		var statement = new Query.Statement(conn),
+		var statement = new Query.Statement(adapter),
 			queryS,
 			columnsStatement,
 			tableStatement,
@@ -2376,7 +2433,7 @@ var Query = this.Condition.extend({
 			default:
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
-				columnsStatement = this.getColumnsClause(conn);
+				columnsStatement = this.getColumnsClause(adapter);
 				statement.addParams(columnsStatement._params);
 				queryS += 'SELECT ' + columnsStatement._qString;
 				break;
@@ -2385,14 +2442,14 @@ var Query = this.Condition.extend({
 				break;
 		}
 
-		tableStatement = this.getTablesClause(conn);
+		tableStatement = this.getTablesClause(adapter);
 		statement.addParams(tableStatement._params);
 		queryS += "\nFROM " + tableStatement._qString;
 
 		if (this._joins.length !== 0) {
 			for (x = 0, len = this._joins.length; x < len; ++x) {
 				join = this._joins[x],
-				joinStatement = join.getQueryStatement(conn);
+				joinStatement = join.getQueryStatement(adapter);
 				queryS += "\n\t" + joinStatement._qString;
 				statement.addParams(joinStatement._params);
 			}
@@ -2434,8 +2491,8 @@ var Query = this.Condition.extend({
 		}
 
 		if (null !== this._limit) {
-			if (conn) {
-				queryS = conn.applyLimit(queryS, this._offset, this._limit);
+			if (adapter) {
+				queryS = adapter.applyLimit(queryS, this._offset, this._limit);
 			} else {
 				queryS += "\nLIMIT " + (this._offset ? this._offset + ', ' : '') + this._limit;
 			}
@@ -2451,10 +2508,10 @@ var Query = this.Condition.extend({
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @return {Query.Statement}
 	 */
-	getTablesClause : function(conn) {
+	getTablesClause : function(adapter) {
 
 		var table = this._table,
 			statement,
@@ -2470,12 +2527,12 @@ var Query = this.Condition.extend({
 			throw new Error('No table specified.');
 		}
 
-		statement = new Query.Statement(conn);
+		statement = new Query.Statement(adapter);
 		alias = this._tableAlias;
 
 		// if table is a Query, get its Query.Statement
 		if (table instanceof Query) {
-			tableStatement = table.getQuery(conn),
+			tableStatement = table.getQuery(adapter),
 			tableString = '(' + tableStatement._qString + ')';
 		} else {
 			tableStatement = null;
@@ -2500,7 +2557,7 @@ var Query = this.Condition.extend({
 					for (tAlias in this._extraTables) {
 						extraTable = this._extraTables[tAlias];
 						if (extraTable instanceof Query) {
-							extraTableStatement = extraTable.getQuery(conn),
+							extraTableStatement = extraTable.getQuery(adapter),
 							extraTableString = '(' + extraTableStatement._qString + ') AS ' + tAlias;
 							statement.addParams(extraTableStatement._params);
 						} else {
@@ -2533,13 +2590,13 @@ var Query = this.Condition.extend({
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @return {Query.Statement}
 	 */
-	getColumnsClause : function(conn) {
+	getColumnsClause : function(adapter) {
 		var table = this._table,
 			column,
-			statement = new Query.Statement(conn),
+			statement = new Query.Statement(adapter),
 			alias = this._tableAlias,
 			action = this._action,
 			x,
@@ -2603,11 +2660,11 @@ var Query = this.Condition.extend({
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @return {Query.Statement}
 	 */
-	getWhereClause : function(conn) {
-		return this.getQueryStatement(conn);
+	getWhereClause : function(adapter) {
+		return this.getQueryStatement(adapter);
 	},
 
 	/**
@@ -2620,42 +2677,42 @@ var Query = this.Condition.extend({
 	},
 
 	/**
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @returns {Query.Statement}
 	 */
-	getCountQuery : function(conn) {
+	getCountQuery : function(adapter) {
 		if (!this._table) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_COUNT);
-		return this.getQuery(conn);
+		return this.getQuery(adapter);
 	},
 
 	/**
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @returns {Query.Statement}
 	 */
-	getDeleteQuery : function(conn) {
+	getDeleteQuery : function(adapter) {
 		if (!this._table) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_DELETE);
-		return this.getQuery(conn);
+		return this.getQuery(adapter);
 	},
 
 	/**
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @returns {Query.Statement}
 	 */
-	getSelectQuery : function(conn) {
+	getSelectQuery : function(adapter) {
 		if (!this._table) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_SELECT);
-		return this.getQuery(conn);
+		return this.getQuery(adapter);
 	},
 
 	toArray: function() {

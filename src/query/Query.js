@@ -350,10 +350,13 @@ var Query = this.Condition.extend({
 	/**
 	 * Provide the Condition object to generate the HAVING clause of the query
 	 * @return {Query}
-	 * @param {Condition} where
+	 * @param {Condition} condition
 	 */
-	setHaving : function(where) {
-		this._having = where;
+	setHaving : function(condition) {
+		if (null !== condition && !(condition instanceof Condition)) {
+			throw new Error('setHaving must be given an instance of Condition');
+		}
+		this._having = condition;
 		return this;
 	},
 
@@ -396,6 +399,17 @@ var Query = this.Condition.extend({
 	},
 
 	/**
+	 * Convenience function for limit
+	 * Sets the limit of rows that can be returned
+	 * @return {Query}
+	 * @param {Number} limit
+	 * @param {Number} offset
+	 */
+	top : function(limit, offset) {
+		return this.limit.apply(this, arguments);
+	},
+
+	/**
 	 * Returns the LIMIT integer for this Query, if it has one
 	 * @return {Number}
 	 */
@@ -404,8 +418,7 @@ var Query = this.Condition.extend({
 	},
 
 	/**
-	 * Sets the offset for the rows returned.  Used to build
-	 * the LIMIT part of the query.
+	 * Sets the offset for the rows returned.
 	 * @return {Query}
 	 * @param {Number} offset
 	 */
@@ -416,6 +429,16 @@ var Query = this.Condition.extend({
 		}
 		this._offset = offset;
 		return this;
+	},
+
+	/**
+	 * Convenience function for offset
+	 * Sets the offset for the rows returned.
+	 * @return {Query}
+	 * @param {Number} offset
+	 */
+	skip : function(offset) {
+		return this.offset.apply(this, arguments);
 	},
 
 	/**
@@ -470,16 +493,16 @@ var Query = this.Condition.extend({
 	/**
 	 * Builds and returns the query string
 	 *
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @return {Query.Statement}
 	 */
-	getQuery : function(conn) {
-		if (typeof conn === 'undefined') {
-			conn = new SQLAdapter;
+	getQuery : function(adapter) {
+		if (typeof adapter === 'undefined') {
+			adapter = new SQLAdapter;
 		}
 
 		// the Query.Statement for the Query
-		var statement = new Query.Statement(conn),
+		var statement = new Query.Statement(adapter),
 			queryS,
 			columnsStatement,
 			tableStatement,
@@ -497,7 +520,7 @@ var Query = this.Condition.extend({
 			default:
 			case Query.ACTION_COUNT:
 			case Query.ACTION_SELECT:
-				columnsStatement = this.getColumnsClause(conn);
+				columnsStatement = this.getColumnsClause(adapter);
 				statement.addParams(columnsStatement._params);
 				queryS += 'SELECT ' + columnsStatement._qString;
 				break;
@@ -506,14 +529,14 @@ var Query = this.Condition.extend({
 				break;
 		}
 
-		tableStatement = this.getTablesClause(conn);
+		tableStatement = this.getTablesClause(adapter);
 		statement.addParams(tableStatement._params);
 		queryS += "\nFROM " + tableStatement._qString;
 
 		if (this._joins.length !== 0) {
 			for (x = 0, len = this._joins.length; x < len; ++x) {
 				join = this._joins[x],
-				joinStatement = join.getQueryStatement(conn);
+				joinStatement = join.getQueryStatement(adapter);
 				queryS += "\n\t" + joinStatement._qString;
 				statement.addParams(joinStatement._params);
 			}
@@ -555,8 +578,8 @@ var Query = this.Condition.extend({
 		}
 
 		if (null !== this._limit) {
-			if (conn) {
-				queryS = conn.applyLimit(queryS, this._offset, this._limit);
+			if (adapter) {
+				queryS = adapter.applyLimit(queryS, this._offset, this._limit);
 			} else {
 				queryS += "\nLIMIT " + (this._offset ? this._offset + ', ' : '') + this._limit;
 			}
@@ -572,10 +595,10 @@ var Query = this.Condition.extend({
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @return {Query.Statement}
 	 */
-	getTablesClause : function(conn) {
+	getTablesClause : function(adapter) {
 
 		var table = this._table,
 			statement,
@@ -591,12 +614,12 @@ var Query = this.Condition.extend({
 			throw new Error('No table specified.');
 		}
 
-		statement = new Query.Statement(conn);
+		statement = new Query.Statement(adapter);
 		alias = this._tableAlias;
 
 		// if table is a Query, get its Query.Statement
 		if (table instanceof Query) {
-			tableStatement = table.getQuery(conn),
+			tableStatement = table.getQuery(adapter),
 			tableString = '(' + tableStatement._qString + ')';
 		} else {
 			tableStatement = null;
@@ -621,7 +644,7 @@ var Query = this.Condition.extend({
 					for (tAlias in this._extraTables) {
 						extraTable = this._extraTables[tAlias];
 						if (extraTable instanceof Query) {
-							extraTableStatement = extraTable.getQuery(conn),
+							extraTableStatement = extraTable.getQuery(adapter),
 							extraTableString = '(' + extraTableStatement._qString + ') AS ' + tAlias;
 							statement.addParams(extraTableStatement._params);
 						} else {
@@ -654,13 +677,13 @@ var Query = this.Condition.extend({
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @return {Query.Statement}
 	 */
-	getColumnsClause : function(conn) {
+	getColumnsClause : function(adapter) {
 		var table = this._table,
 			column,
-			statement = new Query.Statement(conn),
+			statement = new Query.Statement(adapter),
 			alias = this._tableAlias,
 			action = this._action,
 			x,
@@ -724,11 +747,11 @@ var Query = this.Condition.extend({
 
 	/**
 	 * Protected for now.  Likely to be public in the future.
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @return {Query.Statement}
 	 */
-	getWhereClause : function(conn) {
-		return this.getQueryStatement(conn);
+	getWhereClause : function(adapter) {
+		return this.getQueryStatement(adapter);
 	},
 
 	/**
@@ -741,42 +764,42 @@ var Query = this.Condition.extend({
 	},
 
 	/**
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @returns {Query.Statement}
 	 */
-	getCountQuery : function(conn) {
+	getCountQuery : function(adapter) {
 		if (!this._table) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_COUNT);
-		return this.getQuery(conn);
+		return this.getQuery(adapter);
 	},
 
 	/**
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @returns {Query.Statement}
 	 */
-	getDeleteQuery : function(conn) {
+	getDeleteQuery : function(adapter) {
 		if (!this._table) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_DELETE);
-		return this.getQuery(conn);
+		return this.getQuery(adapter);
 	},
 
 	/**
-	 * @param {SQLAdapter} conn
+	 * @param {SQLAdapter} adapter
 	 * @returns {Query.Statement}
 	 */
-	getSelectQuery : function(conn) {
+	getSelectQuery : function(adapter) {
 		if (!this._table) {
 			throw new Error('No table specified.');
 		}
 
 		this.setAction(Query.ACTION_SELECT);
-		return this.getQuery(conn);
+		return this.getQuery(adapter);
 	},
 
 	toArray: function() {
