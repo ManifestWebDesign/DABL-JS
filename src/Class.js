@@ -38,7 +38,7 @@
 	}
 
 	// The base Class implementation (does nothing)
-	this.Class = function(){};
+	var Class = function(){};
 
 	// Create a new Class that inherits from this class
 	Class.extend = function(instanceProps, classProps) {
@@ -83,4 +83,37 @@
 
 		return Class;
 	};
+
+	/**
+	 * Normalizes the return value of async and non-async functions to always use the
+	 * Deferred/Promise API
+	 * @param {function} func A method that can return a Promise or a normal return value
+	 * @param {function} success Success callback
+	 * @param {function} failure callback
+	 */
+	Class.callAsync = Class.prototype.callAsync = function callAsync(func, success, failure) {
+		var deferred = new Deferred(),
+			promise = deferred.promise();
+
+		try {
+			var result = func.call(this);
+			if (result instanceof promise.constructor) {
+				promise = result;
+			} else {
+				deferred.resolve(result);
+			}
+		} catch (e) {
+			deferred.reject({
+				errors: [e]
+			});
+		}
+
+		if (typeof success === 'function' || typeof failure === 'function') {
+			promise.then(success, failure);
+		}
+
+		return promise;
+	};
+
+	this.Class = Class;
 })();

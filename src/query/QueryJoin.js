@@ -2,7 +2,7 @@
 
 var isIdent = /^\w+\.\w+$/;
 
-this.Query.Join = function Join(tableOrColumn, onClauseOrColumn, joinType) {
+var Join = function Join(tableOrColumn, onClauseOrColumn, joinType) {
 	if (arguments.length < 3) {
 		joinType = Query.JOIN;
 	}
@@ -27,7 +27,7 @@ this.Query.Join = function Join(tableOrColumn, onClauseOrColumn, joinType) {
 	.setJoinType(joinType);
 };
 
-Query.Join.prototype = {
+Join.prototype = {
 
 	/**
 	 * @var mixed
@@ -195,5 +195,7 @@ Query.Join.prototype = {
 	}
 
 };
+
+this.Query.Join = Join;
 
 })();

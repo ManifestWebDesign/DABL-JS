@@ -1,9 +1,12 @@
 (function(){
 
-this.Condition = Class.extend({
+var Condition = this.Class.extend({
 	_conds : null,
 
+	_mode: null,
+
 	init: function Condition(left, operator, right, quote) {
+		this._mode = Condition.MODE_SQL;
 		this._conds = [];
 		if (arguments.length !== 0) {
 			this.and.apply(this, arguments);
@@ -176,12 +179,8 @@ this.Condition = Class.extend({
 			return this;
 		}
 
-		arguments.processed = this._processCondition.apply(this, arguments);
-
-		if (null !== arguments.processed) {
-			arguments.type = 'AND';
-			this._conds.push(arguments);
-		}
+		arguments.type = 'AND';
+		this._conds.push(arguments);
 
 		return this;
 	},
@@ -236,12 +235,8 @@ this.Condition = Class.extend({
 			return this;
 		}
 
-		arguments.processed = this._processCondition.apply(this, arguments);
-
-		if (null !== arguments.processed) {
-			arguments.type = 'OR';
-			this._conds.push(arguments);
-		}
+		arguments.type = 'OR';
+		this._conds.push(arguments);
 
 		return this;
 	},
@@ -446,6 +441,7 @@ this.Condition = Class.extend({
 
 	/**
 	 * Builds and returns a string representation of this Condition
+	 * @param {Adapter} conn
 	 * @return {Query.Statement}
 	 */
 	getQueryStatement : function(conn) {
@@ -462,7 +458,7 @@ this.Condition = Class.extend({
 			len = conds.length;
 
 		for (x = 0; x < len; ++x) {
-			cond = conds[x].processed;
+			cond = this._processCondition.apply(this, conds[x]);
 
 			if (null === cond) {
 				continue;
@@ -501,7 +497,7 @@ this.Condition = Class.extend({
 
 		for (x = 0; x < len; ++x) {
 			var cond = conds[x];
-			if (null === cond.processed) {
+			if (cond.length === 0) {
 				continue;
 			}
 			if ('AND' !== cond.type) {
@@ -532,16 +528,42 @@ Condition.BEGINS_WITH = 'BEGINS_WITH';
 Condition.ENDS_WITH = 'ENDS_WITH';
 Condition.CONTAINS = 'CONTAINS';
 Condition.NOT_LIKE = 'NOT LIKE';
-Condition.CUSTOM = 'CUSTOM';
-Condition.DISTINCT = 'DISTINCT';
 Condition.IN = 'IN';
 Condition.NOT_IN = 'NOT IN';
-Condition.ALL = 'ALL';
 Condition.IS_NULL = 'IS NULL';
 Condition.IS_NOT_NULL = 'IS NOT NULL';
 Condition.BETWEEN = 'BETWEEN';
 Condition.BINARY_AND = '&';
 Condition.BINARY_OR = '|';
+
+Condition.MODE_SQL = 'sql';
+Condition.MODE_ODATA = 'odata';
+
+Condition.OData = {
+	operators: {
+		'=': 'eq',
+		'<>': 'ne',
+		'!=': 'ne',
+		'>': 'gt',
+		'<': 'lt',
+		'>=': 'ge',
+		'<=': 'le',
+		IN: 'IN',
+		'NOT IN': 'NOT IN',
+		'IS NULL': 'eq NULL',
+		'IS NOT NULL': 'neq NULL',
+		'&': '&',
+		'|': '|'
+	},
+	functions: {
+		BEGINS_WITH: 'startswith(@, ?)',
+		ENDS_WITH: 'endswith(@, ?)',
+		CONTAINS: 'substringof(?, @)',
+		LIKE: 'tolower(@) eq tolower(?)',
+		'NOT LIKE': 'tolower(@) neq tolower(?)',
+		BETWEEN: '@ ge ? and @ le ?'
+	}
+};
 
 /**
  * escape only the first parameter
@@ -562,5 +584,7 @@ Condition.QUOTE_BOTH = 3;
  * escape no params
  */
 Condition.QUOTE_NONE = 4;
+
+this.Condition = Condition;
 
 })();

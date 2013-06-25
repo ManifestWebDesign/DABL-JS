@@ -22,6 +22,9 @@ describe('Model', function() {
 	Foo.addField('bar', {
 		type: Bar
 	});
+	Foo.addField('bars', {
+		type: Array, elementType: Bar
+	});
 
 	beforeEach(function() {
 		foo = new Foo;
@@ -58,14 +61,15 @@ describe('Model', function() {
 
 	describe('toString', function(){
 		it ('should return the object\'s table name and a string hash of values', function(){
-			foo.setValues({
+			foo.fromJSON({
 				name: 'bar',
 				list: ['1'],
 				bar: {},
+				bars: [],
 				created: null,
 				updated: null
 			});
-			expect(foo.toString()).toEqual('foo:{"id":null,"name":"bar","list":["1"],"created":null,"updated":null,"bar":{"id":null}}');
+			expect(foo.toString()).toEqual('foo:{"id":null,"name":"bar","list":["1"],"created":null,"updated":null,"bar":{"id":null},"bars":[]}');
 		});
 	});
 
@@ -122,21 +126,30 @@ describe('Model', function() {
 		});
 	});
 
-	describe('getValues', function() {
+	describe('toJSON', function() {
 		it ('should return a JSON object', function(){
-			expect(foo.getValues().constructor).toBe(Object);
+			expect(foo.toJSON().constructor).toBe(Object);
 		});
 		it ('should convert nested objects and arrays to JSON as well', function(){
 			var bar = foo.bar = {
-				id: 7
+				id: 1
 			};
+			var bar2 = new Bar({
+				id: 2
+			});
 			foo.list = ['a', 'b'];
+			foo.bars.push(bar);
+			foo.bars.push(bar2);
 			expect(foo.bar.constructor).toBe(Bar);
-			expect(foo.getValues().bar.constructor).not.toBe(Bar);
-			expect(foo.getValues().bar.constructor).toBe(Object);
-			expect(foo.getValues().bar).not.toBe(bar);
-			expect(foo.getValues().bar.id).toBe(7);
-			expect(foo.getValues().list).not.toBe(foo.list);
+			expect(foo.bars[0].constructor).toBe(Bar);
+			expect(foo.bars[1]).toBe(bar2);
+			expect(foo.toJSON().bar.constructor).not.toBe(Bar);
+			expect(foo.toJSON().bar.constructor).toBe(Object);
+			expect(foo.toJSON().bar).not.toBe(bar);
+			expect(foo.toJSON().bar.id).toBe(1);
+			expect(foo.toJSON().list).not.toBe(foo.list);
+			expect(foo.toJSON().bars[0]).not.toBe(bar);
+			expect(foo.toJSON().bars[1]).not.toBe(bar2);
 		});
 	});
 

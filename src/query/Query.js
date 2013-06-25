@@ -3,7 +3,7 @@
 /**
  * Used to build query strings using OOP
  */
-this.Query = Condition.extend({
+var Query = this.Condition.extend({
 
 	_action : 'SELECT',
 
@@ -591,7 +591,7 @@ this.Query = Condition.extend({
 			throw new Error('No table specified.');
 		}
 
-		statement = new Query.Statement(conn),
+		statement = new Query.Statement(conn);
 		alias = this._tableAlias;
 
 		// if table is a Query, get its Query.Statement
@@ -828,5 +828,7 @@ Query.OUTER_JOIN = 'OUTER JOIN';
 // 'Order by' qualifiers
 Query.ASC = 'ASC';
 Query.DESC = 'DESC';
+
+this.Query = Query;
 
 })();

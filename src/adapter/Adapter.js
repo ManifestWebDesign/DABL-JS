@@ -5,7 +5,7 @@ function _sPad(value) {
 	return value.length === 2 ? value : '0' + value;
 }
 
-this.Adapter = Class.extend({
+this.Adapter = this.Class.extend({
 
 	_cache: null,
 

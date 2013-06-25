@@ -80,7 +80,7 @@ Route.prototype = {
 	}
 };
 
-this.RESTAdapter = Adapter.extend({
+this.RESTAdapter = this.Adapter.extend({
 
 	_routes: null,
 
@@ -133,7 +133,7 @@ this.RESTAdapter = Adapter.extend({
 					return;
 				}
 				instance
-					.setValues(r)
+					.fromJSON(r)
 					.resetModified()
 					.setNew(false);
 
@@ -189,7 +189,7 @@ this.RESTAdapter = Adapter.extend({
 			self = this;
 
 		$.ajax({
-			url: route.url(instance.getValues()),
+			url: route.url(instance.toJSON()),
 			type: 'POST',
 			data: {},
 			contentType: 'application/json;charset=utf-8',

@@ -40,7 +40,7 @@
 	}
 
 	// The base Class implementation (does nothing)
-	this.Class = function(){};
+	var Class = function(){};
 
 	// Create a new Class that inherits from this class
 	Class.extend = function(instanceProps, classProps) {
@@ -85,6 +85,39 @@
 
 		return Class;
 	};
+
+	/**
+	 * Normalizes the return value of async and non-async functions to always use the
+	 * Deferred/Promise API
+	 * @param {function} func A method that can return a Promise or a normal return value
+	 * @param {function} success Success callback
+	 * @param {function} failure callback
+	 */
+	Class.callAsync = Class.prototype.callAsync = function callAsync(func, success, failure) {
+		var deferred = new Deferred(),
+			promise = deferred.promise();
+
+		try {
+			var result = func.call(this);
+			if (result instanceof promise.constructor) {
+				promise = result;
+			} else {
+				deferred.resolve(result);
+			}
+		} catch (e) {
+			deferred.reject({
+				errors: [e]
+			});
+		}
+
+		if (typeof success === 'function' || typeof failure === 'function') {
+			promise.then(success, failure);
+		}
+
+		return promise;
+	};
+
+	this.Class = Class;
 })();
 
 /* Deferred.js */
@@ -391,7 +424,7 @@
 /* Model.js */
 (function(){
 
-this.Model = Class.extend({
+var Model = this.Class.extend({
 	/**
 	 * This will contain the field values IF __defineGetter__ and __defineSetter__
 	 * are supported by the JavaScript engine, otherwise the properties will be
@@ -432,12 +465,12 @@ this.Model = Class.extend({
 		}
 		this.resetModified();
 		if (values) {
-			this.setValues(values);
+			this.fromJSON(values);
 		}
 	},
 
 	toString: function() {
-		return this.constructor._table + ':' + JSON.stringify(this.getValues());
+		return this.constructor._table + ':' + JSON.stringify(this.toJSON());
 	},
 
 	/**
@@ -519,7 +552,7 @@ this.Model = Class.extend({
 	 * @param {Object} values
 	 * @return {Model}
 	 */
-	setValues: function(values) {
+	fromJSON: function(values) {
 		for (var fieldName in this.constructor._fields) {
 			if (!(fieldName in values)) {
 				continue;
@@ -534,34 +567,37 @@ this.Model = Class.extend({
 	 * Array keys match field names.
 	 * @return {Object}
 	 */
-	getValues: function() {
+	toJSON: function() {
 		var values = {},
 			fieldName,
 			value;
 
+		if (this._inGetValues) {
+			return null;
+		}
+		this._inGetValues = true;
+
 		for (fieldName in this.constructor._fields) {
 			value = this[fieldName];
-			if (!this._inGetValues && value instanceof Model) {
-				this._inGetValues = true;
-				value = value.getValues();
-				delete this._inGetValues;
-			} else if (value instanceof Array) {
+			if (value instanceof Array) {
 				var newValue = [];
 				for (var x = 0, l = value.length; x < l; ++x) {
-					if (!this._inGetValues && value[x] instanceof Model) {
-						this._inGetValues = true;
-						newValue[x] = value[x].getValues();
-						delete this._inGetValues;
+					if (value[x] !== null && typeof value[x].toJSON === 'function') {
+						newValue[x] = value[x].toJSON();
 					} else {
-						newValue[x] = value[x];
+						newValue[x] = copy(value[x]);
 					}
 				}
 				value = newValue;
+			} else if (value !== null && typeof value.toJSON === 'function') {
+				value = value.toJSON();
 			} else {
 				value = copy(value);
 			}
 			values[fieldName] = value;
 		}
+
+		delete this._inGetValues;
 
 		return values;
 	},
@@ -595,7 +631,7 @@ this.Model = Class.extend({
 
 		for (var x = 0, len = pks.length; x < len; ++x) {
 			var pk = pks[x];
-			values[pk] = copy(this[pk]);
+			values[pk] = this[pk];
 		}
 		return values;
 	},
@@ -718,7 +754,7 @@ this.Model = Class.extend({
 			}
 
 			if (typeof values === 'object') {
-				this.setValues(values);
+				this.fromJSON(values);
 			}
 
 			return model._adapter.update(this);
@@ -840,22 +876,19 @@ Model.isObjectType = function(type) {
 
 /**
  * Sets the value of a field
- * @param {String} fieldName
  * @param {mixed} value
  * @param {Object} field
  * @return {mixed}
  */
-Model.coerceValue = function(fieldName, value, field) {
-	if (!field) {
-		field = this.getField(fieldName);
-	}
+Model.coerceValue = function(value, field) {
 	var fieldType = field.type;
 
 	if (typeof value === 'undefined' || value === null) {
 		if (fieldType === Array) {
-			return [];
+			value = [];
+		} else {
+			return null;
 		}
-		return null;
 	}
 
 	var temporal = this.isTemporalType(fieldType),
@@ -893,18 +926,33 @@ Model.coerceValue = function(fieldName, value, field) {
 		}
 	} else if (fieldType === Array) {
 		if (field.elementType) {
+			this.modifyArray(value, field.elementType);
 			for (var x = 0, l = value.length; x < l; ++x) {
-				if (value[x] !== null) {
-					value[x] = cast(value[x], field.elementType);
-				}
+				value[x] = this.coerceValue(value[x], {type: field.elementType});
 			}
 		}
 	} else if (this.isObjectType(fieldType)) {
-		if (value !== null) {
-			value = cast(value, fieldType);
+		if (value !== null && fieldType.isModel && value.constructor !== fieldType) {
+			value = fieldType.inflate(value);
 		}
 	}
 	return value;
+};
+
+Model.modifyArray = function(array, elementType) {
+	var model = this;
+	array.push = function() {
+		for (var x = 0, l = arguments.length; x < l; ++x) {
+			arguments[x] = model.coerceValue(arguments[x], {type: elementType});
+		}
+		return Array.prototype.push.apply(this, arguments);
+	};
+	array.unshift = function() {
+		for (var x = 0, l = arguments.length; x < l; ++x) {
+			arguments[x] = model.coerceValue(arguments[x], {type: elementType});
+		}
+		return Array.prototype.unshift.apply(this, arguments);
+	};
 };
 
 /**
@@ -1067,7 +1115,7 @@ Model.addField = function(fieldName, field) {
 		return typeof value === 'undefined' ? null : value;
 	};
 	set = function(value) {
-		this._values[fieldName] = self.coerceValue(fieldName, value, field);
+		this._values[fieldName] = self.coerceValue(value, field);
 	};
 
 	try {
@@ -1138,37 +1186,6 @@ Model.extend = function(table, opts) {
 	return newClass;
 };
 
-/**
- * Gives Model classes and their instances the ability to call methods on themselves using
- * a standard asynchronous API
- * @param {function} func A method that can return a Promise or a normal return value
- * @param {function} success Success callback
- * @param {function} failure callback
- */
-Model.callAsync = Model.prototype.callAsync = function callAsync(func, success, failure) {
-	var deferred = new Deferred(),
-		promise = deferred.promise();
-
-	try {
-		var result = func.call(this);
-		if (result instanceof promise.constructor) {
-			promise = result;
-		} else {
-			deferred.resolve(result);
-		}
-	} catch (e) {
-		deferred.reject({
-			errors: [e]
-		});
-	}
-
-	if (typeof success === 'function' || typeof failure === 'function') {
-		promise.then(success, failure);
-	}
-
-	return promise;
-};
-
 Model.isModel = true;
 
 Model.toString = function() {
@@ -1217,16 +1234,6 @@ for (var x = 0, len = findAliases.length; x < len; ++x) {
  * Helper functions
  */
 
-function cast(obj, type) {
-	if (type.isModel) {
-		if (obj.constructor === type) {
-			return obj;
-		}
-		return type.inflate(obj);
-	}
-	return obj;
-}
-
 function copy(obj) {
 	if (obj === null) {
 		return null;
@@ -1241,7 +1248,7 @@ function copy(obj) {
 	}
 
 	if (obj instanceof Date) {
-		return new Date(obj);
+		return new Date(obj.getTime());
 	}
 
 	switch (typeof obj) {
@@ -1273,15 +1280,20 @@ function equals(a, b) {
 	return a === b;
 }
 
+this.Model = Model;
+
 })();
 
 /* Condition.js */
 (function(){
 
-this.Condition = Class.extend({
+var Condition = this.Class.extend({
 	_conds : null,
 
+	_mode: null,
+
 	init: function Condition(left, operator, right, quote) {
+		this._mode = Condition.MODE_SQL;
 		this._conds = [];
 		if (arguments.length !== 0) {
 			this.and.apply(this, arguments);
@@ -1454,12 +1466,8 @@ this.Condition = Class.extend({
 			return this;
 		}
 
-		arguments.processed = this._processCondition.apply(this, arguments);
-
-		if (null !== arguments.processed) {
-			arguments.type = 'AND';
-			this._conds.push(arguments);
-		}
+		arguments.type = 'AND';
+		this._conds.push(arguments);
 
 		return this;
 	},
@@ -1514,12 +1522,8 @@ this.Condition = Class.extend({
 			return this;
 		}
 
-		arguments.processed = this._processCondition.apply(this, arguments);
-
-		if (null !== arguments.processed) {
-			arguments.type = 'OR';
-			this._conds.push(arguments);
-		}
+		arguments.type = 'OR';
+		this._conds.push(arguments);
 
 		return this;
 	},
@@ -1724,6 +1728,7 @@ this.Condition = Class.extend({
 
 	/**
 	 * Builds and returns a string representation of this Condition
+	 * @param {Adapter} conn
 	 * @return {Query.Statement}
 	 */
 	getQueryStatement : function(conn) {
@@ -1740,7 +1745,7 @@ this.Condition = Class.extend({
 			len = conds.length;
 
 		for (x = 0; x < len; ++x) {
-			cond = conds[x].processed;
+			cond = this._processCondition.apply(this, conds[x]);
 
 			if (null === cond) {
 				continue;
@@ -1779,7 +1784,7 @@ this.Condition = Class.extend({
 
 		for (x = 0; x < len; ++x) {
 			var cond = conds[x];
-			if (null === cond.processed) {
+			if (cond.length === 0) {
 				continue;
 			}
 			if ('AND' !== cond.type) {
@@ -1810,16 +1815,42 @@ Condition.BEGINS_WITH = 'BEGINS_WITH';
 Condition.ENDS_WITH = 'ENDS_WITH';
 Condition.CONTAINS = 'CONTAINS';
 Condition.NOT_LIKE = 'NOT LIKE';
-Condition.CUSTOM = 'CUSTOM';
-Condition.DISTINCT = 'DISTINCT';
 Condition.IN = 'IN';
 Condition.NOT_IN = 'NOT IN';
-Condition.ALL = 'ALL';
 Condition.IS_NULL = 'IS NULL';
 Condition.IS_NOT_NULL = 'IS NOT NULL';
 Condition.BETWEEN = 'BETWEEN';
 Condition.BINARY_AND = '&';
 Condition.BINARY_OR = '|';
+
+Condition.MODE_SQL = 'sql';
+Condition.MODE_ODATA = 'odata';
+
+Condition.OData = {
+	operators: {
+		'=': 'eq',
+		'<>': 'ne',
+		'!=': 'ne',
+		'>': 'gt',
+		'<': 'lt',
+		'>=': 'ge',
+		'<=': 'le',
+		IN: 'IN',
+		'NOT IN': 'NOT IN',
+		'IS NULL': 'eq NULL',
+		'IS NOT NULL': 'neq NULL',
+		'&': '&',
+		'|': '|'
+	},
+	functions: {
+		BEGINS_WITH: 'startswith(@, ?)',
+		ENDS_WITH: 'endswith(@, ?)',
+		CONTAINS: 'substringof(?, @)',
+		LIKE: 'tolower(@) eq tolower(?)',
+		'NOT LIKE': 'tolower(@) neq tolower(?)',
+		BETWEEN: '@ ge ? and @ le ?'
+	}
+};
 
 /**
  * escape only the first parameter
@@ -1841,6 +1872,8 @@ Condition.QUOTE_BOTH = 3;
  */
 Condition.QUOTE_NONE = 4;
 
+this.Condition = Condition;
+
 })();
 
 /* Query.js */
@@ -1849,7 +1882,7 @@ Condition.QUOTE_NONE = 4;
 /**
  * Used to build query strings using OOP
  */
-this.Query = Condition.extend({
+var Query = this.Condition.extend({
 
 	_action : 'SELECT',
 
@@ -2437,7 +2470,7 @@ this.Query = Condition.extend({
 			throw new Error('No table specified.');
 		}
 
-		statement = new Query.Statement(conn),
+		statement = new Query.Statement(conn);
 		alias = this._tableAlias;
 
 		// if table is a Query, get its Query.Statement
@@ -2675,6 +2708,8 @@ Query.OUTER_JOIN = 'OUTER JOIN';
 Query.ASC = 'ASC';
 Query.DESC = 'DESC';
 
+this.Query = Query;
+
 })();
 
 /* QueryJoin.js */
@@ -2682,7 +2717,7 @@ Query.DESC = 'DESC';
 
 var isIdent = /^\w+\.\w+$/;
 
-this.Query.Join = function Join(tableOrColumn, onClauseOrColumn, joinType) {
+var Join = function Join(tableOrColumn, onClauseOrColumn, joinType) {
 	if (arguments.length < 3) {
 		joinType = Query.JOIN;
 	}
@@ -2707,7 +2742,7 @@ this.Query.Join = function Join(tableOrColumn, onClauseOrColumn, joinType) {
 	.setJoinType(joinType);
 };
 
-Query.Join.prototype = {
+Join.prototype = {
 
 	/**
 	 * @var mixed
@@ -2876,12 +2911,14 @@ Query.Join.prototype = {
 
 };
 
+this.Query.Join = Join;
+
 })();
 
 /* QueryStatement.js */
 (function(){
 
-this.Query.Statement = function Statement(conn) {
+var Statement = function Statement(conn) {
 	this._params = [];
 	if (conn) {
 		this._conn = conn;
@@ -2895,7 +2932,7 @@ this.Query.Statement = function Statement(conn) {
  * @param conn
  * @return {String}
  */
-Query.Statement.embedParams = function(string, params, conn) {
+Statement.embedParams = function(string, params, conn) {
 	if (conn) {
 		params = conn.prepareInput(params);
 	}
@@ -2927,7 +2964,7 @@ Query.Statement.embedParams = function(string, params, conn) {
 	return string;
 };
 
-Query.Statement.prototype = {
+Statement.prototype = {
 
 	/**
 	 * @var string
@@ -3012,6 +3049,8 @@ Query.Statement.prototype = {
 	}
 };
 
+this.Query.Statement = Statement;
+
 })();
 
 /* Adapter.js */
@@ -3022,7 +3061,7 @@ function _sPad(value) {
 	return value.length === 2 ? value : '0' + value;
 }
 
-this.Adapter = Class.extend({
+this.Adapter = this.Class.extend({
 
 	_cache: null,
 
@@ -3268,7 +3307,7 @@ Route.prototype = {
 	}
 };
 
-this.RESTAdapter = Adapter.extend({
+this.RESTAdapter = this.Adapter.extend({
 
 	_routes: null,
 
@@ -3321,7 +3360,7 @@ this.RESTAdapter = Adapter.extend({
 					return;
 				}
 				instance
-					.setValues(r)
+					.fromJSON(r)
 					.resetModified()
 					.setNew(false);
 
@@ -3377,7 +3416,7 @@ this.RESTAdapter = Adapter.extend({
 			self = this;
 
 		$.ajax({
-			url: route.url(instance.getValues()),
+			url: route.url(instance.toJSON()),
 			type: 'POST',
 			data: {},
 			contentType: 'application/json;charset=utf-8',
@@ -3484,7 +3523,7 @@ this.RESTAdapter = Adapter.extend({
 /* SQLAdapter.js */
 (function(){
 
-this.SQLAdapter = Adapter.extend({
+var SQLAdapter = this.Adapter.extend({
 
 	_db: null,
 
@@ -3895,7 +3934,7 @@ this.SQLAdapter = Adapter.extend({
 	}
 });
 
-SQLAdapter.Migration = Class.extend({
+SQLAdapter.Migration = this.Class.extend({
 	adapter: null,
 	schema: null,
 	// Primary method for initializing Migration via manual or automigration
@@ -4045,7 +4084,7 @@ SQLAdapter.Migration = Class.extend({
 			table.save();
 		} else {
 			table = new this.schema;
-			table.setValues({
+			table.fromJSON({
 				table_name: tableName,
 				column_names: names,
 				column_types: types
@@ -4237,7 +4276,7 @@ SQLAdapter.Migration = Class.extend({
 //		Migration.each(fixtures.mappingTables, function(tableData, tableName) {
 //			Migration.each(tableData, function(colData) {
 //				var dataHash = new Migration.Hash(colData);
-//				var sql = 'INSERT INTO ' + tableName + ' (' + dataHash.getKeys().toString() + ') VALUES(' + dataHash.getValues().toString() + ')';
+//				var sql = 'INSERT INTO ' + tableName + ' (' + dataHash.getKeys().toString() + ') VALUES(' + dataHash.toJSON().toString() + ')';
 //				this.adapter.execute(sql);
 //			});
 //		});
@@ -4250,7 +4289,9 @@ SQLAdapter.TiDebugDB = Class.extend({
 	lastSQL: null,
 	lastParams: null,
 	execute: function(sql, params) {
-		console.log(sql, params);
+		if (typeof console !== 'undefined'){
+			console.log(sql, params);
+		}
 
 		this.lastSQL = sql;
 		this.lastParams = params;
@@ -4296,5 +4337,7 @@ SQLAdapter.TiDebugDB = Class.extend({
 	}
 
 });
+
+this.SQLAdapter = SQLAdapter;
 
 })();

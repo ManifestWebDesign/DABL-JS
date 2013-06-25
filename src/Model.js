@@ -1,6 +1,6 @@
 (function(){
 
-this.Model = Class.extend({
+var Model = this.Class.extend({
 	/**
 	 * This will contain the field values IF __defineGetter__ and __defineSetter__
 	 * are supported by the JavaScript engine, otherwise the properties will be
@@ -41,12 +41,12 @@ this.Model = Class.extend({
 		}
 		this.resetModified();
 		if (values) {
-			this.setValues(values);
+			this.fromJSON(values);
 		}
 	},
 
 	toString: function() {
-		return this.constructor._table + ':' + JSON.stringify(this.getValues());
+		return this.constructor._table + ':' + JSON.stringify(this.toJSON());
 	},
 
 	/**
@@ -128,7 +128,7 @@ this.Model = Class.extend({
 	 * @param {Object} values
 	 * @return {Model}
 	 */
-	setValues: function(values) {
+	fromJSON: function(values) {
 		for (var fieldName in this.constructor._fields) {
 			if (!(fieldName in values)) {
 				continue;
@@ -143,34 +143,37 @@ this.Model = Class.extend({
 	 * Array keys match field names.
 	 * @return {Object}
 	 */
-	getValues: function() {
+	toJSON: function() {
 		var values = {},
 			fieldName,
 			value;
 
+		if (this._inGetValues) {
+			return null;
+		}
+		this._inGetValues = true;
+
 		for (fieldName in this.constructor._fields) {
 			value = this[fieldName];
-			if (!this._inGetValues && value instanceof Model) {
-				this._inGetValues = true;
-				value = value.getValues();
-				delete this._inGetValues;
-			} else if (value instanceof Array) {
+			if (value instanceof Array) {
 				var newValue = [];
 				for (var x = 0, l = value.length; x < l; ++x) {
-					if (!this._inGetValues && value[x] instanceof Model) {
-						this._inGetValues = true;
-						newValue[x] = value[x].getValues();
-						delete this._inGetValues;
+					if (value[x] !== null && typeof value[x].toJSON === 'function') {
+						newValue[x] = value[x].toJSON();
 					} else {
-						newValue[x] = value[x];
+						newValue[x] = copy(value[x]);
 					}
 				}
 				value = newValue;
+			} else if (value !== null && typeof value.toJSON === 'function') {
+				value = value.toJSON();
 			} else {
 				value = copy(value);
 			}
 			values[fieldName] = value;
 		}
+
+		delete this._inGetValues;
 
 		return values;
 	},
@@ -204,7 +207,7 @@ this.Model = Class.extend({
 
 		for (var x = 0, len = pks.length; x < len; ++x) {
 			var pk = pks[x];
-			values[pk] = copy(this[pk]);
+			values[pk] = this[pk];
 		}
 		return values;
 	},
@@ -327,7 +330,7 @@ this.Model = Class.extend({
 			}
 
 			if (typeof values === 'object') {
-				this.setValues(values);
+				this.fromJSON(values);
 			}
 
 			return model._adapter.update(this);
@@ -449,22 +452,19 @@ Model.isObjectType = function(type) {
 
 /**
  * Sets the value of a field
- * @param {String} fieldName
  * @param {mixed} value
  * @param {Object} field
  * @return {mixed}
  */
-Model.coerceValue = function(fieldName, value, field) {
-	if (!field) {
-		field = this.getField(fieldName);
-	}
+Model.coerceValue = function(value, field) {
 	var fieldType = field.type;
 
 	if (typeof value === 'undefined' || value === null) {
 		if (fieldType === Array) {
-			return [];
+			value = [];
+		} else {
+			return null;
 		}
-		return null;
 	}
 
 	var temporal = this.isTemporalType(fieldType),
@@ -502,18 +502,33 @@ Model.coerceValue = function(fieldName, value, field) {
 		}
 	} else if (fieldType === Array) {
 		if (field.elementType) {
+			this.modifyArray(value, field.elementType);
 			for (var x = 0, l = value.length; x < l; ++x) {
-				if (value[x] !== null) {
-					value[x] = cast(value[x], field.elementType);
-				}
+				value[x] = this.coerceValue(value[x], {type: field.elementType});
 			}
 		}
 	} else if (this.isObjectType(fieldType)) {
-		if (value !== null) {
-			value = cast(value, fieldType);
+		if (value !== null && fieldType.isModel && value.constructor !== fieldType) {
+			value = fieldType.inflate(value);
 		}
 	}
 	return value;
+};
+
+Model.modifyArray = function(array, elementType) {
+	var model = this;
+	array.push = function() {
+		for (var x = 0, l = arguments.length; x < l; ++x) {
+			arguments[x] = model.coerceValue(arguments[x], {type: elementType});
+		}
+		return Array.prototype.push.apply(this, arguments);
+	};
+	array.unshift = function() {
+		for (var x = 0, l = arguments.length; x < l; ++x) {
+			arguments[x] = model.coerceValue(arguments[x], {type: elementType});
+		}
+		return Array.prototype.unshift.apply(this, arguments);
+	};
 };
 
 /**
@@ -676,7 +691,7 @@ Model.addField = function(fieldName, field) {
 		return typeof value === 'undefined' ? null : value;
 	};
 	set = function(value) {
-		this._values[fieldName] = self.coerceValue(fieldName, value, field);
+		this._values[fieldName] = self.coerceValue(value, field);
 	};
 
 	try {
@@ -747,37 +762,6 @@ Model.extend = function(table, opts) {
 	return newClass;
 };
 
-/**
- * Gives Model classes and their instances the ability to call methods on themselves using
- * a standard asynchronous API
- * @param {function} func A method that can return a Promise or a normal return value
- * @param {function} success Success callback
- * @param {function} failure callback
- */
-Model.callAsync = Model.prototype.callAsync = function callAsync(func, success, failure) {
-	var deferred = new Deferred(),
-		promise = deferred.promise();
-
-	try {
-		var result = func.call(this);
-		if (result instanceof promise.constructor) {
-			promise = result;
-		} else {
-			deferred.resolve(result);
-		}
-	} catch (e) {
-		deferred.reject({
-			errors: [e]
-		});
-	}
-
-	if (typeof success === 'function' || typeof failure === 'function') {
-		promise.then(success, failure);
-	}
-
-	return promise;
-};
-
 Model.isModel = true;
 
 Model.toString = function() {
@@ -826,16 +810,6 @@ for (var x = 0, len = findAliases.length; x < len; ++x) {
  * Helper functions
  */
 
-function cast(obj, type) {
-	if (type.isModel) {
-		if (obj.constructor === type) {
-			return obj;
-		}
-		return type.inflate(obj);
-	}
-	return obj;
-}
-
 function copy(obj) {
 	if (obj === null) {
 		return null;
@@ -850,7 +824,7 @@ function copy(obj) {
 	}
 
 	if (obj instanceof Date) {
-		return new Date(obj);
+		return new Date(obj.getTime());
 	}
 
 	switch (typeof obj) {
@@ -881,5 +855,7 @@ function equals(a, b) {
 	}
 	return a === b;
 }
+
+this.Model = Model;
 
 })();

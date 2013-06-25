@@ -1,6 +1,6 @@
 (function(){
 
-this.SQLAdapter = Adapter.extend({
+var SQLAdapter = this.Adapter.extend({
 
 	_db: null,
 
@@ -411,7 +411,7 @@ this.SQLAdapter = Adapter.extend({
 	}
 });
 
-SQLAdapter.Migration = Class.extend({
+SQLAdapter.Migration = this.Class.extend({
 	adapter: null,
 	schema: null,
 	// Primary method for initializing Migration via manual or automigration
@@ -561,7 +561,7 @@ SQLAdapter.Migration = Class.extend({
 			table.save();
 		} else {
 			table = new this.schema;
-			table.setValues({
+			table.fromJSON({
 				table_name: tableName,
 				column_names: names,
 				column_types: types
@@ -753,7 +753,7 @@ SQLAdapter.Migration = Class.extend({
 //		Migration.each(fixtures.mappingTables, function(tableData, tableName) {
 //			Migration.each(tableData, function(colData) {
 //				var dataHash = new Migration.Hash(colData);
-//				var sql = 'INSERT INTO ' + tableName + ' (' + dataHash.getKeys().toString() + ') VALUES(' + dataHash.getValues().toString() + ')';
+//				var sql = 'INSERT INTO ' + tableName + ' (' + dataHash.getKeys().toString() + ') VALUES(' + dataHash.toJSON().toString() + ')';
 //				this.adapter.execute(sql);
 //			});
 //		});
@@ -766,7 +766,9 @@ SQLAdapter.TiDebugDB = Class.extend({
 	lastSQL: null,
 	lastParams: null,
 	execute: function(sql, params) {
-		console.log(sql, params);
+		if (typeof console !== 'undefined'){
+			console.log(sql, params);
+		}
 
 		this.lastSQL = sql;
 		this.lastParams = params;
@@ -812,5 +814,7 @@ SQLAdapter.TiDebugDB = Class.extend({
 	}
 
 });
+
+this.SQLAdapter = SQLAdapter;
 
 })();

@@ -10,7 +10,7 @@ describe('Query', function() {
 		if (!str) {
 			return '';
 		}
-		return str.toString().replace(/\s+/g, ' ').trim();
+		return str.toString().replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
 	}
 
 	describe('init', function() {
