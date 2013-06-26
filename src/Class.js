@@ -40,6 +40,19 @@
 	// The base Class implementation (does nothing)
 	var Class = function(){};
 
+	function doesDefinePropertyWork(object) {
+		try {
+			Object.defineProperty(object, "sentinel", {
+				value: 'foo'
+			});
+			return "sentinel" in object;
+		} catch (exception) {
+			return false;
+		}
+	}
+
+	Class.canDefineProperties = doesDefinePropertyWork({});
+
 	// Create a new Class that inherits from this class
 	Class.extend = function(instanceProps, classProps) {
 		if (typeof instanceProps === 'undefined') {

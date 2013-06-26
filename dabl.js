@@ -42,6 +42,19 @@
 	// The base Class implementation (does nothing)
 	var Class = function(){};
 
+	function doesDefinePropertyWork(object) {
+		try {
+			Object.defineProperty(object, "sentinel", {
+				value: 'foo'
+			});
+			return "sentinel" in object;
+		} catch (exception) {
+			return false;
+		}
+	}
+
+	Class.canDefineProperties = doesDefinePropertyWork({});
+
 	// Create a new Class that inherits from this class
 	Class.extend = function(instanceProps, classProps) {
 		if (typeof instanceProps === 'undefined') {
@@ -959,8 +972,8 @@ Model.coerceValues = function(values) {
 	if (
 		null === values
 		|| typeof values === 'undefined'
+		|| this.canDefineProperties
 		|| (values.prototype && values.prototype.__defineGetter__)
-		|| Object.defineProperty
 	) {
 		return;
 	}
@@ -1140,7 +1153,7 @@ Model.addField = function(fieldName, field) {
 
 	this._fields[fieldName] = field;
 
-	if (!this.prototype.__defineGetter__ && !Object.defineProperty) {
+	if (!this.prototype.__defineGetter__ && !this.canDefineProperties) {
 		return;
 	}
 
@@ -1164,7 +1177,7 @@ Model.addField = function(fieldName, field) {
 			this.prototype.__defineSetter__(fieldName, set);
 		}
 	} catch (e) {}
-};
+	};
 
 /**
  * @param {String} table

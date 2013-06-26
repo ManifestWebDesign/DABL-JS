@@ -535,8 +535,8 @@ Model.coerceValues = function(values) {
 	if (
 		null === values
 		|| typeof values === 'undefined'
+		|| this.canDefineProperties
 		|| (values.prototype && values.prototype.__defineGetter__)
-		|| Object.defineProperty
 	) {
 		return;
 	}
@@ -716,7 +716,7 @@ Model.addField = function(fieldName, field) {
 
 	this._fields[fieldName] = field;
 
-	if (!this.prototype.__defineGetter__ && !Object.defineProperty) {
+	if (!this.prototype.__defineGetter__ && !this.canDefineProperties) {
 		return;
 	}
 
@@ -740,7 +740,7 @@ Model.addField = function(fieldName, field) {
 			this.prototype.__defineSetter__(fieldName, set);
 		}
 	} catch (e) {}
-};
+	};
 
 /**
  * @param {String} table
