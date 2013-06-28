@@ -235,7 +235,7 @@ var SQLAdapter = this.Adapter.extend({
 	 * @param {Model} model
 	 * @param {Query} q
 	 */
-	destroyAll: function(model, q) {
+	removeAll: function(model, q) {
 		if (!q.getTable() || model.getTableName() !== q.getTable()) {
 			q.setTable(model.getTableName());
 		}
@@ -407,7 +407,7 @@ var SQLAdapter = this.Adapter.extend({
 			q.and(pk, pkVal);
 		}
 
-		return this.destroyAll(model, q);
+		return this.removeAll(model, q);
 	}
 });
 

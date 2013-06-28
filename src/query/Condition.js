@@ -123,6 +123,12 @@ var Condition = this.Class.extend({
 			left = '?';
 		}
 
+		if (!(operator in Condition.SQL.operators)) {
+			throw new Error('Unsupported SQL operator: "' + operator + '"');
+		}
+
+		operator = Condition.SQL.operators[operator];
+
 		if (operator === Condition.CONTAINS) {
 			operator = Condition.LIKE;
 			right = '%' + right + '%';
@@ -696,10 +702,10 @@ var Condition = this.Class.extend({
 			}
 			if (cond.length === 2) {
 				r[cond[0]] = cond[1];
-			} else if (cond.length === 3 && cond[1] === Condition.EQUAL) {
+			} else if (cond[1] === Condition.EQUAL) {
 				r[cond[0]] = cond[2];
 			} else {
-				throw new Error('Cannot export complex condition: "' + cond.processed + '"');
+				throw new Error('Cannot export complex condition: "' + this._processCondition.apply(this, cond) + '"');
 			}
 		}
 		return r;
@@ -727,14 +733,47 @@ Condition.BETWEEN = 'BETWEEN';
 Condition.BINARY_AND = '&';
 Condition.BINARY_OR = '|';
 
+Condition.SQL = {
+	operators: {
+		eq: '=',
+		ne: '<>',
+		gt: '>',
+		lt: '<',
+		ge: '>=',
+		le: '<=',
+		'=': '=',
+		'<>': '<>',
+		'!=': '<>',
+		'>': '>',
+		'<': '<',
+		'>=': '>=',
+		'<=': '<=',
+		'&': '&',
+		'|': '|',
+		startswith: 'BEGINS_WITH',
+		BEGINS_WITH: 'BEGINS_WITH',
+		endswith: 'ENDS_WITH',
+		ENDS_WITH: 'BEGINS_WITH',
+		substringof: 'CONTAINS',
+		CONTAINS: 'CONTAINS',
+		LIKE : 'LIKE',
+		'NOT LIKE' : 'NOT LIKE',
+		IN: 'IN',
+		'NOT IN': 'NOT IN',
+		'IS NULL': 'IS NULL',
+		'IS NOT NULL': 'IS NOT NULL',
+		BETWEEN: 'BETWEEN'
+	}
+};
+
 Condition.OData = {
 	operators: {
-		'eq': 'eq',
-		'ne': 'ne',
-		'gt': 'gt',
-		'lt': 'lt',
-		'ge': 'ge',
-		'le': 'le',
+		eq: 'eq',
+		ne: 'ne',
+		gt: 'gt',
+		lt: 'lt',
+		ge: 'ge',
+		le: 'le',
 		'=': 'eq',
 		'<>': 'ne',
 		'!=': 'ne',

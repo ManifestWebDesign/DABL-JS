@@ -70,7 +70,8 @@ this.Adapter = this.Class.extend({
 	 */
 	findQuery: function(model) {
 		var a = Array.prototype.slice.call(arguments),
-			q = new Query().setTable(model.getTableName());
+			q = new Query().setTable(model.getTableName()),
+			key = model.getKey();
 		a.shift();
 		var len = a.length;
 
@@ -78,38 +79,27 @@ this.Adapter = this.Class.extend({
 			return q;
 		}
 		if (len === 1) {
-			if (!isNaN(parseInt(a[0], 10))) {
-				q.add(model.getKey(), a[0]);
-			} else if (typeof a[0] === 'object') {
+			if (typeof a[0] === 'object') {
 				if (a[0] instanceof Query) {
-					q = a[0];
-				} else {
-					// hash
-				}
-			} else if (typeof a[0] === 'string') {
-				// where clause string
-				if (a[1] instanceof Array) {
-					// arguments
-				}
-			}
-		} else if (len === 2 && typeof a[0] === 'string') {
-			q.add(a[0], a[1]);
-		} else {
-			// if arguments list is greater than 1 and the first argument is not a string
-			var pks = model.getKeys();
-			if (len === pks.len) {
-				for (var x = 0, pkLen = pks.length; x < pkLen; ++x) {
-					var pk = pks[x],
-					pkVal = a[x];
-
-					if (pkVal === null || typeof pkVal === 'undefined') {
-						return null;
+					if (!a[0].getTable()) {
+						a[0].setTable(model.getTableName());
 					}
-					q.add(pk, pkVal);
+					return a[0];
+				} else {
+					q.and(a[0]);
 				}
-			} else {
-				throw new Error('Find called with ' + len + ' arguments');
+			} else if (key) {
+				var idNum = parseInt(a[0], 10);
+				if (isNaN(idNum)) {
+					q.and(key, a[0]);
+				} else {
+					q.and(key, idNum);
+				}
 			}
+		} else if ((len === 2 || len === 3 || len === 4) && typeof a[0] === 'string') {
+			q.and.apply(q, a);
+		} else {
+			throw new Error('Unknown arguments for find: (' + a.join(', ') + ')');
 		}
 		return q;
 	},
@@ -140,8 +130,8 @@ this.Adapter = this.Class.extend({
 	 * @param {Class} model class
 	 * @param {Query} q
 	 */
-	destroyAll: function(model, q) {
-		throw new Error('destroyAll not implemented for this adapter');
+	removeAll: function(model, q) {
+		throw new Error('removeAll not implemented for this adapter');
 	},
 
 	/**

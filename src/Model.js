@@ -806,7 +806,7 @@ Model.toString = function() {
  * Adapter lookup methods
  */
 
-var adapterMethods = ['countAll', 'findAll', 'find', 'destroyAll', 'updateAll'];
+var adapterMethods = ['countAll', 'findAll', 'find', 'removeAll', 'updateAll'];
 for (var i = 0, l = adapterMethods.length; i < l; ++i) {
 	var method = adapterMethods[i];
 	Model[method] = (function(method){
