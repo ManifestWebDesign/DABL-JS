@@ -62,6 +62,59 @@ describe('Condition', function() {
 		});
 	});
 
+	describe('and/or', function() {
+		it ('should support field eq value', function() {
+			c.and('field', 'eq', 'value');
+			expect(norm(c.getQueryStatement(a)))
+				.toBe("field = 'value'");
+		});
+		it ('should support field = value', function() {
+			c.and('field', 'eq', 'value');
+			expect(norm(c.getQueryStatement(a)))
+				.toBe("field = 'value'");
+		});
+		it ('should interpret field, value as field = value', function() {
+			c.and('field', 'value');
+			expect(norm(c.getQueryStatement(a)))
+				.toBe("field = 'value'");
+		});
+		it ('should support field IN array', function() {
+			c.and('field', [1, 2, 3]);
+			expect(norm(c.getQueryStatement(a)))
+				.toBe("field IN (1,2,3)");
+		});
+		it ('should support field between array', function() {
+			c.and('field', Condition.BETWEEN, [1, 2]);
+			expect(norm(c.getQueryStatement(a)))
+				.toBe("field BETWEEN 1 AND 2");
+		});
+		it ('should accept a Condition', function() {
+			c.and(new Condition('field', 'value'));
+			expect(norm(c.getQueryStatement(a)))
+				.toBe("( field = 'value')");
+		});
+		it ('should accept OData operators', function() {
+			c.and('field', 'eq', 'value');
+			expect(norm(c.getQueryStatement(a)))
+				.toBe("field = 'value'");
+
+			c = new Condition;
+			c.and('field', 'startswith', 'value');
+			expect(norm(c.getQueryStatement(a)))
+				.toBe("field LIKE 'value%'");
+
+			c = new Condition;
+			c.and('field', 'endswith', 'value');
+			expect(norm(c.getQueryStatement(a)))
+				.toBe("field LIKE '%value'");
+
+			c = new Condition;
+			c.and('value', 'substringof', 'field');
+			expect(norm(c.getQueryStatement(a)))
+				.toBe("field LIKE '%value%'");
+		});
+	});
+
 	describe('getODataFilter', function() {
 		it ('should support SQL or OData operators', function() {
 			for (var oper in Condition.OData.operators) {

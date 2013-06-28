@@ -117,17 +117,22 @@ var Condition = this.Class.extend({
 			isArray = right instanceof Array,
 			arrayLen;
 
+		if (!(operator in Condition.SQL.operators)) {
+			throw new Error('Unsupported SQL operator: "' + operator + '"');
+		}
+
+		if (operator === 'substringof') {
+			var tmp = left;
+			left = right;
+			right = tmp;
+		}
+		operator = Condition.SQL.operators[operator];
+
 		// Escape left
 		if (quote === Condition.QUOTE_LEFT || quote === Condition.QUOTE_BOTH) {
 			statement.addParam(left);
 			left = '?';
 		}
-
-		if (!(operator in Condition.SQL.operators)) {
-			throw new Error('Unsupported SQL operator: "' + operator + '"');
-		}
-
-		operator = Condition.SQL.operators[operator];
 
 		if (operator === Condition.CONTAINS) {
 			operator = Condition.LIKE;
