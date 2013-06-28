@@ -1337,10 +1337,7 @@ this.Model = Model;
 var Condition = this.Class.extend({
 	_conds : null,
 
-	_mode: null,
-
 	init: function Condition(left, operator, right, quote) {
-		this._mode = Condition.MODE_SQL;
 		this._conds = [];
 		if (arguments.length !== 0) {
 			this.and.apply(this, arguments);
@@ -2014,7 +2011,7 @@ var Condition = this.Class.extend({
 		return this.getQueryStatement().toString();
 	},
 
-	toJSON: function() {
+	getSimpleJSON: function() {
 		var r = {};
 
 		if (0 === this._conds.length) {
@@ -2063,9 +2060,6 @@ Condition.IS_NOT_NULL = 'IS NOT NULL';
 Condition.BETWEEN = 'BETWEEN';
 Condition.BINARY_AND = '&';
 Condition.BINARY_OR = '|';
-
-Condition.MODE_SQL = 'sql';
-Condition.MODE_ODATA = 'odata';
 
 Condition.OData = {
 	operators: {
@@ -2978,7 +2972,7 @@ var Query = this.Condition.extend({
 		return r;
 	},
 
-	toJSON: function() {
+	getSimpleJSON: function() {
 		if (this._joins && this._joins.length !== 0) {
 			throw new Error('JOINS cannot be exported.');
 		}
@@ -3767,8 +3761,7 @@ this.RESTAdapter = this.Adapter.extend({
 	},
 
 	find: function(model, id) {
-		var pk = model.getKey(),
-			route = this._route(model._url),
+		var route = this._route(model._url),
 			data = {},
 			def = new Deferred(),
 			instance = null,
@@ -3784,7 +3777,7 @@ this.RESTAdapter = this.Adapter.extend({
 		}
 		q = this.findQuery.apply(this, arguments);
 		q.limit(1);
-		data = q.toArray();
+		data = q.getSimpleJSON();
 
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
@@ -3811,7 +3804,7 @@ this.RESTAdapter = this.Adapter.extend({
 			.apply(this, arguments);
 
 		var route = this._route(model._url),
-			data = q.toArray(),
+			data = q.getSimpleJSON(),
 			def = new Deferred();
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
