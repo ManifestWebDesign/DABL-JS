@@ -854,7 +854,7 @@ var Query = this.Condition.extend({
 		return r;
 	},
 
-	toJSON: function() {
+	getSimpleJSON: function() {
 		if (this._joins && this._joins.length !== 0) {
 			throw new Error('JOINS cannot be exported.');
 		}

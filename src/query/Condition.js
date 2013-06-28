@@ -3,10 +3,7 @@
 var Condition = this.Class.extend({
 	_conds : null,
 
-	_mode: null,
-
 	init: function Condition(left, operator, right, quote) {
-		this._mode = Condition.MODE_SQL;
 		this._conds = [];
 		if (arguments.length !== 0) {
 			this.and.apply(this, arguments);
@@ -680,7 +677,7 @@ var Condition = this.Class.extend({
 		return this.getQueryStatement().toString();
 	},
 
-	toJSON: function() {
+	getSimpleJSON: function() {
 		var r = {};
 
 		if (0 === this._conds.length) {
@@ -729,9 +726,6 @@ Condition.IS_NOT_NULL = 'IS NOT NULL';
 Condition.BETWEEN = 'BETWEEN';
 Condition.BINARY_AND = '&';
 Condition.BINARY_OR = '|';
-
-Condition.MODE_SQL = 'sql';
-Condition.MODE_ODATA = 'odata';
 
 Condition.OData = {
 	operators: {

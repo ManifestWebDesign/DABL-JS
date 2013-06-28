@@ -220,8 +220,7 @@ this.RESTAdapter = this.Adapter.extend({
 	},
 
 	find: function(model, id) {
-		var pk = model.getKey(),
-			route = this._route(model._url),
+		var route = this._route(model._url),
 			data = {},
 			def = new Deferred(),
 			instance = null,
@@ -237,7 +236,7 @@ this.RESTAdapter = this.Adapter.extend({
 		}
 		q = this.findQuery.apply(this, arguments);
 		q.limit(1);
-		data = q.toArray();
+		data = q.getSimpleJSON();
 
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
@@ -264,7 +263,7 @@ this.RESTAdapter = this.Adapter.extend({
 			.apply(this, arguments);
 
 		var route = this._route(model._url),
-			data = q.toArray(),
+			data = q.getSimpleJSON(),
 			def = new Deferred();
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
