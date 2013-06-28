@@ -363,9 +363,9 @@ var Model = this.Class.extend({
 	 * @param {function} failure callback
 	 * @return {Promise}
 	 */
-	destroy: function(success, failure) {
+	remove: function(success, failure) {
 		return this.callAsync(function(){
-			return this.constructor._adapter.destroy(this);
+			return this.constructor._adapter.remove(this);
 		}, success, failure);
 	}
 

@@ -161,8 +161,8 @@ this.Adapter = this.Class.extend({
 	/**
 	 * @param {Model} instance
 	 */
-	destroy: function(instance) {
-		throw new Error('destroy not implemented for this adapter');
+	remove: function(instance) {
+		throw new Error('remove not implemented for this adapter');
 	}
 });
 

@@ -224,9 +224,9 @@ describe('Model', function() {
 		});
 	});
 
-	describe('destroy', function() {
+	describe('remove', function() {
 		it ('should return a Promise and accept success and error callbacks', function(){
-			var result = foo.destroy(asyncSpy, asyncSpy);
+			var result = foo.remove(asyncSpy, asyncSpy);
 			expect(result.constructor).toBe(Deferred().promise().constructor);
 			expect(asyncSpy).toHaveBeenCalled();
 			expect(asyncSpy.calls.length).toBe(1);

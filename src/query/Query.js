@@ -156,6 +156,16 @@ var Query = this.Condition.extend({
 	},
 
 	/**
+	 * Alias of setColumns
+	 * Set array of strings of columns to be selected
+	 * @param columnsArray
+	 * @return {Query}
+	 */
+	select : function(columnsArray) {
+		return this.setColumns.apply(this, arguments);
+	},
+
+	/**
 	 * Return array of columns to be selected
 	 * @return {Array}
 	 */
@@ -802,19 +812,61 @@ var Query = this.Condition.extend({
 		return this.getQuery(adapter);
 	},
 
-	toArray: function() {
-//		if (this._joins && this._joins.length !== 0) {
-//			throw new Error('JOINS cannot be exported.');
-//		}
-//		if (this._extraTables && this._extraTables.length !== 0) {
-//			throw new Error('Extra tables cannot be exported.');
-//		}
-//		if (this._having && this._having.length !== 0) {
-//			throw new Error('Having cannot be exported.');
-//		}
-//		if (this._groups && this._groups.length !== 0) {
-//			throw new Error('Grouping cannot be exported.');
-//		}
+	getODataQuery: function() {
+		if (this._joins && this._joins.length !== 0) {
+			throw new Error('JOINS cannot be exported.');
+		}
+		if (this._extraTables && this._extraTables.length !== 0) {
+			throw new Error('Extra tables cannot be exported.');
+		}
+		if (this._having && this._having.length !== 0) {
+			throw new Error('Having cannot be exported.');
+		}
+		if (this._groups && this._groups.length !== 0) {
+			throw new Error('Grouping cannot be exported.');
+		}
+
+		var r = {};
+
+		if (this._columns.length !== 0) {
+			r.$select = this._columns.join(',');
+		}
+
+		var filter = this.getODataFilter();
+		if (filter) {
+			r.$filter = filter;
+		}
+
+		if (this._limit) {
+			r.$top = this._limit;
+			if (this._offset) {
+				r.$skip = this._offset;
+			}
+		}
+
+		if (this._orders && this._orders.length !== 0) {
+			r.$orderby = this._orders[0][0];
+			if (this._orders[0][1] === Query.DESC) {
+				r.$orderby += ' desc';
+			}
+		}
+
+		return r;
+	},
+
+	toJSON: function() {
+		if (this._joins && this._joins.length !== 0) {
+			throw new Error('JOINS cannot be exported.');
+		}
+		if (this._extraTables && this._extraTables.length !== 0) {
+			throw new Error('Extra tables cannot be exported.');
+		}
+		if (this._having && this._having.length !== 0) {
+			throw new Error('Having cannot be exported.');
+		}
+		if (this._groups && this._groups.length !== 0) {
+			throw new Error('Grouping cannot be exported.');
+		}
 
 		var r = this._super();
 

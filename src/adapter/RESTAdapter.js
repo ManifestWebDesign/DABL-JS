@@ -181,7 +181,7 @@ this.RESTAdapter = this.Adapter.extend({
 		return this._save(instance, 'PUT');
 	},
 
-	destroy: function(instance) {
+	remove: function(instance) {
 		var model = instance.constructor,
 			route = this._route(model._url),
 			def = new Deferred(),

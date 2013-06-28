@@ -143,4 +143,23 @@ OR string LIKE '%text%'"));
 		});
 	});
 
+	describe('getODataQuery', function(){
+		it ('should build OData queries', function(){
+			q.select(['foo'])
+				.where('fun', null)
+				.and('good', 'ne', ['bad', 'ugly'])
+				.limit(10)
+				.offset(50)
+				.orderBy('fun');
+
+			expect(q.getODataQuery()).toEqual({
+				$select: 'foo',
+				$filter: "fun eq null and (good ne 'bad' and good ne 'ugly')",
+				$top: 10,
+				$skip: 50,
+				$orderby : 'fun'
+			});
+		});
+	});
+
 });

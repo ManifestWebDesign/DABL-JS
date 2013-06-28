@@ -374,7 +374,7 @@ var SQLAdapter = this.Adapter.extend({
 			pk = pks[x];
 			pkVal = instance[pk];
 			if (pkVal === null) {
-				throw new Error('Cannot destroy using NULL primary key.');
+				throw new Error('Cannot remove using NULL primary key.');
 			}
 			q.and(pk, pkVal);
 		}
@@ -385,7 +385,7 @@ var SQLAdapter = this.Adapter.extend({
 		return count;
 	},
 
-	destroy: function(instance) {
+	remove: function(instance) {
 		var model = instance.constructor,
 			pks = model.getKeys(),
 			q = new Query,
@@ -402,7 +402,7 @@ var SQLAdapter = this.Adapter.extend({
 			pk = pks[x];
 			pkVal = instance[pk];
 			if (pkVal === null) {
-				throw new Error('Cannot destroy using NULL primary key.');
+				throw new Error('Cannot remove using NULL primary key.');
 			}
 			q.and(pk, pkVal);
 		}
@@ -694,7 +694,7 @@ SQLAdapter.Migration = this.Class.extend({
 			schemaTable;
 		this.adapter.execute(sql);
 		schemaTable = this.schema.findBy('table_name', name);
-		schemaTable.destroy();
+		schemaTable.remove();
 	},
 	renameTable: function(oldName, newName) {
 		var sql = 'ALTER TABLE ' + oldName + ' RENAME TO ' + newName,
