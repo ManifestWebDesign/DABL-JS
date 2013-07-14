@@ -84,9 +84,14 @@ this.RESTAdapter = this.Adapter.extend({
 
 	_routes: null,
 
-	init: function RESTAdaper() {
+	_urlBase: '',
+
+	init: function RESTAdaper(urlBase) {
 		this._super();
 		this._routes = {};
+		if (urlBase) {
+			this._urlBase = urlBase;
+		}
 	},
 
 	_route: function(url) {
@@ -96,7 +101,7 @@ this.RESTAdapter = this.Adapter.extend({
 		if (this._routes[url]) {
 			return this._routes[url];
 		}
-		return this._routes[url] = new Route(url);
+		return this._routes[url] = new Route(this._urlBase + url);
 	},
 
 	_save: function(instance, method) {
@@ -174,7 +179,7 @@ this.RESTAdapter = this.Adapter.extend({
 	update: function(instance) {
 		if (!instance.isModified()) {
 			var def = new Deferred();
-			def.resolve();
+			def.resolve(instance);
 			return def.promise();
 		}
 
