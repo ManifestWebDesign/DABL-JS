@@ -110,7 +110,7 @@ this.RESTAdapter = this.Adapter.extend({
 			value,
 			route = this._route(model._url),
 			data = {},
-			def = new Deferred(),
+			def = Deferred(),
 			pk = model.getKey(),
 			self = this;
 
@@ -178,7 +178,7 @@ this.RESTAdapter = this.Adapter.extend({
 
 	update: function(instance) {
 		if (!instance.isModified()) {
-			var def = new Deferred();
+			var def = Deferred();
 			def.resolve(instance);
 			return def.promise();
 		}
@@ -189,7 +189,7 @@ this.RESTAdapter = this.Adapter.extend({
 	remove: function(instance) {
 		var model = instance.constructor,
 			route = this._route(model._url),
-			def = new Deferred(),
+			def = Deferred(),
 			pk = model.getKey(),
 			self = this;
 
@@ -227,7 +227,7 @@ this.RESTAdapter = this.Adapter.extend({
 	find: function(model, id) {
 		var route = this._route(model._url),
 			data = {},
-			def = new Deferred(),
+			def = Deferred(),
 			instance = null,
 			q;
 
@@ -269,7 +269,7 @@ this.RESTAdapter = this.Adapter.extend({
 
 		var route = this._route(model._url),
 			data = q.getSimpleJSON(),
-			def = new Deferred();
+			def = Deferred();
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);

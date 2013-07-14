@@ -105,12 +105,12 @@
 	 * @param {function} failure callback
 	 */
 	Class.callAsync = Class.prototype.callAsync = function callAsync(func, success, failure) {
-		var deferred = new Deferred(),
+		var deferred = Deferred(),
 			promise = deferred.promise();
 
 		try {
 			var result = func.call(this);
-			if (result instanceof promise.constructor) {
+			if (result && typeof result.then === 'function') {
 				promise = result;
 			} else {
 				deferred.resolve(result);
