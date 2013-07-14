@@ -107,12 +107,12 @@
 	 * @param {function} failure callback
 	 */
 	Class.callAsync = Class.prototype.callAsync = function callAsync(func, success, failure) {
-		var deferred = new Deferred(),
+		var deferred = Deferred(),
 			promise = deferred.promise();
 
 		try {
 			var result = func.call(this);
-			if (result instanceof promise.constructor) {
+			if (result && typeof result.then === 'function') {
 				promise = result;
 			} else {
 				deferred.resolve(result);
@@ -438,17 +438,11 @@
 (function(){
 
 var Model = this.Class.extend({
-	/**
-	 * This will contain the field values IF __defineGetter__ and __defineSetter__
-	 * are supported by the JavaScript engine, otherwise the properties will be
-	 * set and accessed directly on the object
-	 */
-	_values: null,
 
 	/**
 	 * Object containing names of modified fields
 	 */
-	_originalValues: null,
+	_oldValues: null,
 
 	/**
 	 * Whether or not this is a new object
@@ -465,7 +459,6 @@ var Model = this.Class.extend({
 	 */
 	init : function Model(values) {
 		this._validationErrors = [];
-		this._values = {};
 		var defaults = {},
 			model = this.constructor;
 		for (var fieldName in model._fields) {
@@ -514,7 +507,7 @@ var Model = this.Class.extend({
 	 */
 	isModified: function(fieldName) {
 		if (fieldName) {
-			return !equals(this[fieldName], this._originalValues[fieldName]);
+			return !equals(this[fieldName], this._oldValues[fieldName]);
 		}
 		for (var fieldName in this.constructor._fields) {
 			if (this.isModified(fieldName)) {
@@ -543,10 +536,7 @@ var Model = this.Class.extend({
 	 * @return {Model}
 	 */
 	resetModified: function() {
-		this._originalValues = {};
-		for (var fieldName in this.constructor._fields) {
-			this._originalValues[fieldName] = this[fieldName];
-		}
+		this._oldValues = JSON.parse(JSON.stringify(this));
 		return this;
 	},
 
@@ -554,11 +544,8 @@ var Model = this.Class.extend({
 	 * Resets the object to the state it was in before changes were made
 	 */
 	revert: function() {
-		var val;
-		for (var fieldName in this.constructor._fields) {
-			val =  this._originalValues[fieldName];
-			this[fieldName] = typeof val === 'undefined' ? null : val;
-		}
+		this.fromJSON(this._oldValues);
+		this.resetModified();
 		return this;
 	},
 
@@ -969,13 +956,8 @@ Model.coerceValue = function(value, field) {
 };
 
 Model.coerceValues = function(values) {
-	if (
-		null === values
-		|| typeof values === 'undefined'
-		|| this.canDefineProperties
-		|| (values.prototype && values.prototype.__defineGetter__)
-	) {
-		return;
+	if (null === values || typeof values === 'undefined') {
+		return this;
 	}
 	for (var fieldName in this._fields) {
 		if (!(fieldName in values)) {
@@ -1153,31 +1135,31 @@ Model.addField = function(fieldName, field) {
 
 	this._fields[fieldName] = field;
 
-	if (!this.prototype.__defineGetter__ && !this.canDefineProperties) {
-		return;
-	}
-
-	get = function() {
-		var value = this._values[fieldName];
-		return typeof value === 'undefined' ? null : value;
-	};
-	set = function(value) {
-		this._values[fieldName] = self.coerceValue(value, field);
-	};
-
-	try {
-		if (Object.defineProperty) {
-			Object.defineProperty(this.prototype, fieldName, {
-				get: get,
-				set: set,
-				enumerable: true
-			});
-		} else {
-			this.prototype.__defineGetter__(fieldName, get);
-			this.prototype.__defineSetter__(fieldName, set);
-		}
-	} catch (e) {}
-	};
+//	if (!this.prototype.__defineGetter__ && !this.canDefineProperties) {
+//		return;
+//	}
+//
+//	get = function() {
+//		var value = this._values[fieldName];
+//		return typeof value === 'undefined' ? null : value;
+//};
+//	set = function(value) {
+//		this._values[fieldName] = self.coerceValue(value, field);
+//	};
+//
+//	try {
+//		if (Object.defineProperty) {
+//			Object.defineProperty(this.prototype, fieldName, {
+//				get: get,
+//				set: set,
+//				enumerable: true
+//			});
+//		} else {
+//			this.prototype.__defineGetter__(fieldName, get);
+//			this.prototype.__defineSetter__(fieldName, set);
+//		}
+//	} catch (e) {}
+};
 
 /**
  * @param {String} table
@@ -3603,7 +3585,7 @@ function Route(template, defaults) {
 		parts = template.split(/\W/);
 	for (var i = 0, l = parts.length; i < l; ++i) {
 		var param = parts[i];
-		if (param && template.match(new RegExp("[^\\\\]:" + param + "\\W"))) {
+		if (param && template.match(new RegExp("[^\\\\]:" + param + "(\\W|$)"))) {
 			urlParams[param] = true;
 		}
 	}
@@ -3659,9 +3641,14 @@ this.RESTAdapter = this.Adapter.extend({
 
 	_routes: null,
 
-	init: function RESTAdaper() {
+	_urlBase: '',
+
+	init: function RESTAdaper(urlBase) {
 		this._super();
 		this._routes = {};
+		if (urlBase) {
+			this._urlBase = urlBase;
+		}
 	},
 
 	_route: function(url) {
@@ -3671,7 +3658,7 @@ this.RESTAdapter = this.Adapter.extend({
 		if (this._routes[url]) {
 			return this._routes[url];
 		}
-		return this._routes[url] = new Route(url);
+		return this._routes[url] = new Route(this._urlBase + url);
 	},
 
 	_save: function(instance, method) {
@@ -3680,7 +3667,7 @@ this.RESTAdapter = this.Adapter.extend({
 			value,
 			route = this._route(model._url),
 			data = {},
-			def = new Deferred(),
+			def = Deferred(),
 			pk = model.getKey(),
 			self = this;
 
@@ -3748,8 +3735,8 @@ this.RESTAdapter = this.Adapter.extend({
 
 	update: function(instance) {
 		if (!instance.isModified()) {
-			var def = new Deferred();
-			def.resolve();
+			var def = Deferred();
+			def.resolve(instance);
 			return def.promise();
 		}
 
@@ -3759,7 +3746,7 @@ this.RESTAdapter = this.Adapter.extend({
 	remove: function(instance) {
 		var model = instance.constructor,
 			route = this._route(model._url),
-			def = new Deferred(),
+			def = Deferred(),
 			pk = model.getKey(),
 			self = this;
 
@@ -3797,7 +3784,7 @@ this.RESTAdapter = this.Adapter.extend({
 	find: function(model, id) {
 		var route = this._route(model._url),
 			data = {},
-			def = new Deferred(),
+			def = Deferred(),
 			instance = null,
 			q;
 
@@ -3839,7 +3826,7 @@ this.RESTAdapter = this.Adapter.extend({
 
 		var route = this._route(model._url),
 			data = q.getSimpleJSON(),
-			def = new Deferred();
+			def = Deferred();
 		$.get(route.urlGet(data), function(r) {
 			if (!r || (r.errors && r.errors.length)) {
 				def.reject(r);
@@ -3866,6 +3853,179 @@ this.RESTAdapter = this.Adapter.extend({
 });
 
 })(jQuery);
+
+/* RESTAdapterAngular.js */
+(function(){
+
+this.AngularRESTAdapter = this.RESTAdapter.extend({
+
+	$http: null,
+
+	init: function(urlBase, $http) {
+		this._super(urlBase);
+		this.$http = $http;
+	},
+
+	_save: function(instance, method) {
+		var fieldName,
+			model = instance.constructor,
+			value,
+			route = this._route(model._url),
+			data = {},
+			def = Deferred(),
+			pk = model.getKey(),
+			self = this;
+
+		for (fieldName in model._fields) {
+			var field = model._fields[fieldName];
+			value = instance[fieldName];
+			if (model.isTemporalType(field.type)) {
+				value = this.formatDate(value, field.type);
+			}
+			data[fieldName] = value;
+		}
+
+		this.$http({
+			url: route.url(data),
+			method: 'POST',
+			params: data,
+			headers: {
+				'X-HTTP-Method-Override': method
+			}
+		})
+		.success(function(r) {
+			if (!r || (r.errors && r.errors.length)) {
+				def.reject(r);
+				return;
+			}
+			instance
+				.fromJSON(r)
+				.resetModified()
+				.setNew(false);
+
+			if (pk && instance[pk]) {
+				self.cache(model._table, instance[pk], instance);
+			}
+			def.resolve(instance);
+		})
+		.error(function(data, textStatus, errorThrown) {
+			def.reject({
+				status: textStatus
+			});
+		});
+		return def.promise();
+	},
+
+	remove: function(instance) {
+		var model = instance.constructor,
+			route = this._route(model._url),
+			def = Deferred(),
+			pk = model.getKey(),
+			self = this;
+
+		this.$http({
+			url: route.url(instance.toJSON()),
+			method: 'POST',
+			params: {},
+			headers: {
+				'X-HTTP-Method-Override': 'DELETE'
+			}
+		})
+		.success(function(r) {
+			if (r && r.errors && r.errors.length) {
+				def.reject(r);
+				return;
+			}
+			if (pk && instance[pk]) {
+				self.cache(model._table, instance[pk], null);
+			}
+			def.resolve(instance);
+		})
+		.error(function(jqXHR, textStatus, errorThrown){
+			def.reject({
+				status: textStatus,
+				errors: [errorThrown]
+			});
+		});
+
+		return def.promise();
+	},
+
+	find: function(model, id) {
+		var route = this._route(model._url),
+			data = {},
+			def = Deferred(),
+			instance = null,
+			q;
+
+		if (arguments.length === 2 && (typeof id === 'number' || typeof id === 'string')) {
+			// look for it in the cache
+			instance = this.cache(model._table, id);
+			if (instance) {
+				def.resolve(instance);
+				return def.promise();
+			}
+		}
+		q = this.findQuery.apply(this, arguments);
+		q.limit(1);
+		data = q.getSimpleJSON();
+
+		this.$http
+		.get(route.urlGet(data))
+		.success(function(r) {
+			if (!r || (r.errors && r.errors.length)) {
+				def.reject(r);
+				return;
+			}
+			if (r instanceof Array) {
+				r = r.shift();
+			}
+			def.resolve(model.inflate(r));
+		})
+		.error(function(jqXHR, textStatus, errorThrown){
+			def.reject({
+				status: textStatus,
+				errors: [errorThrown]
+			});
+		});
+		return def.promise();
+	},
+
+	findAll: function(model) {
+		var q = this.findQuery
+			.apply(this, arguments);
+
+		var route = this._route(model._url),
+			data = q.getSimpleJSON(),
+			def = Deferred();
+		var url = route.urlGet(data);
+		this.$http
+		.get(url)
+		.success(function(r) {
+			if (!r || (r.errors && r.errors.length)) {
+				def.reject(r);
+				return;
+			}
+			if (!(r instanceof Array)) {
+				r = [r];
+			}
+			var collection = [];
+			for (var x = 0, len = r.length; x < len; ++x) {
+				collection.push(model.inflate(r[x]));
+			}
+			def.resolve(collection);
+		})
+		.error(function(jqXHR, textStatus, errorThrown){
+			def.reject({
+				status: textStatus,
+				errors: [errorThrown]
+			});
+		});
+		return def.promise();
+	}
+});
+
+})();
 
 /* SQLAdapter.js */
 (function(){

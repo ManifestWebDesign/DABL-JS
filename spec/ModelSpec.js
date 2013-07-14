@@ -94,6 +94,15 @@ describe('Model', function() {
 			expect(foo.isModified('id')).toBe(false);
 			expect(foo.isModified('created')).toBe(true);
 		});
+		it ('should return true if a complex (Object) property is modified', function(){
+			expect(foo.isModified()).toBe(false);
+			foo.bar = new Bar;
+			expect(foo.isModified()).toBe(true);
+			foo.resetModified();
+			expect(foo.isModified()).toBe(false);
+			foo.bar.id = 27;
+			expect(foo.isModified()).toBe(true);
+		});
 	});
 
 	describe('getModified', function() {
@@ -140,16 +149,18 @@ describe('Model', function() {
 			foo.list = ['a', 'b'];
 			foo.bars.push(bar);
 			foo.bars.push(bar2);
-			expect(foo.bar.constructor).toBe(Bar);
+			expect(foo.bar.constructor).not.toBe(Bar);
 			expect(foo.bars[0].constructor).toBe(Bar);
 			expect(foo.bars[1]).toBe(bar2);
-			expect(foo.toJSON().bar.constructor).not.toBe(Bar);
-			expect(foo.toJSON().bar.constructor).toBe(Object);
-			expect(foo.toJSON().bar).not.toBe(bar);
-			expect(foo.toJSON().bar.id).toBe(1);
-			expect(foo.toJSON().list).not.toBe(foo.list);
-			expect(foo.toJSON().bars[0]).not.toBe(bar);
-			expect(foo.toJSON().bars[1]).not.toBe(bar2);
+			var json = foo.toJSON();
+			expect(foo.bar.constructor).toBe(Bar);
+			expect(json.bar.constructor).not.toBe(Bar);
+			expect(json.bar.constructor).toBe(Object);
+			expect(json.bar).not.toBe(bar);
+			expect(json.bar.id).toBe(1);
+			expect(json.list).not.toBe(foo.list);
+			expect(json.bars[0]).not.toBe(bar);
+			expect(json.bars[1]).not.toBe(bar2);
 		});
 	});
 

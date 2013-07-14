@@ -1,17 +1,11 @@
 (function(){
 
 var Model = this.Class.extend({
-	/**
-	 * This will contain the field values IF __defineGetter__ and __defineSetter__
-	 * are supported by the JavaScript engine, otherwise the properties will be
-	 * set and accessed directly on the object
-	 */
-	_values: null,
 
 	/**
 	 * Object containing names of modified fields
 	 */
-	_originalValues: null,
+	_oldValues: null,
 
 	/**
 	 * Whether or not this is a new object
@@ -28,7 +22,6 @@ var Model = this.Class.extend({
 	 */
 	init : function Model(values) {
 		this._validationErrors = [];
-		this._values = {};
 		var defaults = {},
 			model = this.constructor;
 		for (var fieldName in model._fields) {
@@ -77,7 +70,7 @@ var Model = this.Class.extend({
 	 */
 	isModified: function(fieldName) {
 		if (fieldName) {
-			return !equals(this[fieldName], this._originalValues[fieldName]);
+			return !equals(this[fieldName], this._oldValues[fieldName]);
 		}
 		for (var fieldName in this.constructor._fields) {
 			if (this.isModified(fieldName)) {
@@ -106,10 +99,7 @@ var Model = this.Class.extend({
 	 * @return {Model}
 	 */
 	resetModified: function() {
-		this._originalValues = {};
-		for (var fieldName in this.constructor._fields) {
-			this._originalValues[fieldName] = this[fieldName];
-		}
+		this._oldValues = JSON.parse(JSON.stringify(this));
 		return this;
 	},
 
@@ -117,11 +107,8 @@ var Model = this.Class.extend({
 	 * Resets the object to the state it was in before changes were made
 	 */
 	revert: function() {
-		var val;
-		for (var fieldName in this.constructor._fields) {
-			val =  this._originalValues[fieldName];
-			this[fieldName] = typeof val === 'undefined' ? null : val;
-		}
+		this.fromJSON(this._oldValues);
+		this.resetModified();
 		return this;
 	},
 
@@ -532,13 +519,8 @@ Model.coerceValue = function(value, field) {
 };
 
 Model.coerceValues = function(values) {
-	if (
-		null === values
-		|| typeof values === 'undefined'
-		|| this.canDefineProperties
-		|| (values.prototype && values.prototype.__defineGetter__)
-	) {
-		return;
+	if (null === values || typeof values === 'undefined') {
+		return this;
 	}
 	for (var fieldName in this._fields) {
 		if (!(fieldName in values)) {
@@ -716,31 +698,31 @@ Model.addField = function(fieldName, field) {
 
 	this._fields[fieldName] = field;
 
-	if (!this.prototype.__defineGetter__ && !this.canDefineProperties) {
-		return;
-	}
-
-	get = function() {
-		var value = this._values[fieldName];
-		return typeof value === 'undefined' ? null : value;
-	};
-	set = function(value) {
-		this._values[fieldName] = self.coerceValue(value, field);
-	};
-
-	try {
-		if (Object.defineProperty) {
-			Object.defineProperty(this.prototype, fieldName, {
-				get: get,
-				set: set,
-				enumerable: true
-			});
-		} else {
-			this.prototype.__defineGetter__(fieldName, get);
-			this.prototype.__defineSetter__(fieldName, set);
-		}
-	} catch (e) {}
-	};
+//	if (!this.prototype.__defineGetter__ && !this.canDefineProperties) {
+//		return;
+//	}
+//
+//	get = function() {
+//		var value = this._values[fieldName];
+//		return typeof value === 'undefined' ? null : value;
+//};
+//	set = function(value) {
+//		this._values[fieldName] = self.coerceValue(value, field);
+//	};
+//
+//	try {
+//		if (Object.defineProperty) {
+//			Object.defineProperty(this.prototype, fieldName, {
+//				get: get,
+//				set: set,
+//				enumerable: true
+//			});
+//		} else {
+//			this.prototype.__defineGetter__(fieldName, get);
+//			this.prototype.__defineSetter__(fieldName, set);
+//		}
+//	} catch (e) {}
+};
 
 /**
  * @param {String} table
