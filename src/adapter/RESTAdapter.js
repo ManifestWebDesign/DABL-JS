@@ -28,7 +28,7 @@ function Route(template, defaults) {
 		parts = template.split(/\W/);
 	for (var i = 0, l = parts.length; i < l; ++i) {
 		var param = parts[i];
-		if (param && template.match(new RegExp("[^\\\\]:" + param + "\\W"))) {
+		if (param && template.match(new RegExp("[^\\\\]:" + param + "(\\W|$)"))) {
 			urlParams[param] = true;
 		}
 	}
