@@ -945,6 +945,10 @@ Model.coerceValue = function(value, field) {
 				value[x] = this.coerceValue(value[x], {type: field.elementType});
 			}
 		}
+	} else if (fieldType === this.FIELD_TYPE_TEXT) {
+		if (typeof value !== 'string') {
+			value = value + '';
+		}
 	} else if (
 		this.isObjectType(fieldType)
 		&& fieldType.isModel
@@ -1161,6 +1165,7 @@ Model.addField = function(fieldName, field) {
 	}
 
 	switch (field.type) {
+		case 'STRING':
 		case String:
 			field.type = self.FIELD_TYPE_TEXT;
 			break;

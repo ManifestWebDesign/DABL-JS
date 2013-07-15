@@ -357,4 +357,49 @@ describe('Model', function() {
 			expect(array[0] instanceof Bar).toBe(false);
 		});
 	});
+
+	describe ('coerceValue', function() {
+		it ('should cast strings', function(){
+			expect(Model.coerceValue(1, { type: Model.FIELD_TYPE_TEXT })).toBe('1');
+			expect(Model.coerceValue(1, { type: Model.FIELD_TYPE_TEXT })).not.toBe(1);
+
+			expect(Model.coerceValue({toString: function(){
+				return 1;
+			}}, { type: Model.FIELD_TYPE_TEXT })).toBe('1');
+		});
+
+		it ('should cast integers', function(){
+			expect(Model.coerceValue(1.1, { type: Model.FIELD_TYPE_INTEGER })).toBe(1);
+			expect(Model.coerceValue('1', { type: Model.FIELD_TYPE_INTEGER })).toBe(1);
+		});
+
+		it ('should cast floats', function(){
+			expect(Model.coerceValue(1.1, { type: Model.FIELD_TYPE_NUMERIC })).toBe(1.1);
+			expect(Model.coerceValue('1', { type: Model.FIELD_TYPE_NUMERIC })).toBe(1);
+			expect(Model.coerceValue('1.5', { type: Model.FIELD_TYPE_NUMERIC })).toBe(1.5);
+		});
+
+		it ('should cast Dates', function(){
+			var date = Model.coerceValue('2012-05-14', { type: Model.FIELD_TYPE_TIMESTAMP });
+			expect(date.getTime()).toBe(new Date('2012-05-14').getTime());
+
+			date = Model.coerceValue('2012-05-14 12:47:01', { type: Model.FIELD_TYPE_TIMESTAMP });
+			expect(date.getTime()).toBe(new Date('2012-05-14 12:47:01').getTime());
+
+			date = Model.coerceValue('5/14/2012', { type: Model.FIELD_TYPE_TIMESTAMP });
+			expect(date.getTime()).toBe(new Date('5/14/2012').getTime());
+		});
+
+		it ('should cast Models', function(){
+			expect(Model.coerceValue({}, { type: Bar }) instanceof Bar).toBe(true);
+		});
+
+		it ('should cast arrays of simple types', function(){
+			expect(Model.coerceValue([1], { type: Array, elementType: Model.FIELD_TYPE_TEXT })[0]).toBe(['1'][0]);
+		});
+
+		it ('should cast arrays of Models', function(){
+			expect(Model.coerceValue([{}], { type: Array, elementType: Bar })[0] instanceof Bar).toBe(true);
+		});
+	});
 });
