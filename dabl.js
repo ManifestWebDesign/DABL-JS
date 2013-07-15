@@ -3942,7 +3942,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 		this.$http({
 			url: route.url(data),
 			method: 'POST',
-			params: data,
+			data: data,
 			headers: {
 				'X-HTTP-Method-Override': method
 			}
@@ -3980,7 +3980,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 		this.$http({
 			url: route.url(instance.toJSON()),
 			method: 'POST',
-			params: {},
+			data: {},
 			headers: {
 				'X-HTTP-Method-Override': 'DELETE'
 			}
