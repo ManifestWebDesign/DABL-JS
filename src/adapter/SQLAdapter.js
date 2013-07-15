@@ -208,13 +208,7 @@ var SQLAdapter = this.Adapter.extend({
 	 * @return Model[]
 	 */
 	fromResult: function(model, result) {
-		var objects = [],
-			i,
-			len;
-		for (i = 0, len = result.length; i < len; ++i) {
-			objects.push(model.inflate(result[i]));
-		}
-		return objects;
+		return model.inflatArray(result);
 	},
 
 	/**

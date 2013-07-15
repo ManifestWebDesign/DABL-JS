@@ -503,7 +503,7 @@ Model.coerceValue = function(value, field) {
 		}
 	} else if (fieldType === Array) {
 		if (field.elementType) {
-			this.modifyArray(value, field.elementType);
+			this.convertArray(value, field.elementType);
 			for (var x = 0, l = value.length; x < l; ++x) {
 				value[x] = this.coerceValue(value[x], {type: field.elementType});
 			}
@@ -531,20 +531,51 @@ Model.coerceValues = function(values) {
 	return this;
 };
 
-Model.modifyArray = function(array, elementType) {
+Model.convertArray = function(array, elementType) {
+	if (array.modelCollection) {
+		return;
+	}
+
+	array.modelCollection = true;
+
 	var model = this;
 	array.push = function() {
-		for (var x = 0, l = arguments.length; x < l; ++x) {
-			arguments[x] = model.coerceValue(arguments[x], {type: elementType});
-		}
-		return Array.prototype.push.apply(this, arguments);
+		return Array.prototype.push.apply(this, model.coerceValue(arguments, {type: Array, elementType: elementType}));
 	};
 	array.unshift = function() {
-		for (var x = 0, l = arguments.length; x < l; ++x) {
+		return Array.prototype.unshift.apply(this, model.coerceValue(arguments, {type: Array, elementType: elementType}));
+	};
+	array.pop = function() {
+		return model.coerceValue(Array.prototype.pop.apply(this, arguments), {type: elementType});
+	};
+	array.shift = function() {
+		return model.coerceValue(Array.prototype.shift.apply(this, arguments), {type: elementType});
+	};
+	array.slice = function() {
+		return model.coerceValue(Array.prototype.slice.apply(this, arguments), {type: Array, elementType: elementType});
+	};
+	array.concat = function() {
+		return model.coerceValue(Array.prototype.concat.apply(this, arguments), {type: Array, elementType: elementType});
+	};
+	array.splice = function() {
+		for (var x = 2, l = arguments.length; x < l; ++x) {
 			arguments[x] = model.coerceValue(arguments[x], {type: elementType});
 		}
-		return Array.prototype.unshift.apply(this, arguments);
+		return model.coerceValue(Array.prototype.splice.apply(this, arguments), {type: Array, elementType: elementType});
 	};
+
+	var iterationMethods = ['forEach', 'every', 'some', 'filter', 'map'];
+	for (var x = 0, l = iterationMethods.length; x < l; ++x) {
+		var method = iterationMethods[x];
+		array[method] = (function(method) {
+			return function(callback, thisArg) {
+				return Array.prototype[method].call(this, function() {
+					arguments[0] = model.coerceValue(this, {type: elementType});
+					return callback.apply(this, arguments);
+				}, thisArg);
+			};
+		})(method);
+	}
 };
 
 /**
@@ -585,6 +616,28 @@ Model.inflate = function(values) {
 		adapter.cache(this._table, instance[pk], instance);
 	}
 	return instance;
+};
+
+Model.inflateArray = function(array) {
+	var i,
+		len,
+		result;
+
+	if (array.constructor !== Array) {
+		if (typeof result.length === 'undefined') {
+			throw new Error('Unknown array type for collection.');
+		}
+		result = [];
+	} else {
+		result = array;
+	}
+
+	for (i = 0, len = array.length; i < len; ++i) {
+		result[i] = this.inflate(array[i]);
+	}
+
+	this.convertArray(result, this);
+	return result;
 };
 
 /**

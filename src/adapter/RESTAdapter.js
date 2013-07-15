@@ -278,11 +278,7 @@ this.RESTAdapter = this.Adapter.extend({
 			if (!(r instanceof Array)) {
 				r = [r];
 			}
-			var collection = [];
-			for (var x = 0, len = r.length; x < len; ++x) {
-				collection.push(model.inflate(r[x]));
-			}
-			def.resolve(collection);
+			def.resolve(model.inflateArray(r));
 		})
 		.fail(function(jqXHR, textStatus, errorThrown){
 			def.reject({

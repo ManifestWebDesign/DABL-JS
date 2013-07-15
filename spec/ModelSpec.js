@@ -268,4 +268,93 @@ describe('Model', function() {
 			expect(foo).toBe(foo2);
 		});
 	});
+
+	describe('inflateArray', function(){
+		it ('should convert an array to an array of instances', function(){
+			var array = [{
+				id: 1
+			}];
+			Foo.inflateArray(array);
+			expect(array[0] instanceof Foo).toBe(true);
+			expect(array);
+		});
+	});
+
+	describe('convertArray', function(){
+		var array = [];
+		Bar.convertArray(array, Bar);
+
+		it ('should convert array inputs and outputs to be instances of the proper class', function(){
+			// push
+			array.push({});
+			expect(array[0] instanceof Bar).toBe(true);
+			array.pop();
+
+			expect(array.length).toBe(0);
+
+			// pop
+			array[0] = {};
+			expect(array.pop() instanceof Bar).toBe(true);
+
+			expect(array.length).toBe(0);
+
+			// shift
+			array[0] = {};
+			expect(array.shift() instanceof Bar).toBe(true);
+
+			expect(array.length).toBe(0);
+
+			// unshift
+			array.unshift({});
+			expect(array[0] instanceof Bar).toBe(true);
+			array.shift();
+
+			expect(array.length).toBe(0);
+
+			// slice
+			array[0] = {};
+			expect(array.slice(0)[0] instanceof Bar).toBe(true);
+			array.shift();
+
+			expect(array.length).toBe(0);
+
+			// concat
+			expect(array.concat([{}])[0] instanceof Bar).toBe(true);
+
+			expect(array.length).toBe(0);
+
+			// splice
+			array[0] = {};
+			array[1] = {};
+			expect(array.length).toBe(2);
+			var removed = array.splice(1, 1, {});
+			expect(removed[0] instanceof Bar).toBe(true);
+			expect(array[1] instanceof Bar).toBe(true);
+			expect(array.length).toBe(2);
+			array.shift();
+			array.shift();
+
+			expect(array.length).toBe(0);
+
+			array[0] = {};
+			array[0] = {};
+			array.forEach(function(value){
+				expect(value instanceof Bar).toBe(true);
+			});
+
+			array.every(function(value){
+				expect(value instanceof Bar).toBe(true);
+			});
+
+			array.map(function(value){
+				expect(value instanceof Bar).toBe(true);
+			});
+
+			array.some(function(value){
+				expect(value instanceof Bar).toBe(true);
+			});
+
+			expect(array[0] instanceof Bar).toBe(false);
+		});
+	});
 });
