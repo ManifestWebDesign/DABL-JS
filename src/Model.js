@@ -574,7 +574,7 @@ Model.convertArray = function(array, elementType) {
 		array[method] = (function(method) {
 			return function(callback, thisArg) {
 				return Array.prototype[method].call(this, function() {
-					arguments[0] = model.coerceValue(this, {type: elementType});
+					arguments[0] = model.coerceValue(arguments[0], {type: elementType});
 					return callback.apply(this, arguments);
 				}, thisArg);
 			};
@@ -609,10 +609,18 @@ Model.inflate = function(values) {
 	if (pk && values[pk]) {
 		instance = adapter.cache(this._table, values[pk]);
 		if (instance) {
-			return instance;
+			// if instance is modified, don't alter with values from database
+			if (instance.isModified()) {
+				return instance;
+			}
+			// if not modified, update instance with latest db values
+			instance.fromJSON(values);
 		}
 	}
-	instance = new this(values)
+	if (!instance) {
+		instance = new this(values);
+	}
+	instance
 		.resetModified()
 		.setNew(false);
 
@@ -715,8 +723,6 @@ Model.isAutoIncrement = function() {
  * @param {mixed} field
  */
 Model.addField = function(fieldName, field) {
-	var get, set, self = this;
-
 	if (!field.type) {
 		field = {
 			type: field
@@ -730,16 +736,16 @@ Model.addField = function(fieldName, field) {
 	switch (field.type) {
 		case 'STRING':
 		case String:
-			field.type = self.FIELD_TYPE_TEXT;
+			field.type = this.FIELD_TYPE_TEXT;
 			break;
 		case Number:
-			field.type = self.FIELD_TYPE_NUMERIC;
+			field.type = this.FIELD_TYPE_NUMERIC;
 			break;
 		case Date:
-			field.type = self.FIELD_TYPE_TIMESTAMP;
+			field.type = this.FIELD_TYPE_TIMESTAMP;
 			break;
 		case 'INT':
-			field.type = self.FIELD_TYPE_INTEGER;
+			field.type = this.FIELD_TYPE_INTEGER;
 			break;
 	}
 
@@ -749,13 +755,16 @@ Model.addField = function(fieldName, field) {
 	if (field.computed) {
 		this._autoIncrement = true;
 	}
-
 	if (!this.isFieldType(field.type)) {
 		throw new Error(field.type + ' is not a valide field type');
+	}
+	if (field.type.isModel) {
+		this._relations.push(fieldName);
 	}
 
 	this._fields[fieldName] = field;
 
+//	var get, set, self = this;
 //	if (!this.prototype.__defineGetter__ && !this.canDefineProperties) {
 //		return;
 //	}
@@ -805,9 +814,11 @@ Model.extend = function(table, opts) {
 	if (!this._table && !this._fields) {
 		newClass._keys = [];
 		newClass._fields = {};
+		newClass._relations = [];
 	} else {
 		newClass._keys = copy(this._keys);
 		newClass._fields = copy(this._fields);
+		newClass._relations = copy(this._relations);
 	}
 
 	newClass._table = table;
