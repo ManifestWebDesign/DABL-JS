@@ -116,9 +116,7 @@
 				deferred.resolve(result);
 			}
 		} catch (e) {
-			deferred.reject({
-				errors: [e]
-			});
+			deferred.reject(e);
 		}
 
 		if (typeof success === 'function' || typeof failure === 'function') {

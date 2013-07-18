@@ -82,13 +82,12 @@ Route.prototype = {
 
 this.RESTAdapter = this.Adapter.extend({
 
-	_routes: null,
+	_routes: {},
 
 	_urlBase: '',
 
 	init: function RESTAdaper(urlBase) {
 		this._super();
-		this._routes = {};
 		if (urlBase) {
 			this._urlBase = urlBase;
 		}
@@ -104,15 +103,40 @@ this.RESTAdapter = this.Adapter.extend({
 		return this._routes[url] = new Route(this._urlBase + url);
 	},
 
+	_getErrorCallback: function(def) {
+		return function(jqXHR, textStatus, errorThrown) {
+			var data;
+			try {
+				if (jqXHR.responseText) {
+					data = JSON.parse(jqXHR.responseText);
+				} else {
+					data = null;
+				}
+			} catch (e) {
+				data = null;
+			};
+			var error = errorThrown || 'Request failed.';
+			if (data) {
+				if (data.error) {
+					error = data.error;
+				} else if (data.errors) {
+					error = data.errors.join('\n');
+				}
+			}
+			def.reject(error, data, jqXHR);
+		};
+	},
+
 	_save: function(instance, method) {
 		var fieldName,
 			model = instance.constructor,
 			value,
 			route = this._route(model._url),
 			data = {},
-			def = Deferred(),
 			pk = model.getKey(),
-			self = this;
+			self = this,
+			def = Deferred(),
+			error = this._getErrorCallback(def);
 
 		for (fieldName in model._fields) {
 			var field = model._fields[fieldName];
@@ -132,28 +156,22 @@ this.RESTAdapter = this.Adapter.extend({
 			headers: {
 				'X-HTTP-Method-Override': method
 			},
-			success: function(r) {
-				if (!r || (r.errors && r.errors.length)) {
-					def.reject(r);
+			success: function(data, textStatus, jqXHR) {
+				if (!data || data.error || (data.errors && data.errors.length) || (pk && typeof instance[pk] === 'undefined')) {
+					error(jqXHR, textStatus, 'Invalid response.');
 					return;
 				}
 				instance
-					.fromJSON(r)
+					.fromJSON(data)
 					.resetModified()
 					.setNew(false);
 
-				if (pk && instance[pk]) {
+				if (pk && typeof instance[pk] !== 'undefined') {
 					self.cache(model._table, instance[pk], instance);
 				}
 				def.resolve(instance);
 			},
-			error: function(jqXHR, textStatus, errorThrown) {
-				def.reject({
-					xhr: jqXHR,
-					status: textStatus,
-					errors: [errorThrown]
-				});
-			}
+			error: error
 		});
 		return def.promise();
 	},
@@ -189,9 +207,10 @@ this.RESTAdapter = this.Adapter.extend({
 	remove: function(instance) {
 		var model = instance.constructor,
 			route = this._route(model._url),
-			def = Deferred(),
 			pk = model.getKey(),
-			self = this;
+			self = this,
+			def = Deferred(),
+			error = this._getErrorCallback(def);
 
 		$.ajax({
 			url: route.url(instance.toJSON()),
@@ -202,9 +221,9 @@ this.RESTAdapter = this.Adapter.extend({
 			headers: {
 				'X-HTTP-Method-Override': 'DELETE'
 			},
-			success: function(r) {
-				if (r && r.errors && r.errors.length) {
-					def.reject(r);
+			success: function(data, textStatus, jqXHR) {
+				if (data && (data.error || (data.errors && data.errors.length))) {
+					error(jqXHR, textStatus, 'Invalid response.');
 					return;
 				}
 				if (pk && instance[pk]) {
@@ -212,13 +231,7 @@ this.RESTAdapter = this.Adapter.extend({
 				}
 				def.resolve(instance);
 			},
-			error: function(jqXHR, textStatus, errorThrown){
-				def.reject({
-					xhr: jqXHR,
-					status: textStatus,
-					errors: [errorThrown]
-				});
-			}
+			error: error
 		});
 
 		return def.promise();
@@ -227,9 +240,10 @@ this.RESTAdapter = this.Adapter.extend({
 	find: function(model, id) {
 		var route = this._route(model._url),
 			data = {},
-			def = Deferred(),
 			instance = null,
-			q;
+			q,
+			def = Deferred(),
+			error = this._getErrorCallback(def);
 
 		if (arguments.length === 2 && (typeof id === 'number' || typeof id === 'string')) {
 			// look for it in the cache
@@ -243,50 +257,39 @@ this.RESTAdapter = this.Adapter.extend({
 		q.limit(1);
 		data = q.getSimpleJSON();
 
-		$.get(route.urlGet(data), function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
+		$.get(route.urlGet(data), function(data, textStatus, jqXHR) {
+			if (!data || data.error || (data.errors && data.errors.length)) {
+				error(jqXHR, textStatus, 'Invalid response.');
 				return;
 			}
-			if (r instanceof Array) {
-				r = r.shift();
+			if (data instanceof Array) {
+				data = data.shift();
 			}
-			def.resolve(model.inflate(r));
+			def.resolve(model.inflate(data));
 		})
-		.fail(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				xhr: jqXHR,
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
+		.fail(error);
 		return def.promise();
 	},
 
 	findAll: function(model) {
 		var q = this.findQuery
-			.apply(this, arguments);
-
-		var route = this._route(model._url),
+			.apply(this, arguments),
+			route = this._route(model._url),
 			data = q.getSimpleJSON(),
-			def = Deferred();
-		$.get(route.urlGet(data), function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
+			def = Deferred(),
+			error = this._getErrorCallback(def);
+
+		$.get(route.urlGet(data), function(data, textStatus, jqXHR) {
+			if (!data || data.error || (data.errors && data.errors.length)) {
+				error(jqXHR, textStatus, 'Invalid response.');
 				return;
 			}
-			if (!(r instanceof Array)) {
-				r = [r];
+			if (!(data instanceof Array)) {
+				data = [data];
 			}
-			def.resolve(model.inflateArray(r));
+			def.resolve(model.inflateArray(data));
 		})
-		.fail(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				xhr: jqXHR,
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
+		.fail(error);
 		return def.promise();
 	}
 });

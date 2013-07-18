@@ -9,15 +9,30 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 		this.$http = $http;
 	},
 
+	_getErrorCallback: function(def) {
+		return function(data, status, headers, config){
+			var error = 'Request failed.';
+			if (data) {
+				if (data.error) {
+					error = data.error;
+				} else if (data.errors) {
+					error = data.errors.join('\n');
+				}
+			}
+			def.reject(error, data, config);
+		};
+	},
+
 	_save: function(instance, method) {
 		var fieldName,
 			model = instance.constructor,
 			value,
 			route = this._route(model._url),
 			data = {},
-			def = Deferred(),
 			pk = model.getKey(),
-			self = this;
+			self = this,
+			def = Deferred(),
+			error = this._getErrorCallback(def);
 
 		for (fieldName in model._fields) {
 			var field = model._fields[fieldName];
@@ -36,35 +51,32 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 				'X-HTTP-Method-Override': method
 			}
 		})
-		.success(function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
+		.success(function(data, status, headers, config) {
+			if (!data || data.error || (data.errors && data.errors.length) || (pk && typeof instance[pk] === 'undefined')) {
+				error.apply(this, arguments);
 				return;
 			}
 			instance
-				.fromJSON(r)
+				.fromJSON(data)
 				.resetModified()
 				.setNew(false);
 
-			if (pk && instance[pk]) {
+			if (pk && typeof instance[pk] !== 'undefined') {
 				self.cache(model._table, instance[pk], instance);
 			}
 			def.resolve(instance);
 		})
-		.error(function(data, textStatus, errorThrown) {
-			def.reject({
-				status: textStatus
-			});
-		});
+		.error(error);
 		return def.promise();
 	},
 
 	remove: function(instance) {
 		var model = instance.constructor,
 			route = this._route(model._url),
-			def = Deferred(),
 			pk = model.getKey(),
-			self = this;
+			self = this,
+			def = Deferred(),
+			error = this._getErrorCallback(def);
 
 		this.$http({
 			url: route.url(instance.toJSON()),
@@ -74,9 +86,9 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 				'X-HTTP-Method-Override': 'DELETE'
 			}
 		})
-		.success(function(r) {
-			if (r && r.errors && r.errors.length) {
-				def.reject(r);
+		.success(function(data, status, headers, config) {
+			if (data && (data.error || (data.errors && data.errors.length))) {
+				error.apply(this, arguments);
 				return;
 			}
 			if (pk && instance[pk]) {
@@ -84,12 +96,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			}
 			def.resolve(instance);
 		})
-		.error(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
+		.error(error);
 
 		return def.promise();
 	},
@@ -97,9 +104,10 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 	find: function(model, id) {
 		var route = this._route(model._url),
 			data = {},
-			def = Deferred(),
 			instance = null,
-			q;
+			q,
+			def = Deferred(),
+			error = this._getErrorCallback(def);
 
 		if (arguments.length === 2 && (typeof id === 'number' || typeof id === 'string')) {
 			// look for it in the cache
@@ -115,51 +123,41 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 
 		this.$http
 		.get(route.urlGet(data))
-		.success(function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
+		.success(function(data, status, headers, config) {
+			if (!data || data.error || (data.errors && data.errors.length)) {
+				error.apply(this, arguments);
 				return;
 			}
-			if (r instanceof Array) {
-				r = r.shift();
+			if (data instanceof Array) {
+				data = data.shift();
 			}
-			def.resolve(model.inflate(r));
+			def.resolve(model.inflate(data));
 		})
-		.error(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
+		.error(error);
 		return def.promise();
 	},
 
 	findAll: function(model) {
 		var q = this.findQuery
-			.apply(this, arguments);
-
-		var route = this._route(model._url),
+			.apply(this, arguments),
+			route = this._route(model._url),
 			data = q.getSimpleJSON(),
-			def = Deferred();
-		var url = route.urlGet(data);
+			def = Deferred(),
+			error = this._getErrorCallback(def);
+
 		this.$http
-		.get(url)
-		.success(function(r) {
-			if (!r || (r.errors && r.errors.length)) {
-				def.reject(r);
+		.get(route.urlGet(data))
+		.success(function(data, status, headers, config) {
+			if (!data || data.error || (data.errors && data.errors.length)) {
+				error.apply(this, arguments);
 				return;
 			}
-			if (!(r instanceof Array)) {
-				r = [r];
+			if (!(data instanceof Array)) {
+				data = [data];
 			}
-			def.resolve(model.inflateArray(r));
+			def.resolve(model.inflateArray(data));
 		})
-		.error(function(jqXHR, textStatus, errorThrown){
-			def.reject({
-				status: textStatus,
-				errors: [errorThrown]
-			});
-		});
+		.error(error);
 		return def.promise();
 	}
 });

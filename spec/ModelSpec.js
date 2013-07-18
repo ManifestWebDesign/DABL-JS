@@ -1,8 +1,9 @@
 describe('Model', function() {
 	var foo,
+		a = new SQLAdapter(new SQLAdapter.TiDebugDB),
 		now = new Date(Date.now()),
 		Foo = Model.extend('foo', {
-			adapter: new SQLAdapter(new SQLAdapter.TiDebugDB),
+			adapter: a,
 			fields: {
 				id: { type: 'int', key: true, computed: true },
 				name: { type: String, value: 'default name for entity', required: true },
@@ -12,7 +13,7 @@ describe('Model', function() {
 			}
 		}),
 		Bar = Model.extend('bar', {
-			adapter: new SQLAdapter(new SQLAdapter.TiDebugDB),
+			adapter: a,
 			fields: {
 				id: { type: 'int', key: true, computed: true }
 			}
