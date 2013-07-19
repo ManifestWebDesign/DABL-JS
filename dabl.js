@@ -3717,7 +3717,7 @@ this.RESTAdapter = this.Adapter.extend({
 		}
 	},
 
-	_route: function(url) {
+	_getRoute: function(url) {
 		if (!url) {
 			throw new Error('Cannot create RESTful route for empty url.');
 		}
@@ -3751,11 +3751,24 @@ this.RESTAdapter = this.Adapter.extend({
 		};
 	},
 
+	_isValidResponseObject: function(data, model) {
+		var pk = model.getKey();
+		if (
+			typeof data !== 'object'
+			|| data.error
+			|| (data.errors && data.errors.length !== 0)
+			|| (pk && typeof data[pk] === 'undefined')
+		) {
+			return false;
+		}
+		return true;
+	},
+
 	_save: function(instance, method) {
 		var fieldName,
 			model = instance.constructor,
 			value,
-			route = this._route(model._url),
+			route = this._getRoute(model._url),
 			data = {},
 			pk = model.getKey(),
 			self = this,
@@ -3781,7 +3794,7 @@ this.RESTAdapter = this.Adapter.extend({
 				'X-HTTP-Method-Override': method
 			},
 			success: function(data, textStatus, jqXHR) {
-				if (!data || data.error || (data.errors && data.errors.length) || (pk && typeof instance[pk] === 'undefined')) {
+				if (!self._isValidResponseObject(data, model)) {
 					error(jqXHR, textStatus, 'Invalid response.');
 					return;
 				}
@@ -3830,7 +3843,7 @@ this.RESTAdapter = this.Adapter.extend({
 
 	remove: function(instance) {
 		var model = instance.constructor,
-			route = this._route(model._url),
+			route = this._getRoute(model._url),
 			pk = model.getKey(),
 			self = this,
 			def = Deferred(),
@@ -3862,12 +3875,13 @@ this.RESTAdapter = this.Adapter.extend({
 	},
 
 	find: function(model, id) {
-		var route = this._route(model._url),
+		var route = this._getRoute(model._url),
 			data = {},
 			instance = null,
 			q,
 			def = Deferred(),
-			error = this._getErrorCallback(def);
+			error = this._getErrorCallback(def),
+			self = this;
 
 		if (arguments.length === 2 && (typeof id === 'number' || typeof id === 'string')) {
 			// look for it in the cache
@@ -3882,7 +3896,7 @@ this.RESTAdapter = this.Adapter.extend({
 		data = q.getSimpleJSON();
 
 		$.get(route.urlGet(data), function(data, textStatus, jqXHR) {
-			if (!data || data.error || (data.errors && data.errors.length)) {
+			if (!self._isValidResponseObject(data, model)) {
 				error(jqXHR, textStatus, 'Invalid response.');
 				return;
 			}
@@ -3898,13 +3912,13 @@ this.RESTAdapter = this.Adapter.extend({
 	findAll: function(model) {
 		var q = this.findQuery
 			.apply(this, arguments),
-			route = this._route(model._url),
+			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
 			def = Deferred(),
 			error = this._getErrorCallback(def);
 
 		$.get(route.urlGet(data), function(data, textStatus, jqXHR) {
-			if (!data || data.error || (data.errors && data.errors.length)) {
+			if (typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
 				error(jqXHR, textStatus, 'Invalid response.');
 				return;
 			}
@@ -3950,7 +3964,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 		var fieldName,
 			model = instance.constructor,
 			value,
-			route = this._route(model._url),
+			route = this._getRoute(model._url),
 			data = {},
 			pk = model.getKey(),
 			self = this,
@@ -3975,7 +3989,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			}
 		})
 		.success(function(data, status, headers, config) {
-			if (!data || data.error || (data.errors && data.errors.length) || (pk && typeof instance[pk] === 'undefined')) {
+			if (!self._isValidResponseObject(data, model)) {
 				error.apply(this, arguments);
 				return;
 			}
@@ -3995,7 +4009,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 
 	remove: function(instance) {
 		var model = instance.constructor,
-			route = this._route(model._url),
+			route = this._getRoute(model._url),
 			pk = model.getKey(),
 			self = this,
 			def = Deferred(),
@@ -4025,12 +4039,13 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 	},
 
 	find: function(model, id) {
-		var route = this._route(model._url),
+		var route = this._getRoute(model._url),
 			data = {},
 			instance = null,
 			q,
 			def = Deferred(),
-			error = this._getErrorCallback(def);
+			error = this._getErrorCallback(def),
+			self = this;
 
 		if (arguments.length === 2 && (typeof id === 'number' || typeof id === 'string')) {
 			// look for it in the cache
@@ -4047,7 +4062,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 		this.$http
 		.get(route.urlGet(data))
 		.success(function(data, status, headers, config) {
-			if (!data || data.error || (data.errors && data.errors.length)) {
+			if (!self._isValidResponseObject(data, model)) {
 				error.apply(this, arguments);
 				return;
 			}
@@ -4063,7 +4078,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 	findAll: function(model) {
 		var q = this.findQuery
 			.apply(this, arguments),
-			route = this._route(model._url),
+			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
 			def = Deferred(),
 			error = this._getErrorCallback(def);
@@ -4071,7 +4086,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 		this.$http
 		.get(route.urlGet(data))
 		.success(function(data, status, headers, config) {
-			if (!data || data.error || (data.errors && data.errors.length)) {
+			if (typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
 				error.apply(this, arguments);
 				return;
 			}
