@@ -108,19 +108,23 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			q,
 			def = Deferred(),
 			error = this._getErrorCallback(def),
-			self = this;
+			self = this,
+			pk = model.getKey();
 
-		if (arguments.length === 2 && (typeof id === 'number' || typeof id === 'string')) {
+		if (pk && arguments.length === 2 && (typeof id === 'number' || typeof id === 'string')) {
 			// look for it in the cache
 			instance = this.cache(model._table, id);
 			if (instance) {
 				def.resolve(instance);
 				return def.promise();
 			}
+			data = {};
+			data[pk] = id;
+		} else {
+			q = this.findQuery.apply(this, arguments);
+			q.limit(1);
+			data = q.getSimpleJSON();
 		}
-		q = this.findQuery.apply(this, arguments);
-		q.limit(1);
-		data = q.getSimpleJSON();
 
 		this.$http
 		.get(route.urlGet(data))
