@@ -128,6 +128,19 @@
 		return promise;
 	};
 
+	Class.constructDate = Class.prototype.constructDate = function(string) {
+		if (string instanceof Date) {
+			return string;
+		}
+		var date;
+		if (typeof moment !== 'undefined') {
+			date = moment(string).toDate();
+		} else {
+			date = new Date(string);
+		}
+		return date;
+	};
+
 	this.Class = Class;
 })();
 
@@ -931,10 +944,11 @@ Model.coerceValue = function(value, field) {
 		}
 	} else if (temporal) {
 		if (!(value instanceof Date)) {
-			value = new Date(value);
-			if (isNaN(value.getTime())) {
+			var date = this.constructDate(value);
+			if (isNaN(date.getTime())) {
 				throw new Error(value + ' is not a valid date');
 			}
+			value = date;
 		}
 	} else if (fieldType === Array) {
 		if (field.elementType) {
@@ -3512,7 +3526,7 @@ this.Adapter = this.Class.extend({
 			return this.formatDateTime(value);
 		}
 		if (!(value instanceof Date)) {
-			value = new Date(value);
+			value = this.constructDate(value);
 		}
 		return value.getFullYear() + '-' + _sPad(value.getMonth() + 1) + '-' + _sPad(value.getDate());
 	},
@@ -3523,7 +3537,7 @@ this.Adapter = this.Class.extend({
 	 */
 	formatDateTime: function(value) {
 		if (!(value instanceof Date)) {
-			value = new Date(value);
+			value = this.constructDate(value);
 		}
 		return this.formatDate(value) + ' ' + _sPad(value.getHours()) + ':' + _sPad(value.getMinutes()) + ':' + _sPad(value.getSeconds());
 	},
@@ -3815,7 +3829,7 @@ this.RESTAdapter = this.Adapter.extend({
 
 	formatDateTime: function(value) {
 		if (!(value instanceof Date)) {
-			value = new Date(value);
+			value = this.constructDate(value);
 		}
 		var offset = -value.getTimezoneOffset() / 60;
 		offset = (offset > 0 ? '+' : '-') + _sPad(Math.abs(offset));

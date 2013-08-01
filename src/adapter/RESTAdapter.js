@@ -191,7 +191,7 @@ this.RESTAdapter = this.Adapter.extend({
 
 	formatDateTime: function(value) {
 		if (!(value instanceof Date)) {
-			value = new Date(value);
+			value = this.constructDate(value);
 		}
 		var offset = -value.getTimezoneOffset() / 60;
 		offset = (offset > 0 ? '+' : '-') + _sPad(Math.abs(offset));

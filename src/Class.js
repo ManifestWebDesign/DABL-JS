@@ -126,5 +126,18 @@
 		return promise;
 	};
 
+	Class.constructDate = Class.prototype.constructDate = function(string) {
+		if (string instanceof Date) {
+			return string;
+		}
+		var date;
+		if (typeof moment !== 'undefined') {
+			date = moment(string).toDate();
+		} else {
+			date = new Date(string);
+		}
+		return date;
+	};
+
 	this.Class = Class;
 })();

@@ -49,7 +49,7 @@ this.Adapter = this.Class.extend({
 			return this.formatDateTime(value);
 		}
 		if (!(value instanceof Date)) {
-			value = new Date(value);
+			value = this.constructDate(value);
 		}
 		return value.getFullYear() + '-' + _sPad(value.getMonth() + 1) + '-' + _sPad(value.getDate());
 	},
@@ -60,7 +60,7 @@ this.Adapter = this.Class.extend({
 	 */
 	formatDateTime: function(value) {
 		if (!(value instanceof Date)) {
-			value = new Date(value);
+			value = this.constructDate(value);
 		}
 		return this.formatDate(value) + ' ' + _sPad(value.getHours()) + ':' + _sPad(value.getMinutes()) + ':' + _sPad(value.getSeconds());
 	},
