@@ -926,11 +926,7 @@ Model.coerceValue = function(value, field) {
 		}
 	} else if (temporal) {
 		if (!(value instanceof Date)) {
-			var date = constructDate(value);
-			if (isNaN(date.getTime())) {
-				throw new Error(value + ' is not a valid date');
-			}
-			value = date;
+			value = constructDate(value);
 		}
 	} else if (fieldType === Array) {
 		if (field.elementType) {
@@ -1381,18 +1377,33 @@ function formatDate(value) {
 	if (!(value instanceof Date)) {
 		value = constructDate(value);
 	}
+	if (!value) {
+		return null;
+	}
 	return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
 }
 
-function constructDate(string) {
-	if (string instanceof Date) {
-		return string;
+function constructDate(value) {
+	if (value instanceof Date) {
+		return value;
 	}
+	if (!value) {
+		return null;
+	}
+
 	var date;
 	if (typeof moment !== 'undefined') {
-		date = moment(string).toDate();
+		var moment = moment(value);
+		if (null !== moment) {
+			date = moment.toDate();
+		} else {
+			date = new Date(NaN);
+		}
 	} else {
-		date = new Date(Date.parse(string));
+		date = new Date(Date.parse(value));
+	}
+	if (isNaN(date.getTime())) {
+		throw new Error(value + ' is not a valid date');
 	}
 	return date;
 }
@@ -3502,6 +3513,9 @@ var Adapter = Class.extend({
 	 * @return {String}
 	 */
 	formatDate: function(value, fieldType) {
+		if (!value) {
+			return null;
+		}
 		if (fieldType && fieldType === Model.FIELD_TYPE_TIMESTAMP) {
 			return this.formatDateTime(value);
 		}
@@ -3516,6 +3530,9 @@ var Adapter = Class.extend({
 	 * @return {String}
 	 */
 	formatDateTime: function(value) {
+		if (!value) {
+			return null;
+		}
 		if (!(value instanceof Date)) {
 			value = constructDate(value);
 		}
@@ -3802,6 +3819,9 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	formatDateTime: function(value) {
+		if (!value) {
+			return null;
+		}
 		if (!(value instanceof Date)) {
 			value = constructDate(value);
 		}

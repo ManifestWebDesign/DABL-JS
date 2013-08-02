@@ -38,6 +38,9 @@ var Adapter = Class.extend({
 	 * @return {String}
 	 */
 	formatDate: function(value, fieldType) {
+		if (!value) {
+			return null;
+		}
 		if (fieldType && fieldType === Model.FIELD_TYPE_TIMESTAMP) {
 			return this.formatDateTime(value);
 		}
@@ -52,6 +55,9 @@ var Adapter = Class.extend({
 	 * @return {String}
 	 */
 	formatDateTime: function(value) {
+		if (!value) {
+			return null;
+		}
 		if (!(value instanceof Date)) {
 			value = constructDate(value);
 		}

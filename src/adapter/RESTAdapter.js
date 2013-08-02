@@ -183,6 +183,9 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	formatDateTime: function(value) {
+		if (!value) {
+			return null;
+		}
 		if (!(value instanceof Date)) {
 			value = constructDate(value);
 		}
