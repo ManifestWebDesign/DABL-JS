@@ -1,6 +1,4 @@
-(function(){
-
-this.AngularRESTAdapter = this.RESTAdapter.extend({
+var AngularRESTAdapter = RESTAdapter.extend({
 
 	$http: null,
 
@@ -31,7 +29,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			data = {},
 			pk = model.getKey(),
 			self = this,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
 		for (fieldName in model._fields) {
@@ -75,7 +73,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			route = this._getRoute(model._url),
 			pk = model.getKey(),
 			self = this,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
 		this.$http({
@@ -106,7 +104,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			data = {},
 			instance = null,
 			q,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def),
 			self = this,
 			pk = model.getKey();
@@ -147,7 +145,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			.apply(this, arguments),
 			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
 		this.$http
@@ -167,4 +165,4 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 	}
 });
 
-})();
+dabl.AngularRESTAdapter = AngularRESTAdapter;

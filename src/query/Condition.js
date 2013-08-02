@@ -1,6 +1,4 @@
-(function(){
-
-var Condition = this.Class.extend({
+var Condition = Class.extend({
 	_conds : null,
 
 	init: function Condition(left, operator, right, quote) {
@@ -821,6 +819,4 @@ Condition.QUOTE_BOTH = 3;
  */
 Condition.QUOTE_NONE = 4;
 
-this.Condition = Condition;
-
-})();
+dabl.Condition = Condition;

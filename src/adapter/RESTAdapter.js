@@ -1,10 +1,3 @@
-(function($){
-
-function _sPad(value) {
-	value = value + '';
-	return value.length === 2 ? value : '0' + value;
-}
-
 function encodeUriSegment(val) {
 	return encodeUriQuery(val, true).
 	replace(/%26/gi, '&').
@@ -80,7 +73,7 @@ Route.prototype = {
 	}
 };
 
-this.RESTAdapter = this.Adapter.extend({
+var RESTAdapter = Adapter.extend({
 
 	_routes: {},
 
@@ -148,7 +141,7 @@ this.RESTAdapter = this.Adapter.extend({
 			data = {},
 			pk = model.getKey(),
 			self = this,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
 		for (fieldName in model._fields) {
@@ -160,7 +153,7 @@ this.RESTAdapter = this.Adapter.extend({
 			data[fieldName] = value;
 		}
 
-		$.ajax({
+		jQuery.ajax({
 			url: route.url(data),
 			type: 'POST',
 			data: JSON.stringify(data),
@@ -194,12 +187,12 @@ this.RESTAdapter = this.Adapter.extend({
 			value = new Date(value);
 		}
 		var offset = -value.getTimezoneOffset() / 60;
-		offset = (offset > 0 ? '+' : '-') + _sPad(Math.abs(offset));
+		offset = (offset > 0 ? '+' : '-') + sPad(Math.abs(offset));
 
-		return this.formatDate(value)
-			+ ' ' + _sPad(value.getHours())
-			+ ':' + _sPad(value.getMinutes())
-			+ ':' + _sPad(value.getSeconds())
+		return value.getFullYear() + '-' + sPad(value.getMonth() + 1) + '-' + sPad(value.getDate())
+			+ ' ' + sPad(value.getHours())
+			+ ':' + sPad(value.getMinutes())
+			+ ':' + sPad(value.getSeconds())
 			+ ' ' + offset + '00';
 	},
 
@@ -209,7 +202,7 @@ this.RESTAdapter = this.Adapter.extend({
 
 	update: function(instance) {
 		if (!instance.isModified()) {
-			var def = Deferred();
+			var def = dabl.Deferred();
 			def.resolve(instance);
 			return def.promise();
 		}
@@ -222,10 +215,10 @@ this.RESTAdapter = this.Adapter.extend({
 			route = this._getRoute(model._url),
 			pk = model.getKey(),
 			self = this,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
-		$.ajax({
+		jQuery.ajax({
 			url: route.url(instance.toJSON()),
 			type: 'POST',
 			data: {},
@@ -255,7 +248,7 @@ this.RESTAdapter = this.Adapter.extend({
 			data = {},
 			instance = null,
 			q,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def),
 			self = this,
 			pk = model.getKey();
@@ -275,7 +268,7 @@ this.RESTAdapter = this.Adapter.extend({
 			data = q.getSimpleJSON();
 		}
 
-		$.get(route.urlGet(data), function(data, textStatus, jqXHR) {
+		jQuery.get(route.urlGet(data), function(data, textStatus, jqXHR) {
 			if (!self._isValidResponseObject(data, model)) {
 				error(jqXHR, textStatus, 'Invalid response.');
 				return;
@@ -294,10 +287,10 @@ this.RESTAdapter = this.Adapter.extend({
 			.apply(this, arguments),
 			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
-		$.get(route.urlGet(data), function(data, textStatus, jqXHR) {
+		jQuery.get(route.urlGet(data), function(data, textStatus, jqXHR) {
 			if (typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
 				error(jqXHR, textStatus, 'Invalid response.');
 				return;
@@ -312,4 +305,4 @@ this.RESTAdapter = this.Adapter.extend({
 	}
 });
 
-})(jQuery);
+dabl.RESTAdapter = RESTAdapter;

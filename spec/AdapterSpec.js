@@ -1,7 +1,7 @@
 describe('Adapter', function() {
 	var a,
-		Foo = Model.extend('foo', {
-			adapter: new SQLAdapter(new SQLAdapter.TiDebugDB),
+		Foo = dabl.Model.extend('foo', {
+			adapter: new dabl.SQLAdapter(new dabl.SQLAdapter.TiDebugDB),
 			fields: {
 				id: { type: 'int', key: true, computed: true },
 				name: { type: String, value: 'default name for entity', required: true },
@@ -11,7 +11,7 @@ describe('Adapter', function() {
 		});
 
 	beforeEach(function() {
-		a = new SQLAdapter(new SQLAdapter.TiDebugDB);
+		a = new dabl.SQLAdapter(new dabl.SQLAdapter.TiDebugDB);
 	});
 
 	function norm(str) {
@@ -32,7 +32,7 @@ describe('Adapter', function() {
 		});
 
 		it ('should accept a Query', function() {
-			var q = new Query;
+			var q = new dabl.Query;
 			q.and('name', 'eq', 'foo');
 			q.and('foo', 'bar');
 
@@ -52,7 +52,7 @@ describe('Adapter', function() {
 		});
 
 		it ('should accept a Condition', function() {
-			var q = a.findQuery(Foo, new Condition('name', 'eq', 'dan'));
+			var q = a.findQuery(Foo, new dabl.Condition('name', 'eq', 'dan'));
 			expect(norm(q.getQuery(a)))
 				.toBe("SELECT foo.* FROM foo WHERE ( name = 'dan')");
 		});
@@ -62,7 +62,7 @@ describe('Adapter', function() {
 			expect(norm(q.getQuery(a)))
 				.toBe("SELECT foo.* FROM foo WHERE name = 'dan'");
 
-			q = a.findQuery(Foo, 'name', 'eq', 'dan', Condition.QUOTE_LEFT);
+			q = a.findQuery(Foo, 'name', 'eq', 'dan', dabl.Condition.QUOTE_LEFT);
 			expect(norm(q.getQuery(a)))
 				.toBe("SELECT foo.* FROM foo WHERE 'name' = dan");
 		});

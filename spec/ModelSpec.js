@@ -1,7 +1,9 @@
 describe('Model', function() {
 	var foo,
-		a = new SQLAdapter(new SQLAdapter.TiDebugDB),
+		a = new dabl.SQLAdapter(new dabl.SQLAdapter.TiDebugDB),
 		now = new Date(Date.now()),
+		Model = dabl.Model,
+		Deferred = dabl.Deferred,
 		Foo = Model.extend('foo', {
 			adapter: a,
 			fields: {
@@ -186,8 +188,12 @@ describe('Model', function() {
 	describe('isNew', function() {
 		it ('should return true if the object has not yet been saved', function(){
 			expect(foo.isNew()).toBe(true);
-			foo.save();
-			expect(foo.isNew()).toBe(false);
+			foo.save(function(){
+				expect(foo.isNew()).toBe(false);
+			}, function(e){
+				console.log(e.stack);
+				expect(foo.isNew()).toBe(false);
+			});
 		});
 	});
 

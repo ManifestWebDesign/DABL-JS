@@ -1,6 +1,7 @@
 describe('Query', function() {
 	var q,
-		a = new SQLAdapter;
+		a = new dabl.SQLAdapter,
+		Query = dabl.Query;
 
 	beforeEach(function() {
 		q = new Query('table', 'a');

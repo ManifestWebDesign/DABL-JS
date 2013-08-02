@@ -1,11 +1,4 @@
-(function(){
-
-function _sPad(value) {
-	value = value + '';
-	return value.length === 2 ? value : '0' + value;
-}
-
-this.Adapter = this.Class.extend({
+var Adapter = Class.extend({
 
 	_cache: null,
 
@@ -51,7 +44,7 @@ this.Adapter = this.Class.extend({
 		if (!(value instanceof Date)) {
 			value = new Date(value);
 		}
-		return value.getFullYear() + '-' + _sPad(value.getMonth() + 1) + '-' + _sPad(value.getDate());
+		return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
 	},
 
 	/**
@@ -62,7 +55,7 @@ this.Adapter = this.Class.extend({
 		if (!(value instanceof Date)) {
 			value = new Date(value);
 		}
-		return this.formatDate(value) + ' ' + _sPad(value.getHours()) + ':' + _sPad(value.getMinutes()) + ':' + _sPad(value.getSeconds());
+		return value.getFullYear() + '-' + sPad(value.getMonth() + 1) + '-' + sPad(value.getDate()) + ' ' + sPad(value.getHours()) + ':' + sPad(value.getMinutes()) + ':' + sPad(value.getSeconds());
 	},
 
 	/**
@@ -156,4 +149,4 @@ this.Adapter = this.Class.extend({
 	}
 });
 
-})();
+dabl.Adapter = Adapter;

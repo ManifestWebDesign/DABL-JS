@@ -1,6 +1,4 @@
-(function(){
-
-var Model = this.Class.extend({
+var Model = Class.extend({
 
 	/**
 	 * Object containing names of modified fields
@@ -139,7 +137,8 @@ var Model = this.Class.extend({
 		var values = {},
 			fieldName,
 			value,
-			model = this.constructor;
+			model = this.constructor,
+			fields = model._fields;
 
 		// avoid infinite loops
 		if (this._inToJSON) {
@@ -149,7 +148,7 @@ var Model = this.Class.extend({
 
 		model.coerceValues(this);
 
-		for (fieldName in model._fields) {
+		for (fieldName in fields) {
 			value = this[fieldName];
 			if (value instanceof Array) {
 				var newValue = [];
@@ -161,6 +160,8 @@ var Model = this.Class.extend({
 					}
 				}
 				value = newValue;
+			} else if (fields[fieldName].type === Model.FIELD_TYPE_DATE) {
+				value = formatDate(value);
 			} else if (value !== null && typeof value.toJSON === 'function') {
 				value = value.toJSON();
 			} else {
@@ -891,56 +892,4 @@ for (var x = 0, len = findAliases.length; x < len; ++x) {
 	Model[findAliases[x]] = Model.find;
 }
 
-/*
- * Helper functions
- */
-
-function copy(obj) {
-	if (obj === null) {
-		return null;
-	}
-
-	if (obj instanceof Model) {
-		return obj.constructor(obj);
-	}
-
-	if (obj instanceof Array) {
-		return obj.slice(0);
-	}
-
-	if (obj instanceof Date) {
-		return new Date(obj.getTime());
-	}
-
-	switch (typeof obj) {
-		case 'string':
-		case 'boolean':
-		case 'number':
-		case 'undefined':
-		case 'function':
-			return obj;
-	}
-
-	var target = {};
-	for (var i in obj) {
-		if (obj.hasOwnProperty(i)) {
-			target[i] = obj[i];
-		}
-	}
-	return target;
-}
-
-function equals(a, b) {
-	if (a instanceof Date && b instanceof Date) {
-		return a.getTime() === b.getTime();
-	}
-
-	if (typeof a === 'object') {
-		return JSON.stringify(a) === JSON.stringify(b);
-	}
-	return a === b;
-}
-
-this.Model = Model;
-
-})();
+dabl.Model = Model;

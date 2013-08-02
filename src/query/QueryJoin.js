@@ -1,5 +1,3 @@
-(function(){
-
 var isIdent = /^\w+\.\w+$/;
 
 var Join = function Join(tableOrColumn, onClauseOrColumn, joinType) {
@@ -196,6 +194,4 @@ Join.prototype = {
 
 };
 
-this.Query.Join = Join;
-
-})();
+dabl.Query.Join = Join;

@@ -1,6 +1,7 @@
 describe('Condition', function() {
 	var c,
-		a = new SQLAdapter;
+		a = new dabl.SQLAdapter,
+		Condition = dabl.Condition;
 
 	beforeEach(function() {
 		c = new Condition;
@@ -191,7 +192,7 @@ describe('Condition', function() {
 		it ('should support parenthesis', function(){
 			c.and('fun', 'good');
 			c.and('tough', 'rough');
-			c.or(new Condition('foo', Query.CONTAINS, 'bar').or('tom', 'waits'));
+			c.or(new Condition('foo', dabl.Query.CONTAINS, 'bar').or('tom', 'waits'));
 			expect(c.getODataFilter()).toBe("fun eq 'good' and tough eq 'rough' or (substringof('bar', foo) or tom eq 'waits')");
 		});
 	});

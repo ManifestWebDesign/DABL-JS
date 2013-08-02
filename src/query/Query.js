@@ -1,9 +1,7 @@
-(function(){
-
 /**
  * Used to build query strings using OOP
  */
-var Query = this.Condition.extend({
+var Query = Condition.extend({
 
 	_action : 'SELECT',
 
@@ -904,6 +902,4 @@ Query.OUTER_JOIN = 'OUTER JOIN';
 Query.ASC = 'ASC';
 Query.DESC = 'DESC';
 
-this.Query = Query;
-
-})();
+dabl.Query = Query;

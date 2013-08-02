@@ -1,6 +1,4 @@
-(function(){
-
-var SQLAdapter = this.Adapter.extend({
+var SQLAdapter = Adapter.extend({
 
 	_db: null,
 
@@ -405,7 +403,7 @@ var SQLAdapter = this.Adapter.extend({
 	}
 });
 
-SQLAdapter.Migration = this.Class.extend({
+SQLAdapter.Migration = Class.extend({
 	adapter: null,
 	schema: null,
 	// Primary method for initializing Migration via manual or automigration
@@ -809,6 +807,4 @@ SQLAdapter.TiDebugDB = Class.extend({
 
 });
 
-this.SQLAdapter = SQLAdapter;
-
-})();
+dabl.SQLAdapter = SQLAdapter;

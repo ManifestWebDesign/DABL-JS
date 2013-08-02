@@ -1,441 +1,433 @@
+dabl = typeof dabl === "undefined" ? {} : dabl;
+
+(function(dabl){
 
 /* Class.js */
-(function(){
-	/**
-	 * Simple JavaScript Inheritance
-	 * Initially by John Resig http://ejohn.org/
-	 * MIT Licensed.
-	 */
+/**
+ * Simple JavaScript Inheritance
+ * Initially by John Resig http://ejohn.org/
+ * MIT Licensed.
+ */
 
-	var initializing = false, fnTest = /xyz/.test(function(){
-		xyz;
-	}) ? /\b_super\b/ : /.*/;
+var initializing = false, fnTest = /xyz/.test(function(){
+	xyz;
+}) ? /\b_super\b/ : /.*/;
 
-	function extend(newProps, target, src) {
-		var name;
+function extend(newProps, target, src) {
+	var name;
 
-		// Copy the properties over onto the new prototype
-		for (name in newProps) {
-			// Check if we're overwriting an existing function
-			target[name] = typeof newProps[name] === 'function' &&
-			typeof src[name] === 'function' && fnTest.test(newProps[name]) ?
-			(function(name, fn){
-				return function() {
-					var tmp = this._super,
-						ret;
+	// Copy the properties over onto the new prototype
+	for (name in newProps) {
+		// Check if we're overwriting an existing function
+		target[name] = typeof newProps[name] === 'function' &&
+		typeof src[name] === 'function' && fnTest.test(newProps[name]) ?
+		(function(name, fn){
+			return function() {
+				var tmp = this._super,
+					ret;
 
-					// Add a new ._super() method that is the same method
-					// but on the super-class
-					this._super = src[name];
+				// Add a new ._super() method that is the same method
+				// but on the super-class
+				this._super = src[name];
 
-					// The method only need to be bound temporarily, so we
-					// remove it when we're done executing
-					ret = fn.apply(this, arguments);
-					this._super = tmp;
+				// The method only need to be bound temporarily, so we
+				// remove it when we're done executing
+				ret = fn.apply(this, arguments);
+				this._super = tmp;
 
-					return ret;
-				};
-			})(name, newProps[name]) : newProps[name];
+				return ret;
+			};
+		})(name, newProps[name]) : newProps[name];
+	}
+}
+
+// The base Class implementation (does nothing)
+var Class = function(){};
+
+function doesDefinePropertyWork(object) {
+	try {
+		Object.defineProperty(object, "sentinel", {
+			value: 'foo'
+		});
+		return "sentinel" in object;
+	} catch (exception) {
+		return false;
+	}
+}
+
+Class.canDefineProperties = doesDefinePropertyWork({});
+
+// Create a new Class that inherits from this class
+Class.extend = function(instanceProps, classProps) {
+	if (typeof instanceProps === 'undefined') {
+		instanceProps = {};
+	}
+	if (typeof classProps === 'undefined') {
+		classProps = {};
+	}
+
+	var prototype,
+		name;
+
+	// Instantiate a base class (but only create the instance,
+	// don't run the init constructor)
+	initializing = true;
+	prototype = new this();
+	initializing = false;
+
+	// The dummy class constructor
+	function Class() {
+		// All construction is actually done in the init method
+		if (!initializing && this.init) {
+			this.init.apply(this, arguments);
 		}
 	}
 
-	// The base Class implementation (does nothing)
-	var Class = function(){};
-
-	function doesDefinePropertyWork(object) {
-		try {
-			Object.defineProperty(object, "sentinel", {
-				value: 'foo'
-			});
-			return "sentinel" in object;
-		} catch (exception) {
-			return false;
+	for (name in this) {
+		if (!(name in classProps) && this.hasOwnProperty(name)) {
+			Class[name] = this[name];
 		}
 	}
 
-	Class.canDefineProperties = doesDefinePropertyWork({});
+	extend(instanceProps, prototype, this.prototype);
+	extend(classProps, Class, this);
 
-	// Create a new Class that inherits from this class
-	Class.extend = function(instanceProps, classProps) {
-		if (typeof instanceProps === 'undefined') {
-			instanceProps = {};
+	// Populate our constructed prototype object
+	Class.prototype = prototype;
+
+	// Enforce the constructor to be what we expect
+	Class.prototype.constructor = Class;
+
+	return Class;
+};
+
+/**
+ * Normalizes the return value of async and non-async functions to always use the
+ * Deferred/Promise API
+ * @param {function} func A method that can return a Promise or a normal return value
+ * @param {function} success Success callback
+ * @param {function} failure callback
+ */
+Class.callAsync = Class.prototype.callAsync = function callAsync(func, success, failure) {
+	var deferred = dabl.Deferred(),
+		promise = deferred.promise();
+
+	try {
+		var result = func.call(this);
+		if (result && typeof result.then === 'function') {
+			promise = result;
+		} else {
+			deferred.resolve(result);
 		}
-		if (typeof classProps === 'undefined') {
-			classProps = {};
-		}
+	} catch (e) {
+		deferred.reject(e);
+	}
 
-		var prototype,
-			name;
+	if (typeof success === 'function' || typeof failure === 'function') {
+		promise.then(success, failure);
+	}
 
-		// Instantiate a base class (but only create the instance,
-		// don't run the init constructor)
-		initializing = true;
-		prototype = new this();
-		initializing = false;
+	return promise;
+};
 
-		// The dummy class constructor
-		function Class() {
-			// All construction is actually done in the init method
-			if (!initializing && this.init) {
-				this.init.apply(this, arguments);
-			}
-		}
-
-		for (name in this) {
-			if (!(name in classProps) && this.hasOwnProperty(name)) {
-				Class[name] = this[name];
-			}
-		}
-
-		extend(instanceProps, prototype, this.prototype);
-		extend(classProps, Class, this);
-
-		// Populate our constructed prototype object
-		Class.prototype = prototype;
-
-		// Enforce the constructor to be what we expect
-		Class.prototype.constructor = Class;
-
-		return Class;
-	};
-
-	/**
-	 * Normalizes the return value of async and non-async functions to always use the
-	 * Deferred/Promise API
-	 * @param {function} func A method that can return a Promise or a normal return value
-	 * @param {function} success Success callback
-	 * @param {function} failure callback
-	 */
-	Class.callAsync = Class.prototype.callAsync = function callAsync(func, success, failure) {
-		var deferred = Deferred(),
-			promise = deferred.promise();
-
-		try {
-			var result = func.call(this);
-			if (result && typeof result.then === 'function') {
-				promise = result;
-			} else {
-				deferred.resolve(result);
-			}
-		} catch (e) {
-			deferred.reject(e);
-		}
-
-		if (typeof success === 'function' || typeof failure === 'function') {
-			promise.then(success, failure);
-		}
-
-		return promise;
-	};
-
-	this.Class = Class;
-})();
+dabl.Class = Class;
 
 /* Deferred.js */
-(function(global, $) {
-	// https://github.com/warpdesign/Standalone-Deferred
+if (typeof jQuery !== 'undefined' && jQuery.Deferred) {
+	dabl.Deferred = jQuery.Deferred;
+} else {
+// https://github.com/warpdesign/Standalone-Deferred
 
-	if (typeof global.Deferred !== 'undefined') {
-		return;
-	}
+function isArray(arr) {
+	return Object.prototype.toString.call(arr) === '[object Array]';
+}
 
-	if ($ && $.Deferred) {
-		global.Deferred = jQuery.Deferred;
-		return;
-	}
-
-	function isArray(arr) {
-		return Object.prototype.toString.call(arr) === '[object Array]';
-	}
-
-	function foreach(arr, handler) {
-		if (isArray(arr)) {
-			for (var i = 0; i < arr.length; i++) {
-				handler(arr[i]);
-			}
+function foreach(arr, handler) {
+	if (isArray(arr)) {
+		for (var i = 0; i < arr.length; i++) {
+			handler(arr[i]);
 		}
-		else
-			handler(arr);
 	}
+	else
+		handler(arr);
+}
 
-	function D(fn) {
-		var status = 'pending',
-			doneFuncs = [],
-			failFuncs = [],
-			progressFuncs = [],
-			resultArgs = null,
+function D(fn) {
+	var status = 'pending',
+		doneFuncs = [],
+		failFuncs = [],
+		progressFuncs = [],
+		resultArgs = null,
 
-		promise = {
-			done: function() {
-				for (var i = 0; i < arguments.length; i++) {
-					// skip any undefined or null arguments
-					if (!arguments[i]) {
-						continue;
-					}
+	promise = {
+		done: function() {
+			for (var i = 0; i < arguments.length; i++) {
+				// skip any undefined or null arguments
+				if (!arguments[i]) {
+					continue;
+				}
 
-					if (isArray(arguments[i])) {
-						var arr = arguments[i];
-						for (var j = 0; j < arr.length; j++) {
-							// immediately call the function if the deferred has been resolved
-							if (status === 'resolved') {
-								arr[j].apply(this, resultArgs);
-							}
-
-							doneFuncs.push(arr[j]);
-						}
-					}
-					else {
+				if (isArray(arguments[i])) {
+					var arr = arguments[i];
+					for (var j = 0; j < arr.length; j++) {
 						// immediately call the function if the deferred has been resolved
 						if (status === 'resolved') {
-							arguments[i].apply(this, resultArgs);
+							arr[j].apply(this, resultArgs);
 						}
 
-						doneFuncs.push(arguments[i]);
+						doneFuncs.push(arr[j]);
 					}
 				}
-
-				return this;
-			},
-
-			fail: function() {
-				for (var i = 0; i < arguments.length; i++) {
-					// skip any undefined or null arguments
-					if (!arguments[i]) {
-						continue;
+				else {
+					// immediately call the function if the deferred has been resolved
+					if (status === 'resolved') {
+						arguments[i].apply(this, resultArgs);
 					}
 
-					if (isArray(arguments[i])) {
-						var arr = arguments[i];
-						for (var j = 0; j < arr.length; j++) {
-							// immediately call the function if the deferred has been resolved
-							if (status === 'rejected') {
-								arr[j].apply(this, resultArgs);
-							}
+					doneFuncs.push(arguments[i]);
+				}
+			}
 
-							failFuncs.push(arr[j]);
-						}
-					}
-					else {
+			return this;
+		},
+
+		fail: function() {
+			for (var i = 0; i < arguments.length; i++) {
+				// skip any undefined or null arguments
+				if (!arguments[i]) {
+					continue;
+				}
+
+				if (isArray(arguments[i])) {
+					var arr = arguments[i];
+					for (var j = 0; j < arr.length; j++) {
 						// immediately call the function if the deferred has been resolved
 						if (status === 'rejected') {
-							arguments[i].apply(this, resultArgs);
+							arr[j].apply(this, resultArgs);
 						}
 
-						failFuncs.push(arguments[i]);
+						failFuncs.push(arr[j]);
 					}
 				}
-
-				return this;
-			},
-
-			always: function() {
-				return this.done.apply(this, arguments).fail.apply(this, arguments);
-			},
-
-			progress: function() {
-				for (var i = 0; i < arguments.length; i++) {
-					// skip any undefined or null arguments
-					if (!arguments[i]) {
-						continue;
+				else {
+					// immediately call the function if the deferred has been resolved
+					if (status === 'rejected') {
+						arguments[i].apply(this, resultArgs);
 					}
 
-					if (isArray(arguments[i])) {
-						var arr = arguments[i];
-						for (var j = 0; j < arr.length; j++) {
-							// immediately call the function if the deferred has been resolved
-							if (status === 'pending') {
-								progressFuncs.push(arr[j]);
-							}
-						}
-					}
-					else {
+					failFuncs.push(arguments[i]);
+				}
+			}
+
+			return this;
+		},
+
+		always: function() {
+			return this.done.apply(this, arguments).fail.apply(this, arguments);
+		},
+
+		progress: function() {
+			for (var i = 0; i < arguments.length; i++) {
+				// skip any undefined or null arguments
+				if (!arguments[i]) {
+					continue;
+				}
+
+				if (isArray(arguments[i])) {
+					var arr = arguments[i];
+					for (var j = 0; j < arr.length; j++) {
 						// immediately call the function if the deferred has been resolved
 						if (status === 'pending') {
-							progressFuncs.push(arguments[i]);
+							progressFuncs.push(arr[j]);
 						}
 					}
 				}
-
-				return this;
-			},
-
-			then: function() {
-				// fail callbacks
-				if (arguments.length > 1 && arguments[1]) {
-					this.fail(arguments[1]);
-				}
-
-				// done callbacks
-				if (arguments.length > 0 && arguments[0]) {
-					this.done(arguments[0]);
-				}
-
-				// notify callbacks
-				if (arguments.length > 2 && arguments[2]) {
-					this.progress(arguments[2]);
-				}
-				return this;
-			},
-
-			promise: function(obj) {
-				if (obj == null) {
-					return promise;
-				} else {
-					for (var i in promise) {
-						obj[i] = promise[i];
+				else {
+					// immediately call the function if the deferred has been resolved
+					if (status === 'pending') {
+						progressFuncs.push(arguments[i]);
 					}
-					return obj;
 				}
-			},
+			}
 
-			state: function() {
-				return status;
-			},
+			return this;
+		},
 
-			debug: function() {
-				console.log('[debug]', doneFuncs, failFuncs, status);
-			},
+		then: function() {
+			// fail callbacks
+			if (arguments.length > 1 && arguments[1]) {
+				this.fail(arguments[1]);
+			}
 
-			isRejected: function() {
-				return status === 'rejected';
-			},
+			// done callbacks
+			if (arguments.length > 0 && arguments[0]) {
+				this.done(arguments[0]);
+			}
 
-			isResolved: function() {
-				return status === 'resolved';
-			},
+			// notify callbacks
+			if (arguments.length > 2 && arguments[2]) {
+				this.progress(arguments[2]);
+			}
+			return this;
+		},
 
-			pipe: function(done, fail, progress) {
-				return D(function(def) {
-					foreach(done, function(func) {
-						// filter function
-						if (typeof func === 'function') {
-							deferred.done(function() {
-								var returnval = func.apply(this, arguments);
-								// if a new deferred/promise is returned, its state is passed to the current deferred/promise
-								if (returnval && typeof returnval === 'function') {
-									returnval.promise().then(def.resolve, def.reject, def.notify);
-								}
-								else {	// if new return val is passed, it is passed to the piped done
-									def.resolve(returnval);
-								}
-							});
-						}
-						else {
-							deferred.done(def.resolve);
-						}
-					});
-
-					foreach(fail, function(func) {
-						if (typeof func === 'function') {
-							deferred.fail(function() {
-								var returnval = func.apply(this, arguments);
-
-								if (returnval && typeof returnval === 'function') {
-									returnval.promise().then(def.resolve, def.reject, def.notify);
-								} else {
-									def.reject(returnval);
-								}
-							});
-						}
-						else {
-							deferred.fail(def.reject);
-						}
-					});
-				}).promise();
+		promise: function(obj) {
+			if (obj == null) {
+				return promise;
+			} else {
+				for (var i in promise) {
+					obj[i] = promise[i];
+				}
+				return obj;
 			}
 		},
 
-		deferred = {
-			resolveWith: function(context) {
-				if (status === 'pending') {
-					status = 'resolved';
-					var args = resultArgs = (arguments.length > 1) ? arguments[1] : [];
-					for (var i = 0; i < doneFuncs.length; i++) {
-						doneFuncs[i].apply(context, args);
+		state: function() {
+			return status;
+		},
+
+		debug: function() {
+			console.log('[debug]', doneFuncs, failFuncs, status);
+		},
+
+		isRejected: function() {
+			return status === 'rejected';
+		},
+
+		isResolved: function() {
+			return status === 'resolved';
+		},
+
+		pipe: function(done, fail, progress) {
+			return D(function(def) {
+				foreach(done, function(func) {
+					// filter function
+					if (typeof func === 'function') {
+						deferred.done(function() {
+							var returnval = func.apply(this, arguments);
+							// if a new deferred/promise is returned, its state is passed to the current deferred/promise
+							if (returnval && typeof returnval === 'function') {
+								returnval.promise().then(def.resolve, def.reject, def.notify);
+							}
+							else {	// if new return val is passed, it is passed to the piped done
+								def.resolve(returnval);
+							}
+						});
 					}
-				}
-				return this;
-			},
-
-			rejectWith: function(context) {
-				if (status === 'pending') {
-					status = 'rejected';
-					var args = resultArgs = (arguments.length > 1) ? arguments[1] : [];
-					for (var i = 0; i < failFuncs.length; i++) {
-						failFuncs[i].apply(context, args);
+					else {
+						deferred.done(def.resolve);
 					}
-				}
-				return this;
-			},
+				});
 
-			notifyWith: function(context) {
-				if (status === 'pending') {
-					var args = resultArgs = (arguments.length > 1) ? arguments[1] : [];
-					for (var i = 0; i < progressFuncs.length; i++) {
-						progressFuncs[i].apply(context, args);
+				foreach(fail, function(func) {
+					if (typeof func === 'function') {
+						deferred.fail(function() {
+							var returnval = func.apply(this, arguments);
+
+							if (returnval && typeof returnval === 'function') {
+								returnval.promise().then(def.resolve, def.reject, def.notify);
+							} else {
+								def.reject(returnval);
+							}
+						});
 					}
-				}
-				return this;
-			},
-
-			resolve: function() {
-				return this.resolveWith(this, arguments);
-			},
-
-			reject: function() {
-				return this.rejectWith(this, arguments);
-			},
-
-			notify: function() {
-				return this.notifyWith(this, arguments);
-			}
-		};
-
-		var obj = promise.promise(deferred);
-
-		if (fn) {
-			fn.apply(obj, [obj]);
+					else {
+						deferred.fail(def.reject);
+					}
+				});
+			}).promise();
 		}
+	},
 
-		return obj;
-	}
-
-	D.when = function() {
-		if (arguments.length < 2) {
-			var obj = arguments.length ? arguments[0] : undefined;
-			if (obj && (typeof obj.isResolved === 'function' && typeof obj.isRejected === 'function')) {
-				return obj.promise();
-			}
-			else {
-				return D().resolve(obj).promise();
-			}
-		}
-		else {
-			return (function(args){
-				var df = D(),
-					size = args.length,
-					done = 0,
-					rp = new Array(size);	// resolve params: params of each resolve, we need to track down them to be able to pass them in the correct order if the master needs to be resolved
-
-				for (var i = 0; i < args.length; i++) {
-					(function(j) {
-						args[j].done(function() { rp[j] = (arguments.length < 2) ? arguments[0] : arguments; if (++done === size) { df.resolve.apply(df, rp); }})
-						.fail(function() { df.reject(arguments); });
-					})(i);
+	deferred = {
+		resolveWith: function(context) {
+			if (status === 'pending') {
+				status = 'resolved';
+				var args = resultArgs = (arguments.length > 1) ? arguments[1] : [];
+				for (var i = 0; i < doneFuncs.length; i++) {
+					doneFuncs[i].apply(context, args);
 				}
+			}
+			return this;
+		},
 
-				return df.promise();
-			})(arguments);
+		rejectWith: function(context) {
+			if (status === 'pending') {
+				status = 'rejected';
+				var args = resultArgs = (arguments.length > 1) ? arguments[1] : [];
+				for (var i = 0; i < failFuncs.length; i++) {
+					failFuncs[i].apply(context, args);
+				}
+			}
+			return this;
+		},
+
+		notifyWith: function(context) {
+			if (status === 'pending') {
+				var args = resultArgs = (arguments.length > 1) ? arguments[1] : [];
+				for (var i = 0; i < progressFuncs.length; i++) {
+					progressFuncs[i].apply(context, args);
+				}
+			}
+			return this;
+		},
+
+		resolve: function() {
+			return this.resolveWith(this, arguments);
+		},
+
+		reject: function() {
+			return this.rejectWith(this, arguments);
+		},
+
+		notify: function() {
+			return this.notifyWith(this, arguments);
 		}
 	};
 
-	global.Deferred = D;
-})(window, jQuery);
+	var obj = promise.promise(deferred);
+
+	if (fn) {
+		fn.apply(obj, [obj]);
+	}
+
+	return obj;
+}
+
+D.when = function() {
+	if (arguments.length < 2) {
+		var obj = arguments.length ? arguments[0] : undefined;
+		if (obj && (typeof obj.isResolved === 'function' && typeof obj.isRejected === 'function')) {
+			return obj.promise();
+		}
+		else {
+			return D().resolve(obj).promise();
+		}
+	}
+	else {
+		return (function(args){
+			var df = D(),
+				size = args.length,
+				done = 0,
+				rp = new Array(size);	// resolve params: params of each resolve, we need to track down them to be able to pass them in the correct order if the master needs to be resolved
+
+			for (var i = 0; i < args.length; i++) {
+				(function(j) {
+					args[j].done(function() { rp[j] = (arguments.length < 2) ? arguments[0] : arguments; if (++done === size) { df.resolve.apply(df, rp); }})
+					.fail(function() { df.reject(arguments); });
+				})(i);
+			}
+
+			return df.promise();
+		})(arguments);
+	}
+};
+
+dabl.Deferred = D;
+}
 
 /* Model.js */
-(function(){
-
-var Model = this.Class.extend({
+var Model = Class.extend({
 
 	/**
 	 * Object containing names of modified fields
@@ -574,7 +566,8 @@ var Model = this.Class.extend({
 		var values = {},
 			fieldName,
 			value,
-			model = this.constructor;
+			model = this.constructor,
+			fields = model._fields;
 
 		// avoid infinite loops
 		if (this._inToJSON) {
@@ -584,7 +577,7 @@ var Model = this.Class.extend({
 
 		model.coerceValues(this);
 
-		for (fieldName in model._fields) {
+		for (fieldName in fields) {
 			value = this[fieldName];
 			if (value instanceof Array) {
 				var newValue = [];
@@ -596,6 +589,8 @@ var Model = this.Class.extend({
 					}
 				}
 				value = newValue;
+			} else if (fields[fieldName].type === Model.FIELD_TYPE_DATE) {
+				value = formatDate(value);
 			} else if (value !== null && typeof value.toJSON === 'function') {
 				value = value.toJSON();
 			} else {
@@ -1326,9 +1321,13 @@ for (var x = 0, len = findAliases.length; x < len; ++x) {
 	Model[findAliases[x]] = Model.find;
 }
 
-/*
- * Helper functions
- */
+dabl.Model = Model;
+
+/* dabl.js */
+function sPad(value) {
+	value = value + '';
+	return value.length === 2 ? value : '0' + value;
+}
 
 function copy(obj) {
 	if (obj === null) {
@@ -1376,14 +1375,15 @@ function equals(a, b) {
 	return a === b;
 }
 
-this.Model = Model;
-
-})();
+function formatDate(value) {
+	if (!(value instanceof Date)) {
+		value = new Date(value);
+	}
+	return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
+}
 
 /* Condition.js */
-(function(){
-
-var Condition = this.Class.extend({
+var Condition = Class.extend({
 	_conds : null,
 
 	init: function Condition(left, operator, right, quote) {
@@ -2204,17 +2204,13 @@ Condition.QUOTE_BOTH = 3;
  */
 Condition.QUOTE_NONE = 4;
 
-this.Condition = Condition;
-
-})();
+dabl.Condition = Condition;
 
 /* Query.js */
-(function(){
-
 /**
  * Used to build query strings using OOP
  */
-var Query = this.Condition.extend({
+var Query = Condition.extend({
 
 	_action : 'SELECT',
 
@@ -3115,13 +3111,9 @@ Query.OUTER_JOIN = 'OUTER JOIN';
 Query.ASC = 'ASC';
 Query.DESC = 'DESC';
 
-this.Query = Query;
-
-})();
+dabl.Query = Query;
 
 /* QueryJoin.js */
-(function(){
-
 var isIdent = /^\w+\.\w+$/;
 
 var Join = function Join(tableOrColumn, onClauseOrColumn, joinType) {
@@ -3318,13 +3310,9 @@ Join.prototype = {
 
 };
 
-this.Query.Join = Join;
-
-})();
+dabl.Query.Join = Join;
 
 /* QueryStatement.js */
-(function(){
-
 var Statement = function Statement(conn) {
 	this._params = [];
 	if (conn) {
@@ -3456,19 +3444,10 @@ Statement.prototype = {
 	}
 };
 
-this.Query.Statement = Statement;
-
-})();
+dabl.Query.Statement = Statement;
 
 /* Adapter.js */
-(function(){
-
-function _sPad(value) {
-	value = value + '';
-	return value.length === 2 ? value : '0' + value;
-}
-
-this.Adapter = this.Class.extend({
+var Adapter = Class.extend({
 
 	_cache: null,
 
@@ -3514,7 +3493,7 @@ this.Adapter = this.Class.extend({
 		if (!(value instanceof Date)) {
 			value = new Date(value);
 		}
-		return value.getFullYear() + '-' + _sPad(value.getMonth() + 1) + '-' + _sPad(value.getDate());
+		return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
 	},
 
 	/**
@@ -3525,7 +3504,7 @@ this.Adapter = this.Class.extend({
 		if (!(value instanceof Date)) {
 			value = new Date(value);
 		}
-		return this.formatDate(value) + ' ' + _sPad(value.getHours()) + ':' + _sPad(value.getMinutes()) + ':' + _sPad(value.getSeconds());
+		return value.getFullYear() + '-' + sPad(value.getMonth() + 1) + '-' + sPad(value.getDate()) + ' ' + sPad(value.getHours()) + ':' + sPad(value.getMinutes()) + ':' + sPad(value.getSeconds());
 	},
 
 	/**
@@ -3619,16 +3598,9 @@ this.Adapter = this.Class.extend({
 	}
 });
 
-})();
+dabl.Adapter = Adapter;
 
 /* RESTAdapter.js */
-(function($){
-
-function _sPad(value) {
-	value = value + '';
-	return value.length === 2 ? value : '0' + value;
-}
-
 function encodeUriSegment(val) {
 	return encodeUriQuery(val, true).
 	replace(/%26/gi, '&').
@@ -3704,7 +3676,7 @@ Route.prototype = {
 	}
 };
 
-this.RESTAdapter = this.Adapter.extend({
+var RESTAdapter = Adapter.extend({
 
 	_routes: {},
 
@@ -3772,7 +3744,7 @@ this.RESTAdapter = this.Adapter.extend({
 			data = {},
 			pk = model.getKey(),
 			self = this,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
 		for (fieldName in model._fields) {
@@ -3784,7 +3756,7 @@ this.RESTAdapter = this.Adapter.extend({
 			data[fieldName] = value;
 		}
 
-		$.ajax({
+		jQuery.ajax({
 			url: route.url(data),
 			type: 'POST',
 			data: JSON.stringify(data),
@@ -3818,12 +3790,12 @@ this.RESTAdapter = this.Adapter.extend({
 			value = new Date(value);
 		}
 		var offset = -value.getTimezoneOffset() / 60;
-		offset = (offset > 0 ? '+' : '-') + _sPad(Math.abs(offset));
+		offset = (offset > 0 ? '+' : '-') + sPad(Math.abs(offset));
 
-		return this.formatDate(value)
-			+ ' ' + _sPad(value.getHours())
-			+ ':' + _sPad(value.getMinutes())
-			+ ':' + _sPad(value.getSeconds())
+		return value.getFullYear() + '-' + sPad(value.getMonth() + 1) + '-' + sPad(value.getDate())
+			+ ' ' + sPad(value.getHours())
+			+ ':' + sPad(value.getMinutes())
+			+ ':' + sPad(value.getSeconds())
 			+ ' ' + offset + '00';
 	},
 
@@ -3833,7 +3805,7 @@ this.RESTAdapter = this.Adapter.extend({
 
 	update: function(instance) {
 		if (!instance.isModified()) {
-			var def = Deferred();
+			var def = dabl.Deferred();
 			def.resolve(instance);
 			return def.promise();
 		}
@@ -3846,10 +3818,10 @@ this.RESTAdapter = this.Adapter.extend({
 			route = this._getRoute(model._url),
 			pk = model.getKey(),
 			self = this,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
-		$.ajax({
+		jQuery.ajax({
 			url: route.url(instance.toJSON()),
 			type: 'POST',
 			data: {},
@@ -3879,7 +3851,7 @@ this.RESTAdapter = this.Adapter.extend({
 			data = {},
 			instance = null,
 			q,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def),
 			self = this,
 			pk = model.getKey();
@@ -3899,7 +3871,7 @@ this.RESTAdapter = this.Adapter.extend({
 			data = q.getSimpleJSON();
 		}
 
-		$.get(route.urlGet(data), function(data, textStatus, jqXHR) {
+		jQuery.get(route.urlGet(data), function(data, textStatus, jqXHR) {
 			if (!self._isValidResponseObject(data, model)) {
 				error(jqXHR, textStatus, 'Invalid response.');
 				return;
@@ -3918,10 +3890,10 @@ this.RESTAdapter = this.Adapter.extend({
 			.apply(this, arguments),
 			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
-		$.get(route.urlGet(data), function(data, textStatus, jqXHR) {
+		jQuery.get(route.urlGet(data), function(data, textStatus, jqXHR) {
 			if (typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
 				error(jqXHR, textStatus, 'Invalid response.');
 				return;
@@ -3936,12 +3908,10 @@ this.RESTAdapter = this.Adapter.extend({
 	}
 });
 
-})(jQuery);
+dabl.RESTAdapter = RESTAdapter;
 
 /* RESTAdapterAngular.js */
-(function(){
-
-this.AngularRESTAdapter = this.RESTAdapter.extend({
+var AngularRESTAdapter = RESTAdapter.extend({
 
 	$http: null,
 
@@ -3972,7 +3942,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			data = {},
 			pk = model.getKey(),
 			self = this,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
 		for (fieldName in model._fields) {
@@ -4016,7 +3986,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			route = this._getRoute(model._url),
 			pk = model.getKey(),
 			self = this,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
 		this.$http({
@@ -4047,7 +4017,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			data = {},
 			instance = null,
 			q,
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def),
 			self = this,
 			pk = model.getKey();
@@ -4088,7 +4058,7 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 			.apply(this, arguments),
 			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
-			def = Deferred(),
+			def = dabl.Deferred(),
 			error = this._getErrorCallback(def);
 
 		this.$http
@@ -4108,12 +4078,10 @@ this.AngularRESTAdapter = this.RESTAdapter.extend({
 	}
 });
 
-})();
+dabl.AngularRESTAdapter = AngularRESTAdapter;
 
 /* SQLAdapter.js */
-(function(){
-
-var SQLAdapter = this.Adapter.extend({
+var SQLAdapter = Adapter.extend({
 
 	_db: null,
 
@@ -4518,7 +4486,7 @@ var SQLAdapter = this.Adapter.extend({
 	}
 });
 
-SQLAdapter.Migration = this.Class.extend({
+SQLAdapter.Migration = Class.extend({
 	adapter: null,
 	schema: null,
 	// Primary method for initializing Migration via manual or automigration
@@ -4922,6 +4890,5 @@ SQLAdapter.TiDebugDB = Class.extend({
 
 });
 
-this.SQLAdapter = SQLAdapter;
-
-})();
+dabl.SQLAdapter = SQLAdapter;
+})(dabl);

@@ -1,7 +1,7 @@
 describe('RESTAdapter', function() {
-	var a = new RESTAdapter('spec/rest-data/'),
+	var a = new dabl.RESTAdapter('spec/rest-data/'),
 	foo,
-	Foo = Model.extend('foo', {
+	Foo = dabl.Model.extend('foo', {
 		adapter: a,
 		url: 'foo/:id.json',
 		fields: {
@@ -32,7 +32,7 @@ describe('RESTAdapter', function() {
 
 	describe('init', function(){
 		it ('should require the model to have a url template', function(){
-			var Bar = Model.extend('bar', {
+			var Bar = dabl.Model.extend('bar', {
 				adapter: a,
 				fields: {}
 			}),

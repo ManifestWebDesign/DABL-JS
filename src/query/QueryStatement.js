@@ -1,5 +1,3 @@
-(function(){
-
 var Statement = function Statement(conn) {
 	this._params = [];
 	if (conn) {
@@ -131,6 +129,4 @@ Statement.prototype = {
 	}
 };
 
-this.Query.Statement = Statement;
-
-})();
+dabl.Query.Statement = Statement;
