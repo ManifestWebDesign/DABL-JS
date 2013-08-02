@@ -64,7 +64,7 @@ function constructDate(string) {
 	if (typeof moment !== 'undefined') {
 		date = moment(string).toDate();
 	} else {
-		date = new Date(string);
+		date = new Date(Date.parse(string));
 	}
 	return date;
 }
