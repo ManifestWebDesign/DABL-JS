@@ -497,10 +497,11 @@ Model.coerceValue = function(value, field) {
 		}
 	} else if (temporal) {
 		if (!(value instanceof Date)) {
-			value = new Date(value);
-			if (isNaN(value.getTime())) {
+			var date = constructDate(value);
+			if (isNaN(date.getTime())) {
 				throw new Error(value + ' is not a valid date');
 			}
+			value = date;
 		}
 	} else if (fieldType === Array) {
 		if (field.elementType) {

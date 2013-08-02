@@ -184,7 +184,7 @@ var RESTAdapter = Adapter.extend({
 
 	formatDateTime: function(value) {
 		if (!(value instanceof Date)) {
-			value = new Date(value);
+			value = constructDate(value);
 		}
 		var offset = -value.getTimezoneOffset() / 60;
 		offset = (offset > 0 ? '+' : '-') + sPad(Math.abs(offset));

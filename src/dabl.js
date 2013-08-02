@@ -51,7 +51,20 @@ function equals(a, b) {
 
 function formatDate(value) {
 	if (!(value instanceof Date)) {
-		value = new Date(value);
+		value = constructDate(value);
 	}
 	return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
+}
+
+function constructDate(string) {
+	if (string instanceof Date) {
+		return string;
+	}
+	var date;
+	if (typeof moment !== 'undefined') {
+		date = moment(string).toDate();
+	} else {
+		date = new Date(string);
+	}
+	return date;
 }
