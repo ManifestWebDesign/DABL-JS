@@ -795,7 +795,7 @@ Condition.OData = {
 		ENDS_WITH: 'endswith(?, @)',
 		CONTAINS: 'substringof(@, ?)',
 		LIKE: 'tolower(@) eq tolower(?)',
-		'NOT LIKE': 'tolower(@) ne tolower(?)',
+		'NOT LIKE': 'tolower(@) ne tolower(?)'
 	}
 };
 
