@@ -38,7 +38,15 @@ function copy(obj) {
 	return target;
 }
 
-function equals(a, b) {
+function equals(a, b, type) {
+	if (type && type === Model.FIELD_TYPE_DATE) {
+		a = formatDate(a);
+		b = formatDate(b);
+	} else if (type && type === Model.FIELD_TYPE_TIMESTAMP) {
+		a = constructDate(a);
+		b = constructDate(b);
+	}
+
 	if (a instanceof Date && b instanceof Date) {
 		return a.getTime() === b.getTime();
 	}

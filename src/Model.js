@@ -68,7 +68,8 @@ var Model = Class.extend({
 	 */
 	isModified: function(fieldName) {
 		if (fieldName) {
-			return !equals(this[fieldName], this._oldValues[fieldName]);
+			var type = this.constructor.getFieldType(fieldName)
+			return !equals(this[fieldName], this._oldValues[fieldName], type);
 		}
 		for (var fieldName in this.constructor._fields) {
 			if (this.isModified(fieldName)) {
@@ -799,17 +800,20 @@ Model.extend = function(table, opts) {
 		fieldName,
 		prop;
 
+	opts = opts || {};
+
 	if (typeof table === 'undefined') {
 		throw new Error('Must provide a table when exending Model');
-	}
-	if (!opts.fields) {
-		throw new Error('Must provide fields when exending Model');
 	}
 
 	newClass = Class.extend.call(this, opts.prototype);
 	delete opts.prototype;
 
 	if (!this._table && !this._fields) {
+		if (!opts.fields) {
+			throw new Error('Must provide fields when exending Model');
+		}
+
 		newClass._keys = [];
 		newClass._fields = {};
 		newClass._relations = [];
