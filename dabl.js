@@ -1,6 +1,6 @@
-dabl = typeof dabl === "undefined" ? {} : dabl;
+dabl = typeof dabl === "undefined" ? {} : dabl; 
 
-(function(dabl){
+(function(dabl){ 
 
 /* Class.js */
 /**
@@ -131,6 +131,91 @@ Class.callAsync = Class.prototype.callAsync = function callAsync(func, success, 
 };
 
 dabl.Class = Class;
+
+/* dabl.js */
+function sPad(value) {
+	value = value + '';
+	return value.length === 2 ? value : '0' + value;
+}
+
+function copy(obj) {
+	if (obj === null) {
+		return null;
+	}
+
+	if (obj instanceof Model) {
+		return obj.constructor(obj);
+	}
+
+	if (obj instanceof Array) {
+		return obj.slice(0);
+	}
+
+	if (obj instanceof Date) {
+		return new Date(obj.getTime());
+	}
+
+	switch (typeof obj) {
+		case 'string':
+		case 'boolean':
+		case 'number':
+		case 'undefined':
+		case 'function':
+			return obj;
+	}
+
+	var target = {};
+	for (var i in obj) {
+		if (obj.hasOwnProperty(i)) {
+			target[i] = obj[i];
+		}
+	}
+	return target;
+}
+
+function equals(a, b, type) {
+	if (type && type === Model.FIELD_TYPE_DATE) {
+		a = formatDate(a);
+		b = formatDate(b);
+	} else if (type && type === Model.FIELD_TYPE_TIMESTAMP) {
+		a = constructDate(a);
+		b = constructDate(b);
+	}
+
+	if (a instanceof Date && b instanceof Date) {
+		return a.getTime() === b.getTime();
+	}
+
+	if (typeof a === 'object') {
+		return JSON.stringify(a) === JSON.stringify(b);
+	}
+	return a === b;
+}
+
+function formatDate(value) {
+	if (!(value instanceof Date)) {
+		value = constructDate(value);
+	}
+	if (!value) {
+		return null;
+	}
+	return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
+}
+
+function constructDate(value) {
+	if (value instanceof Date) {
+		return value;
+	}
+	if (!value) {
+		return null;
+	}
+
+	var date = new Date(value);
+	if (isNaN(date.getTime())) {
+		throw new Error(value + ' is not a valid date');
+	}
+	return date;
+}
 
 /* Deferred.js */
 if (typeof jQuery !== 'undefined' && jQuery.Deferred) {
@@ -497,7 +582,8 @@ var Model = Class.extend({
 	 */
 	isModified: function(fieldName) {
 		if (fieldName) {
-			return !equals(this[fieldName], this._oldValues[fieldName]);
+			var type = this.constructor.getFieldType(fieldName)
+			return !equals(this[fieldName], this._oldValues[fieldName], type);
 		}
 		for (var fieldName in this.constructor._fields) {
 			if (this.isModified(fieldName)) {
@@ -1228,17 +1314,20 @@ Model.extend = function(table, opts) {
 		fieldName,
 		prop;
 
+	opts = opts || {};
+
 	if (typeof table === 'undefined') {
 		throw new Error('Must provide a table when exending Model');
-	}
-	if (!opts.fields) {
-		throw new Error('Must provide fields when exending Model');
 	}
 
 	newClass = Class.extend.call(this, opts.prototype);
 	delete opts.prototype;
 
 	if (!this._table && !this._fields) {
+		if (!opts.fields) {
+			throw new Error('Must provide fields when exending Model');
+		}
+
 		newClass._keys = [];
 		newClass._fields = {};
 		newClass._relations = [];
@@ -1320,83 +1409,6 @@ for (var x = 0, len = findAliases.length; x < len; ++x) {
 
 dabl.Model = Model;
 
-
-/* dabl.js */
-function sPad(value) {
-	value = value + '';
-	return value.length === 2 ? value : '0' + value;
-}
-
-function copy(obj) {
-	if (obj === null) {
-		return null;
-	}
-
-	if (obj instanceof Model) {
-		return obj.constructor(obj);
-	}
-
-	if (obj instanceof Array) {
-		return obj.slice(0);
-	}
-
-	if (obj instanceof Date) {
-		return new Date(obj.getTime());
-	}
-
-	switch (typeof obj) {
-		case 'string':
-		case 'boolean':
-		case 'number':
-		case 'undefined':
-		case 'function':
-			return obj;
-	}
-
-	var target = {};
-	for (var i in obj) {
-		if (obj.hasOwnProperty(i)) {
-			target[i] = obj[i];
-		}
-	}
-	return target;
-}
-
-function equals(a, b) {
-	if (a instanceof Date && b instanceof Date) {
-		return a.getTime() === b.getTime();
-	}
-
-	if (typeof a === 'object') {
-		return JSON.stringify(a) === JSON.stringify(b);
-	}
-	return a === b;
-}
-
-function formatDate(value) {
-	if (!(value instanceof Date)) {
-		value = constructDate(value);
-	}
-	if (!value) {
-		return null;
-	}
-	return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
-}
-
-function constructDate(value) {
-	if (value instanceof Date) {
-		return value;
-	}
-	if (!value) {
-		return null;
-	}
-
-	var date = new Date(value);
-	if (isNaN(date.getTime())) {
-		throw new Error(value + ' is not a valid date');
-	}
-	return date;
-}
 
 /* Condition.js */
 var Condition = Class.extend({
@@ -4918,4 +4930,4 @@ SQLAdapter.TiDebugDB = Class.extend({
 });
 
 dabl.SQLAdapter = SQLAdapter;
-})(dabl);
+})(dabl); 
