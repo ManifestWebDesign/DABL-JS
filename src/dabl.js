@@ -67,17 +67,7 @@ function constructDate(value) {
 		return null;
 	}
 
-	var date;
-	if (typeof moment !== 'undefined') {
-		var moment = moment(value);
-		if (null !== moment) {
-			date = moment.toDate();
-		} else {
-			date = new Date(NaN);
-		}
-	} else {
-		date = new Date(Date.parse(value));
-	}
+	var date = new Date(value);
 	if (isNaN(date.getTime())) {
 		throw new Error(value + ' is not a valid date');
 	}
