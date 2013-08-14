@@ -68,11 +68,12 @@ function formatDate(value) {
 }
 
 function constructDate(value) {
+	if (value === false || value === '' || typeof value === 'undefined') {
+		return null;
+	}
+
 	if (value instanceof Date) {
 		return value;
-	}
-	if (!value) {
-		return null;
 	}
 
 	var date = new Date(value);
