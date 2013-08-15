@@ -141,8 +141,7 @@ var AngularRESTAdapter = RESTAdapter.extend({
 	},
 
 	findAll: function(model) {
-		var q = this.findQuery
-			.apply(this, arguments),
+		var q = this.findQuery.apply(this, arguments),
 			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
 			def = dabl.Deferred(),
@@ -159,6 +158,27 @@ var AngularRESTAdapter = RESTAdapter.extend({
 				data = [data];
 			}
 			def.resolve(model.inflateArray(data));
+		})
+		.error(error);
+		return def.promise();
+	},
+
+	countAll: function(model) {
+		var q = this.findQuery.apply(this, arguments).setAction(Query.ACTION_COUNT),
+			route = this._getRoute(model._url),
+			data = q.getSimpleJSON(),
+			def = dabl.Deferred(),
+			error = this._getErrorCallback(def);
+
+		this.$http
+		.get(route.urlGet(data))
+		.success(function(data, status, headers, config) {
+			var count = parseInt(data.total, 10);
+			if (isNaN(count) || typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
+				error.apply(this, arguments);
+				return;
+			}
+			def.resolve(count);
 		})
 		.error(error);
 		return def.promise();

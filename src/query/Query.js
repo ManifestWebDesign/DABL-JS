@@ -883,6 +883,10 @@ var Query = Condition.extend({
 			}
 		}
 
+		if (this._action === Query.ACTION_COUNT) {
+			r.count_only = 1;
+		}
+
 		return r;
 	}
 });

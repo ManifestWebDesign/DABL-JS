@@ -286,8 +286,7 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	findAll: function(model) {
-		var q = this.findQuery
-			.apply(this, arguments),
+		var q = this.findQuery.apply(this, arguments),
 			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
 			def = dabl.Deferred(),
@@ -302,6 +301,25 @@ var RESTAdapter = Adapter.extend({
 				data = [data];
 			}
 			def.resolve(model.inflateArray(data));
+		})
+		.fail(error);
+		return def.promise();
+	},
+
+	countAll: function(model) {
+		var q = this.findQuery.apply(this, arguments).setAction(Query.ACTION_COUNT),
+			route = this._getRoute(model._url),
+			data = q.getSimpleJSON(),
+			def = dabl.Deferred(),
+			error = this._getErrorCallback(def);
+
+		jQuery.get(route.urlGet(data), function(data, textStatus, jqXHR) {
+			var count = parseInt(data.total, 10);
+			if (isNaN(count) || typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
+				error(jqXHR, textStatus, 'Invalid response.');
+				return;
+			}
+			def.resolve(count);
 		})
 		.fail(error);
 		return def.promise();
