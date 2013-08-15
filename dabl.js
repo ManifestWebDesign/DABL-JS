@@ -1,6 +1,6 @@
-dabl = typeof dabl === "undefined" ? {} : dabl;
+dabl = typeof dabl === "undefined" ? {} : dabl; 
 
-(function(dabl){
+(function(dabl){ 
 
 /* Class.js */
 /**
@@ -131,6 +131,92 @@ Class.callAsync = Class.prototype.callAsync = function callAsync(func, success, 
 };
 
 dabl.Class = Class;
+
+/* dabl.js */
+function sPad(value) {
+	value = value + '';
+	return value.length === 2 ? value : '0' + value;
+}
+
+function copy(obj) {
+	if (obj === null) {
+		return null;
+	}
+
+	if (obj instanceof Model) {
+		return obj.constructor(obj);
+	}
+
+	if (obj instanceof Array) {
+		return obj.slice(0);
+	}
+
+	if (obj instanceof Date) {
+		return new Date(obj.getTime());
+	}
+
+	switch (typeof obj) {
+		case 'string':
+		case 'boolean':
+		case 'number':
+		case 'undefined':
+		case 'function':
+			return obj;
+	}
+
+	var target = {};
+	for (var i in obj) {
+		if (obj.hasOwnProperty(i)) {
+			target[i] = obj[i];
+		}
+	}
+	return target;
+}
+
+function equals(a, b, type) {
+	if (type && type === Model.FIELD_TYPE_DATE) {
+		a = formatDate(a);
+		b = formatDate(b);
+	} else if (type && type === Model.FIELD_TYPE_TIMESTAMP) {
+		a = constructDate(a);
+		b = constructDate(b);
+	}
+
+	if (a instanceof Date && b instanceof Date) {
+		return a.getTime() === b.getTime();
+	}
+
+	if (typeof a === 'object') {
+		return JSON.stringify(a) === JSON.stringify(b);
+	}
+	return a === b;
+}
+
+function formatDate(value) {
+	if (!(value instanceof Date)) {
+		value = constructDate(value);
+	}
+	if (!value) {
+		return null;
+	}
+	return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
+}
+
+function constructDate(value) {
+	if (value === false || value === '' || typeof value === 'undefined') {
+		return null;
+	}
+
+	if (value instanceof Date) {
+		return value;
+	}
+
+	var date = new Date(value);
+	if (isNaN(date.getTime())) {
+		throw new Error(value + ' is not a valid date');
+	}
+	return date;
+}
 
 /* Deferred.js */
 if (typeof jQuery !== 'undefined' && jQuery.Deferred) {
@@ -1324,92 +1410,6 @@ for (var x = 0, len = findAliases.length; x < len; ++x) {
 
 dabl.Model = Model;
 
-
-/* dabl.js */
-function sPad(value) {
-	value = value + '';
-	return value.length === 2 ? value : '0' + value;
-}
-
-function copy(obj) {
-	if (obj === null) {
-		return null;
-	}
-
-	if (obj instanceof Model) {
-		return obj.constructor(obj);
-	}
-
-	if (obj instanceof Array) {
-		return obj.slice(0);
-	}
-
-	if (obj instanceof Date) {
-		return new Date(obj.getTime());
-	}
-
-	switch (typeof obj) {
-		case 'string':
-		case 'boolean':
-		case 'number':
-		case 'undefined':
-		case 'function':
-			return obj;
-	}
-
-	var target = {};
-	for (var i in obj) {
-		if (obj.hasOwnProperty(i)) {
-			target[i] = obj[i];
-		}
-	}
-	return target;
-}
-
-function equals(a, b, type) {
-	if (type && type === Model.FIELD_TYPE_DATE) {
-		a = formatDate(a);
-		b = formatDate(b);
-	} else if (type && type === Model.FIELD_TYPE_TIMESTAMP) {
-		a = constructDate(a);
-		b = constructDate(b);
-	}
-
-	if (a instanceof Date && b instanceof Date) {
-		return a.getTime() === b.getTime();
-	}
-
-	if (typeof a === 'object') {
-		return JSON.stringify(a) === JSON.stringify(b);
-	}
-	return a === b;
-}
-
-function formatDate(value) {
-	if (!(value instanceof Date)) {
-		value = constructDate(value);
-	}
-	if (!value) {
-		return null;
-	}
-	return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
-}
-
-function constructDate(value) {
-	if (value === false || value === '' || typeof value === 'undefined') {
-		return null;
-	}
-
-	if (value instanceof Date) {
-		return value;
-	}
-
-	var date = new Date(value);
-	if (isNaN(date.getTime())) {
-		throw new Error(value + ' is not a valid date');
-	}
-	return date;
-}
 
 /* Condition.js */
 var Condition = Class.extend({
@@ -3121,6 +3121,10 @@ var Query = Condition.extend({
 			}
 		}
 
+		if (this._action === Query.ACTION_COUNT) {
+			r.count_only = 1;
+		}
+
 		return r;
 	}
 });
@@ -3925,8 +3929,7 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	findAll: function(model) {
-		var q = this.findQuery
-			.apply(this, arguments),
+		var q = this.findQuery.apply(this, arguments),
 			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
 			def = dabl.Deferred(),
@@ -3941,6 +3944,25 @@ var RESTAdapter = Adapter.extend({
 				data = [data];
 			}
 			def.resolve(model.inflateArray(data));
+		})
+		.fail(error);
+		return def.promise();
+	},
+
+	countAll: function(model) {
+		var q = this.findQuery.apply(this, arguments).setAction(Query.ACTION_COUNT),
+			route = this._getRoute(model._url),
+			data = q.getSimpleJSON(),
+			def = dabl.Deferred(),
+			error = this._getErrorCallback(def);
+
+		jQuery.get(route.urlGet(data), function(data, textStatus, jqXHR) {
+			var count = parseInt(data.total, 10);
+			if (isNaN(count) || typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
+				error(jqXHR, textStatus, 'Invalid response.');
+				return;
+			}
+			def.resolve(count);
 		})
 		.fail(error);
 		return def.promise();
@@ -4094,8 +4116,7 @@ var AngularRESTAdapter = RESTAdapter.extend({
 	},
 
 	findAll: function(model) {
-		var q = this.findQuery
-			.apply(this, arguments),
+		var q = this.findQuery.apply(this, arguments),
 			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
 			def = dabl.Deferred(),
@@ -4112,6 +4133,27 @@ var AngularRESTAdapter = RESTAdapter.extend({
 				data = [data];
 			}
 			def.resolve(model.inflateArray(data));
+		})
+		.error(error);
+		return def.promise();
+	},
+
+	countAll: function(model) {
+		var q = this.findQuery.apply(this, arguments).setAction(Query.ACTION_COUNT),
+			route = this._getRoute(model._url),
+			data = q.getSimpleJSON(),
+			def = dabl.Deferred(),
+			error = this._getErrorCallback(def);
+
+		this.$http
+		.get(route.urlGet(data))
+		.success(function(data, status, headers, config) {
+			var count = parseInt(data.total, 10);
+			if (isNaN(count) || typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
+				error.apply(this, arguments);
+				return;
+			}
+			def.resolve(count);
 		})
 		.error(error);
 		return def.promise();
@@ -4931,4 +4973,4 @@ SQLAdapter.TiDebugDB = Class.extend({
 });
 
 dabl.SQLAdapter = SQLAdapter;
-})(dabl);
+})(dabl); 
