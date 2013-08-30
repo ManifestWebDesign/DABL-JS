@@ -139,7 +139,8 @@ var Model = Class.extend({
 			fieldName,
 			value,
 			model = this.constructor,
-			fields = model._fields;
+			fields = model._fields,
+			type;
 
 		// avoid infinite loops
 		if (this._inToJSON) {
@@ -151,6 +152,7 @@ var Model = Class.extend({
 
 		for (fieldName in fields) {
 			value = this[fieldName];
+			type = fields[fieldName].type;
 			if (value instanceof Array) {
 				var newValue = [];
 				for (var x = 0, l = value.length; x < l; ++x) {
@@ -161,7 +163,9 @@ var Model = Class.extend({
 					}
 				}
 				value = newValue;
-			} else if (fields[fieldName].type === Model.FIELD_TYPE_DATE) {
+			} else if (type === JSON) {
+				value = JSON.stringify(value);
+			} else if (type === Model.FIELD_TYPE_DATE) {
 				value = formatDate(value);
 			} else if (value !== null && typeof value.toJSON === 'function') {
 				value = value.toJSON();
@@ -454,7 +458,7 @@ Model.isIntegerType = function(type) {
  * @return {Boolean}
  */
 Model.isObjectType = function(type) {
-	return typeof type === 'function';
+	return type === JSON || typeof type === 'function';
 };
 
 /**
@@ -506,6 +510,10 @@ Model.coerceValue = function(value, field) {
 			for (var x = 0, l = value.length; x < l; ++x) {
 				value[x] = this.coerceValue(value[x], {type: field.elementType});
 			}
+		}
+	} else if (fieldType === JSON) {
+		if (typeof value === 'string') {
+			value = JSON.parse(value);
 		}
 	} else if (fieldType === this.FIELD_TYPE_TEXT) {
 		if (typeof value !== 'string') {

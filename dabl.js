@@ -1,6 +1,6 @@
-dabl = typeof dabl === "undefined" ? {} : dabl; 
+dabl = typeof dabl === "undefined" ? {} : dabl;
 
-(function(dabl){ 
+(function(dabl){
 
 /* Class.js */
 /**
@@ -131,92 +131,6 @@ Class.callAsync = Class.prototype.callAsync = function callAsync(func, success, 
 };
 
 dabl.Class = Class;
-
-/* dabl.js */
-function sPad(value) {
-	value = value + '';
-	return value.length === 2 ? value : '0' + value;
-}
-
-function copy(obj) {
-	if (obj === null) {
-		return null;
-	}
-
-	if (obj instanceof Model) {
-		return obj.constructor(obj);
-	}
-
-	if (obj instanceof Array) {
-		return obj.slice(0);
-	}
-
-	if (obj instanceof Date) {
-		return new Date(obj.getTime());
-	}
-
-	switch (typeof obj) {
-		case 'string':
-		case 'boolean':
-		case 'number':
-		case 'undefined':
-		case 'function':
-			return obj;
-	}
-
-	var target = {};
-	for (var i in obj) {
-		if (obj.hasOwnProperty(i)) {
-			target[i] = obj[i];
-		}
-	}
-	return target;
-}
-
-function equals(a, b, type) {
-	if (type && type === Model.FIELD_TYPE_DATE) {
-		a = formatDate(a);
-		b = formatDate(b);
-	} else if (type && type === Model.FIELD_TYPE_TIMESTAMP) {
-		a = constructDate(a);
-		b = constructDate(b);
-	}
-
-	if (a instanceof Date && b instanceof Date) {
-		return a.getTime() === b.getTime();
-	}
-
-	if (typeof a === 'object') {
-		return JSON.stringify(a) === JSON.stringify(b);
-	}
-	return a === b;
-}
-
-function formatDate(value) {
-	if (!(value instanceof Date)) {
-		value = constructDate(value);
-	}
-	if (!value) {
-		return null;
-	}
-	return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
-}
-
-function constructDate(value) {
-	if (value === false || value === '' || typeof value === 'undefined') {
-		return null;
-	}
-
-	if (value instanceof Date) {
-		return value;
-	}
-
-	var date = new Date(value);
-	if (isNaN(date.getTime())) {
-		throw new Error(value + ' is not a valid date');
-	}
-	return date;
-}
 
 /* Deferred.js */
 if (typeof jQuery !== 'undefined' && jQuery.Deferred) {
@@ -654,7 +568,8 @@ var Model = Class.extend({
 			fieldName,
 			value,
 			model = this.constructor,
-			fields = model._fields;
+			fields = model._fields,
+			type;
 
 		// avoid infinite loops
 		if (this._inToJSON) {
@@ -666,6 +581,7 @@ var Model = Class.extend({
 
 		for (fieldName in fields) {
 			value = this[fieldName];
+			type = fields[fieldName].type;
 			if (value instanceof Array) {
 				var newValue = [];
 				for (var x = 0, l = value.length; x < l; ++x) {
@@ -676,7 +592,9 @@ var Model = Class.extend({
 					}
 				}
 				value = newValue;
-			} else if (fields[fieldName].type === Model.FIELD_TYPE_DATE) {
+			} else if (type === JSON) {
+				value = JSON.stringify(value);
+			} else if (type === Model.FIELD_TYPE_DATE) {
 				value = formatDate(value);
 			} else if (value !== null && typeof value.toJSON === 'function') {
 				value = value.toJSON();
@@ -969,7 +887,7 @@ Model.isIntegerType = function(type) {
  * @return {Boolean}
  */
 Model.isObjectType = function(type) {
-	return typeof type === 'function';
+	return type === JSON || typeof type === 'function';
 };
 
 /**
@@ -1021,6 +939,10 @@ Model.coerceValue = function(value, field) {
 			for (var x = 0, l = value.length; x < l; ++x) {
 				value[x] = this.coerceValue(value[x], {type: field.elementType});
 			}
+		}
+	} else if (fieldType === JSON) {
+		if (typeof value === 'string') {
+			value = JSON.parse(value);
 		}
 	} else if (fieldType === this.FIELD_TYPE_TEXT) {
 		if (typeof value !== 'string') {
@@ -1410,6 +1332,92 @@ for (var x = 0, len = findAliases.length; x < len; ++x) {
 
 dabl.Model = Model;
 
+
+/* dabl.js */
+function sPad(value) {
+	value = value + '';
+	return value.length === 2 ? value : '0' + value;
+}
+
+function copy(obj) {
+	if (obj === null) {
+		return null;
+	}
+
+	if (obj instanceof Model) {
+		return obj.constructor(obj);
+	}
+
+	if (obj instanceof Array) {
+		return obj.slice(0);
+	}
+
+	if (obj instanceof Date) {
+		return new Date(obj.getTime());
+	}
+
+	switch (typeof obj) {
+		case 'string':
+		case 'boolean':
+		case 'number':
+		case 'undefined':
+		case 'function':
+			return obj;
+	}
+
+	var target = {};
+	for (var i in obj) {
+		if (obj.hasOwnProperty(i)) {
+			target[i] = obj[i];
+		}
+	}
+	return target;
+}
+
+function equals(a, b, type) {
+	if (type && type === Model.FIELD_TYPE_DATE) {
+		a = formatDate(a);
+		b = formatDate(b);
+	} else if (type && type === Model.FIELD_TYPE_TIMESTAMP) {
+		a = constructDate(a);
+		b = constructDate(b);
+	}
+
+	if (a instanceof Date && b instanceof Date) {
+		return a.getTime() === b.getTime();
+	}
+
+	if (typeof a === 'object') {
+		return JSON.stringify(a) === JSON.stringify(b);
+	}
+	return a === b;
+}
+
+function formatDate(value) {
+	if (!(value instanceof Date)) {
+		value = constructDate(value);
+	}
+	if (!value) {
+		return null;
+	}
+	return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
+}
+
+function constructDate(value) {
+	if (value === false || value === '' || typeof value === 'undefined') {
+		return null;
+	}
+
+	if (value instanceof Date) {
+		return value;
+	}
+
+	var date = new Date(value);
+	if (isNaN(date.getTime())) {
+		throw new Error(value + ' is not a valid date');
+	}
+	return date;
+}
 
 /* Condition.js */
 var Condition = Class.extend({
@@ -4973,4 +4981,4 @@ SQLAdapter.TiDebugDB = Class.extend({
 });
 
 dabl.SQLAdapter = SQLAdapter;
-})(dabl); 
+})(dabl);
