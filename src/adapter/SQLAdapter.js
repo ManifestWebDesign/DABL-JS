@@ -206,7 +206,7 @@ var SQLAdapter = Adapter.extend({
 	 * @return Model[]
 	 */
 	fromResult: function(model, result) {
-		return model.inflatArray(result);
+		return model.inflateArray(result);
 	},
 
 	/**

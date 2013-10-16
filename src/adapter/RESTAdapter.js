@@ -21,7 +21,7 @@ function Route(template, defaults) {
 		parts = template.split(/\W/);
 	for (var i = 0, l = parts.length; i < l; ++i) {
 		var param = parts[i];
-		if (param && template.match(new RegExp("[^\\\\]:" + param + "(\\W|$)"))) {
+		if (!(new RegExp("^\\d+$").test(param)) && param && (new RegExp("(^|[^\\\\]):" + param + "(\\W|$)").test(template))) {
 			urlParams[param] = true;
 		}
 	}
@@ -79,7 +79,7 @@ var RESTAdapter = Adapter.extend({
 
 	_urlBase: '',
 
-	init: function RESTAdaper(urlBase) {
+	init: function RESTAdapter(urlBase) {
 		this._super();
 		if (urlBase) {
 			this._urlBase = urlBase;
