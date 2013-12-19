@@ -1,4 +1,7 @@
-var SQLAdapter = Adapter.extend({
+var Model = dabl.Model,
+	Query = dabl.Query;
+
+var SQLAdapter = dabl.Adapter.extend({
 
 	_db: null,
 
@@ -403,7 +406,7 @@ var SQLAdapter = Adapter.extend({
 	}
 });
 
-SQLAdapter.Migration = Class.extend({
+SQLAdapter.Migration = dabl.Class.extend({
 	adapter: null,
 	schema: null,
 	// Primary method for initializing Migration via manual or automigration
@@ -752,7 +755,7 @@ SQLAdapter.Migration = Class.extend({
 	}
 });
 
-SQLAdapter.TiDebugDB = Class.extend({
+SQLAdapter.TiDebugDB = dabl.Class.extend({
 	lastInsertRowId: null,
 	rowsAffected: null,
 	lastSQL: null,

@@ -1,4 +1,4 @@
-var Condition = Class.extend({
+var Condition = dabl.Class.extend({
 	_conds : null,
 
 	init: function Condition(left, operator, right, quote) {

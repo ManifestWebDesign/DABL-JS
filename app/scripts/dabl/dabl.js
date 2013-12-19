@@ -1,3 +1,5 @@
+dabl = typeof dabl === "undefined" ? {} : dabl;
+
 function sPad(value) {
 	value = value + '';
 	return value.length === 2 ? value : '0' + value;

@@ -73,7 +73,7 @@ Route.prototype = {
 	}
 };
 
-var RESTAdapter = Adapter.extend({
+var RESTAdapter = dabl.Adapter.extend({
 
 	_routes: {},
 
@@ -307,7 +307,7 @@ var RESTAdapter = Adapter.extend({
 	},
 
 	countAll: function(model) {
-		var q = this.findQuery.apply(this, arguments).setAction(Query.ACTION_COUNT),
+		var q = this.findQuery.apply(this, arguments).setAction(dabl.Query.ACTION_COUNT),
 			route = this._getRoute(model._url),
 			data = q.getSimpleJSON(),
 			def = dabl.Deferred(),

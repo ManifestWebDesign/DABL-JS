@@ -1,4 +1,4 @@
-var Model = Class.extend({
+var Model = dabl.Class.extend({
 
 	/**
 	 * Object containing names of modified fields

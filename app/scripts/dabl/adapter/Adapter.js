@@ -1,4 +1,4 @@
-var Adapter = Class.extend({
+var Adapter = dabl.Class.extend({
 
 	_cache: null,
 
@@ -41,7 +41,7 @@ var Adapter = Class.extend({
 		if (!value) {
 			return null;
 		}
-		if (fieldType && fieldType === Model.FIELD_TYPE_TIMESTAMP) {
+		if (fieldType && fieldType === dabl.Model.FIELD_TYPE_TIMESTAMP) {
 			return this.formatDateTime(value);
 		}
 		if (!(value instanceof Date)) {

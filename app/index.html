@@ -1,0 +1,57 @@
+<!doctype html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title></title>
+		<meta name="description" content="" />
+		<meta name="viewport" content="width=device-width" />
+		<!-- Place favicon.ico and apple-touch-icon.png in the root directory -->
+	</head>
+	<body ng-app="app" id="ng-app">
+		<!--[if lt IE 7]>
+		  <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
+		<![endif]-->
+
+		<!-- Add your site or application content here -->
+		<div class="container"></div>
+
+        <!-- build:js scripts/modules.min.js -->
+		<script src="bower_components/jquery/jquery.js"></script>
+		<script src="bower_components/angular/angular.js"></script>
+        <!-- endbuild -->
+
+        <!-- build:js({.tmp,app}) scripts/dabl.min.js -->
+		<script src="scripts/dabl/dabl.js"></script>
+		<script src="scripts/dabl/Deferred.js"></script>
+		<script src="scripts/dabl/Class.js"></script>
+		<script src="scripts/dabl/Model.js"></script>
+
+		<script src="scripts/dabl/query/Condition.js"></script>
+		<script src="scripts/dabl/query/Query.js"></script>
+		<script src="scripts/dabl/query/QueryJoin.js"></script>
+		<script src="scripts/dabl/query/QueryStatement.js"></script>
+
+		<script src="scripts/dabl/adapter/Adapter.js"></script>
+		<!-- endbuild -->
+
+        <!-- build:js({.tmp,app}) scripts/dabl.adapter.rest.min.js -->
+		<script src="scripts/dabl/adapter/RESTAdapter.js"></script>
+		<!-- endbuild -->
+
+        <!-- build:js({.tmp,app}) scripts/dabl.adapter.rest.angular.min.js -->
+		<script src="scripts/dabl/adapter/RESTAdapterAngular.js"></script>
+		<!-- endbuild -->
+
+        <!-- build:js({.tmp,app}) scripts/dabl.adapter.sql.min.js -->
+		<script src="scripts/dabl/adapter/SQLAdapter.js"></script>
+		<!-- endbuild -->
+
+		<!-- build:js({.tmp,app}) scripts/app.min.js -->
+        <script src="scripts/app.js"></script>
+        <!-- endbuild -->
+	</body>
+</html>
