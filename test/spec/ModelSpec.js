@@ -63,6 +63,15 @@ describe('Model', function() {
 		});
 	});
 
+	describe('fromJSON', function(){
+		it ('should convert a JSON string to an object if type is JSON', function(){
+			foo.fromJSON({
+				opts: '{"x":"123","y":[{"z":[1]}],"z":true}'
+			});
+			expect(foo.opts).toEqual({"x":"123","y":[{"z":[1]}],"z":true});
+		});
+	});
+
 	describe('toString', function(){
 		it ('should return the object\'s table name and a string hash of values', function(){
 			foo.fromJSON({
@@ -116,6 +125,13 @@ describe('Model', function() {
 			expect(foo.isModified()).toBe(false);
 			foo.opts = {foobar: false};
 			expect(foo.isModified()).toBe(true);
+
+			foo.fromJSON({
+				opts: '{"x":"123","y":[{"z":[1]}],"z":true}'
+			});
+			foo.resetModified();
+			foo.opts = {"x":"123","y":[{"z":[1]}],"z":true};
+			expect(foo.isModified()).toBe(false);
 		});
 	});
 
