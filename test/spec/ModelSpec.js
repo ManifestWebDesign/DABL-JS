@@ -10,6 +10,7 @@ describe('Model', function() {
 				id: { type: 'int', key: true, computed: true },
 				name: { type: String, value: 'default name for entity', required: true },
 				list: Array,
+				opts: JSON,
 				created: { type: Date, value: now},
 				updated: Date
 			}
@@ -104,6 +105,16 @@ describe('Model', function() {
 			foo.resetModified();
 			expect(foo.isModified()).toBe(false);
 			foo.bar.id = 27;
+			expect(foo.isModified()).toBe(true);
+		});
+
+		it ('should return false for unmodified JSON type', function(){
+			expect(foo.isModified()).toBe(false);
+			foo.opts = {foobar: true};
+			expect(foo.isModified()).toBe(true);
+			foo.resetModified();
+			expect(foo.isModified()).toBe(false);
+			foo.opts = {foobar: false};
 			expect(foo.isModified()).toBe(true);
 		});
 	});

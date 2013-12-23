@@ -53,7 +53,14 @@ function equals(a, b, type) {
 		return a.getTime() === b.getTime();
 	}
 
-	if (typeof a === 'object') {
+	if (type && type === JSON) {
+		if (typeof a !== 'string') {
+			a = JSON.stringify(a);
+		}
+		if (typeof b !== 'string') {
+			b = JSON.stringify(b);
+		}
+	} else if (typeof a === 'object') {
 		return JSON.stringify(a) === JSON.stringify(b);
 	}
 	return a === b;

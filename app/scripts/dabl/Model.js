@@ -68,7 +68,7 @@ var Model = dabl.Class.extend({
 	 */
 	isModified: function(fieldName) {
 		if (fieldName) {
-			var type = this.constructor.getFieldType(fieldName)
+			var type = this.constructor.getFieldType(fieldName);
 			return !equals(this[fieldName], this._oldValues[fieldName], type);
 		}
 		for (var fieldName in this.constructor._fields) {
