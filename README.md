@@ -1,7 +1,7 @@
 DABL-JS
 =======
 
-DABL JS is a JavaScript ORM inspired by
+DABL JS is a JavaScript ORM inspired by the likes of:
 * JayData (http://jaydata.org/)
 * Breeze (http://breezejs.com/)
 * Persistence.js (https://github.com/coresmart/persistencejs)
@@ -148,7 +148,7 @@ angular.module('app', [])
 
 ## Defining a Model
 ```javascript
-var MyClass = Model.extend('MyClass', {
+var MyClass = dabl.Model.extend('MyClass', {
 	adapter: adapter,
 	url: 'my-class-records/:id.json',
 	fields: {
