@@ -1,7 +1,24 @@
 DABL-JS
 =======
 
-JavaScript ORM
+DABL JS is a JavaScript ORM inspired by
+* JayData (http://jaydata.org/)
+* Breeze (http://breezejs.com/)
+* Persistence.js (https://github.com/coresmart/persistencejs)
+* Angular Resource (https://docs.angularjs.org/api/ngResource/service/$resource)
+
+The primary goals of DABL JS are:
+* To create a generic interface/ORM for JavaScript models
+* Keep a smaller codebase than JayData and Breeze
+* Run on older browsers, such as IE 8, unlike Persistence.js and others
+* Avoid getter and setter methods for records, for compatibility with frameworks like Angular JS
+* Provide the same routing templates, but features that Angular Resource does not, such as:
+	* Model subclassing
+	* Promises
+	* "Strong" Field data types
+	* Foreign keys
+	* Adapters for CRUD that aren't necessarily HTTP REST, such as SQLite databases
+* Work as a standalone ORM or integrate with frameworks Angular JS, tying into the Angular scope lifecycle
 
 ## Installation
 ```
