@@ -3,13 +3,24 @@ DABL-JS
 
 JavaScript ORM
 
+## Installation
+```
+bower install dabl
+```
+
+or
+
+```
+git clone git@github.com:ManifestWebDesign/DABL-JS.git
+```
+
 ## Usage
-Include the DABL base and any adapters:
+Include the DABL base and any adapters required for your project:
 
 ```html
 <script src="js/dabl.min.js"></script>
-<script src="js/dabl.adapter.rest.min.js"></script>
-<script src="js/dabl.adapter.rest.angular.min.js"></script>
+<script src="js/dabl.adapter.rest.min.js"></script> <!-- AngularRESTAdapter -->
+<script src="js/dabl.adapter.rest.angular.min.js"></script> <!-- AngularRESTAdapter extends RESTAdapter -->
 ```
 
 ## Angular App Example
@@ -118,6 +129,29 @@ angular.module('app', [])
 ```
 
 
+## Defining a Model
+```javascript
+var MyClass = Model.extend('MyClass', {
+	adapter: adapter,
+	fields: {
+		id: { type: 'int', key: true, computed: true }, // primary key
+		moneys: Number, // number
+		otherModel: OtherModel, // instance of another model class
+		listOfModels: { type: Array, elementType: OtherModel }, // if you use instance.listOfModels.push({ }), the object will be cast to an instance of OtherModel
+		listOfDates: { type: Array, elementType: Date },
+		list: Array, // generic array with no type specified
+		hash: Object, // Object in memory and an Object when saved
+		jsonString: JSON, // Object in memory, but a JSON string when saved
+		created: Date // Date in memory, ISO string like 2014-07-11T06:23:28.894Z when saved
+	},
+	prototype: {
+		init: function(){}, // optional override of constructor.  Call this._super() to call parent constructor,
+		customMethod: function(){} // any other methods you want...
+	}
+});
+```
+
+
 ## Model Instance Methods
 
 * `init(values)` - Constructor with object hash of field values
@@ -162,34 +196,10 @@ angular.module('app', [])
 * `hasField(fieldName)` - Returns true if a field definition exists for the given `fieldName`.
 * `getKeys()` - Returns an Array of field names that are primary keys.
 * `addField(fieldName, field)` - Adds a `field` definition for the given `fieldName`.  `field` may be just a type like `Date` or an object like `{ type: 'int', key: true, computed: true, required: true }`.
-* `extend(table, options)` - Creates a subclass of this.  `table` is the table/dataset name.  `options` is a model definition (see the defining a model section below).
+* `extend(table, options)` - Creates a subclass of this.  `table` is the table/dataset name.  `options` is a model definition (see the defining a model section above).
 * `toString()` - Retuns the table/dataset name.
 * `countAll([query arguments])` - Returns a count of the objects that match the given query.  This call is passed through to the adapter.
 * `findAll([query arguments])` - Returns an Array of objects that match the given query.  This call is passed through to the adapter.
 * `removeAll([query arguments])` - Removes the objects that match the given query.  This call is passed through to the adapter.
 * `find([query arguments])` - Returns a single object that matches the given query.  This call is passed through to the adapter.
 * `findBy(fieldName, value)` - Alias of find, indended to be a key value lookup.
-
-
-## Defining a Model
-```javascript
-var MyClass = Model.extend('MyClass', {
-	adapter: adapter,
-	fields: {
-		id: { type: 'int', key: true, computed: true },
-		moneys: Number,
-		otherModel: OtherModel,
-		listOfModels: { type: Array, elementType: OtherModel },
-		listOfDates: { type: Array, elementType: Date },
-		list: Array, // generic array with no type specified
-		hash: Object, // Object in memory and an Object when saved
-		jsonString: JSON, // Object in memory, but a JSON string when saved
-		created: Date,
-		updated: Date
-	},
-	prototype: {
-		init: function(){}, // optional override of constructor.  Call this._super() to call parent constructor,
-		customMethod: function(){} // any other methods you want...
-	}
-});
-```
