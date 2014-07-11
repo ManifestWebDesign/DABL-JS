@@ -150,6 +150,7 @@ angular.module('app', [])
 ```javascript
 var MyClass = Model.extend('MyClass', {
 	adapter: adapter,
+	url: 'my-class-records/:id.json',
 	fields: {
 		id: { type: 'int', key: true, computed: true }, // primary key
 		moneys: Number, // number
