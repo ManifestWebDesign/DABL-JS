@@ -137,7 +137,7 @@ describe('RESTAdapter', function() {
 		});
 	});
 
-	ddescribe('routing', function(){
+	describe('routing', function(){
 		it ('should create correct url routes', function(){
 			var r = new Route('/dashboards/:id.json');
 			expect(r.urlGet()).toEqual('/dashboards.json');
