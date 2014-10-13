@@ -43,7 +43,7 @@ var AngularRESTAdapter = dabl.RESTAdapter.extend({
 
 		this.$http({
 			url: route.url(data),
-			method: 'POST',
+			method: method,
 			data: data,
 			headers: {
 				'X-HTTP-Method-Override': method
@@ -78,7 +78,7 @@ var AngularRESTAdapter = dabl.RESTAdapter.extend({
 
 		this.$http({
 			url: route.url(instance.toJSON()),
-			method: 'POST',
+			method: 'DELETE',
 			data: {},
 			headers: {
 				'X-HTTP-Method-Override': 'DELETE'
