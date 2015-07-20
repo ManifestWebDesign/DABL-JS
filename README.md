@@ -122,28 +122,11 @@ var MyClass = dabl.Model.extend('MyClass', {
 
 ```javascript
 
-angular.module('app', [])
-
-// initialize dabl service with integrated $q, so that scopes are $apply'd correctly
-// in the future, this will be done internally and should not be necessary
-.service('dabl', ['$q', function($q) {
-	// allows dabl promises to use Angular $q
-	dabl.Deferred = function() {
-		var def = $q.defer(),
-			promise = def.promise;
-
-		def.promise = function() {
-			return promise;
-		};
-		return def;
-	};
-
-	return dabl;
-}])
+angular.module('app', ['dabl'])
 
 // setup 'db' service with models
-.service('db', ['dabl', '$http', function(dabl, $http) {
-	var adapter = new dabl.AngularRESTAdapter('rest/', $http),
+.service('db', ['dabl', function(dabl) {
+	var adapter = new dabl.AngularRESTAdapter('rest/'),
 		Model = dabl.Model,
 		db = {};
 
