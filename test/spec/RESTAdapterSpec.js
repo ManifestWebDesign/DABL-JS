@@ -136,4 +136,15 @@ describe('RESTAdapter', function() {
 			expect(errorFired).toBe(true);
 		});
 	});
+
+	describe('routing', function(){
+		it ('should create correct url routes', function(){
+			var r = new Route('/dashboards/:id.json');
+			expect(r.urlGet()).toEqual('/dashboards.json');
+			expect(r.urlGet({id: 5})).toEqual('/dashboards/5.json');
+			r = new Route('/:id.json/dashboards');
+			expect(r.urlGet({id: 5})).toEqual('/5.json/dashboards');
+			expect(r.urlGet()).toEqual('/.json/dashboards');
+		});
+	});
 });

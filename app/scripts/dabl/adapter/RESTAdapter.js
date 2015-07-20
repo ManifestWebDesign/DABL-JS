@@ -50,6 +50,9 @@ Route.prototype = {
 						return leadingSlashes + tail;
 					}
 				});
+
+				//Prevent '/.' as an artifact of the :id from dashboards/:id.json and leaving dashboards/.json
+				url = (url.charAt(0) === '/' && url.charAt(1) === '.' ? '/' : '') + url.replace('/.', '.');
 			}
 		}
 		return url;
