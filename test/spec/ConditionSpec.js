@@ -1,10 +1,10 @@
 describe('Condition', function() {
 	var c,
-		a = new dabl.SQLAdapter,
+		a = new dabl.SQLAdapter(),
 		Condition = dabl.Condition;
 
 	beforeEach(function() {
-		c = new Condition;
+		c = new Condition();
 	});
 
 	function norm(str) {
@@ -27,7 +27,7 @@ describe('Condition', function() {
 
 	describe('_preprocessCondition', function(){
 		it ('should return null if given no arguments or an empty condition', function() {
-			var c2 = new Condition;
+			var c2 = new Condition();
 			expect(c._preprocessCondition(c2)).toBe(null);
 
 			expect(c._preprocessCondition()).toBe(null);
@@ -99,17 +99,17 @@ describe('Condition', function() {
 			expect(norm(c.getQueryStatement(a)))
 				.toBe("field = 'value'");
 
-			c = new Condition;
+			c = new Condition();
 			c.and('field', 'startswith', 'value');
 			expect(norm(c.getQueryStatement(a)))
 				.toBe("field LIKE 'value%'");
 
-			c = new Condition;
+			c = new Condition();
 			c.and('field', 'endswith', 'value');
 			expect(norm(c.getQueryStatement(a)))
 				.toBe("field LIKE '%value'");
 
-			c = new Condition;
+			c = new Condition();
 			c.and('value', 'substringof', 'field');
 			expect(norm(c.getQueryStatement(a)))
 				.toBe("field LIKE '%value%'");
@@ -119,11 +119,11 @@ describe('Condition', function() {
 	describe('getODataFilter', function() {
 		it ('should support SQL or OData operators', function() {
 			for (var oper in Condition.OData.operators) {
-				c = new Condition;
+				c = new Condition();
 				c.and('foo', oper, 'bar');
 				expect(c.getODataFilter()).toBe("foo " + Condition.OData.operators[oper] + " 'bar'");
 
-				c = new Condition;
+				c = new Condition();
 				c.and('foo', Condition.OData.operators[oper], 'bar');
 				expect(c.getODataFilter()).toBe("foo " + Condition.OData.operators[oper] + " 'bar'");
 			}
@@ -133,19 +133,19 @@ describe('Condition', function() {
 			c.and('foo', ['bar', 123]);
 			expect(c.getODataFilter()).toBe("(foo eq 'bar' or foo eq 123)");
 
-			c = new Condition;
+			c = new Condition();
 			c.and('foo', 'eq', ['bar', 123]);
 			expect(c.getODataFilter()).toBe("(foo eq 'bar' or foo eq 123)");
 
-			c = new Condition;
+			c = new Condition();
 			c.and('foo', Condition.NOT_IN, ['bar', 123]);
 			expect(c.getODataFilter()).toBe("(foo ne 'bar' and foo ne 123)");
 
-			c = new Condition;
+			c = new Condition();
 			c.and('foo', Condition.NOT_EQUAL, ['bar', 123]);
 			expect(c.getODataFilter()).toBe("(foo ne 'bar' and foo ne 123)");
 
-			c = new Condition;
+			c = new Condition();
 			c.and('foo', 'ne', ['bar', 123]);
 			expect(c.getODataFilter()).toBe("(foo ne 'bar' and foo ne 123)");
 		});
@@ -154,7 +154,7 @@ describe('Condition', function() {
 			c.and('foo', 'startswith', 'bar');
 			expect(c.getODataFilter()).toBe("startswith(foo, 'bar')");
 
-			c = new Condition;
+			c = new Condition();
 			c.and('foo', Condition.ENDS_WITH, 'bar');
 			expect(c.getODataFilter()).toBe("endswith(foo, 'bar')");
 		});
@@ -163,7 +163,7 @@ describe('Condition', function() {
 			c.and('foo', Condition.CONTAINS, 'bar');
 			expect(c.getODataFilter()).toBe("substringof('bar', foo)");
 
-			c = new Condition;
+			c = new Condition();
 			c.and('foo', 'substringof', 'bar');
 			expect(c.getODataFilter()).toBe("substringof('bar', foo)");
 		});
@@ -172,7 +172,7 @@ describe('Condition', function() {
 			c.where('foo', null);
 			expect(c.getODataFilter()).toBe("foo eq null");
 
-			c = new Condition;
+			c = new Condition();
 			c.where('foo', 'ne', null);
 			expect(c.getODataFilter()).toBe("foo ne null");
 		});

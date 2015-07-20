@@ -1,11 +1,11 @@
 dabl = typeof dabl === "undefined" ? {} : dabl;
 
-function sPad(value) {
+dabl.sPad = function(value) {
 	value = value + '';
 	return value.length === 2 ? value : '0' + value;
-}
+};
 
-function copy(obj) {
+dabl.copy = function(obj) {
 	if (obj === null) {
 		return null;
 	}
@@ -38,15 +38,15 @@ function copy(obj) {
 		}
 	}
 	return target;
-}
+};
 
-function equals(a, b, type) {
+dabl.equals = function(a, b, type) {
 	if (type && type === Model.FIELD_TYPE_DATE) {
-		a = formatDate(a);
-		b = formatDate(b);
+		a = dabl.formatDate(a);
+		b = dabl.formatDate(b);
 	} else if (type && type === Model.FIELD_TYPE_TIMESTAMP) {
-		a = constructDate(a);
-		b = constructDate(b);
+		a = dabl.constructDate(a);
+		b = dabl.constructDate(b);
 	}
 
 	if (a instanceof Date && b instanceof Date) {
@@ -64,19 +64,19 @@ function equals(a, b, type) {
 		return JSON.stringify(a) === JSON.stringify(b);
 	}
 	return a === b;
-}
+};
 
-function formatDate(value) {
+dabl.formatDate = function(value) {
 	if (!(value instanceof Date)) {
-		value = constructDate(value);
+		value = dabl.constructDate(value);
 	}
 	if (!value) {
 		return null;
 	}
-	return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
-}
+	return value.getUTCFullYear() + '-' + dabl.sPad(value.getUTCMonth() + 1) + '-' + dabl.sPad(value.getUTCDate());
+};
 
-function constructDate(value) {
+dabl.constructDate = function(value) {
 	if (value === false || value === '' || typeof value === 'undefined') {
 		return null;
 	}
@@ -90,4 +90,4 @@ function constructDate(value) {
 		throw new Error(value + ' is not a valid date');
 	}
 	return date;
-}
+};

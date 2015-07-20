@@ -1,7 +1,7 @@
 describe('Adapter', function() {
 	var a,
 		Foo = dabl.Model.extend('foo', {
-			adapter: new dabl.SQLAdapter(new dabl.SQLAdapter.TiDebugDB),
+			adapter: new dabl.SQLAdapter(new dabl.SQLAdapter.TiDebugDB()),
 			fields: {
 				id: { type: 'int', key: true, computed: true },
 				name: { type: String, value: 'default name for entity', required: true },
@@ -11,7 +11,7 @@ describe('Adapter', function() {
 		});
 
 	beforeEach(function() {
-		a = new dabl.SQLAdapter(new dabl.SQLAdapter.TiDebugDB);
+		a = new dabl.SQLAdapter(new dabl.SQLAdapter.TiDebugDB());
 	});
 
 	function norm(str) {
@@ -32,7 +32,7 @@ describe('Adapter', function() {
 		});
 
 		it ('should accept a Query', function() {
-			var q = new dabl.Query;
+			var q = new dabl.Query();
 			q.and('name', 'eq', 'foo');
 			q.and('foo', 'bar');
 

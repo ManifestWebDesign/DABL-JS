@@ -45,9 +45,9 @@ var Adapter = dabl.Class.extend({
 			return this.formatDateTime(value);
 		}
 		if (!(value instanceof Date)) {
-			value = constructDate(value);
+			value = dabl.constructDate(value);
 		}
-		return value.getUTCFullYear() + '-' + sPad(value.getUTCMonth() + 1) + '-' + sPad(value.getUTCDate());
+		return value.getUTCFullYear() + '-' + dabl.sPad(value.getUTCMonth() + 1) + '-' + dabl.sPad(value.getUTCDate());
 	},
 
 	/**
@@ -59,9 +59,9 @@ var Adapter = dabl.Class.extend({
 			return null;
 		}
 		if (!(value instanceof Date)) {
-			value = constructDate(value);
+			value = dabl.constructDate(value);
 		}
-		return value.getFullYear() + '-' + sPad(value.getMonth() + 1) + '-' + sPad(value.getDate()) + ' ' + sPad(value.getHours()) + ':' + sPad(value.getMinutes()) + ':' + sPad(value.getSeconds());
+		return value.getFullYear() + '-' + dabl.sPad(value.getMonth() + 1) + '-' + dabl.sPad(value.getDate()) + ' ' + dabl.sPad(value.getHours()) + ':' + dabl.sPad(value.getMinutes()) + ':' + dabl.sPad(value.getSeconds());
 	},
 
 	/**

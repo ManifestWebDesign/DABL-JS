@@ -82,7 +82,7 @@ describe('Model', function() {
 				created: null,
 				updated: null
 			});
-			expect(foo.toString()).toEqual('foo:{"id":null,"name":"bar","list":["1"],"created":null,"updated":null,"bar":{"id":null},"bars":[]}');
+			expect(foo.toString()).toEqual('foo:{"id":null,"name":"bar","list":["1"],"opts":"null","created":null,"updated":null,"bar":{"id":null},"bars":[]}');
 		});
 	});
 

@@ -187,15 +187,15 @@ var RESTAdapter = dabl.Adapter.extend({
 			return null;
 		}
 		if (!(value instanceof Date)) {
-			value = constructDate(value);
+			value = dabl.constructDate(value);
 		}
 		var offset = -value.getTimezoneOffset() / 60;
-		offset = (offset > 0 ? '+' : '-') + sPad(Math.abs(offset));
+		offset = (offset > 0 ? '+' : '-') + dabl.sPad(Math.abs(offset));
 
-		return value.getFullYear() + '-' + sPad(value.getMonth() + 1) + '-' + sPad(value.getDate())
-			+ ' ' + sPad(value.getHours())
-			+ ':' + sPad(value.getMinutes())
-			+ ':' + sPad(value.getSeconds())
+		return value.getFullYear() + '-' + dabl.sPad(value.getMonth() + 1) + '-' + dabl.sPad(value.getDate())
+			+ ' ' + dabl.sPad(value.getHours())
+			+ ':' + dabl.sPad(value.getMinutes())
+			+ ':' + dabl.sPad(value.getSeconds())
 			+ ' ' + offset + '00';
 	},
 

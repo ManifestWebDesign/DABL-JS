@@ -5,7 +5,7 @@
  */
 
 var initializing = false, fnTest = /xyz/.test(function(){
-	xyz;
+	var xyz;
 }) ? /\b_super\b/ : /.*/;
 
 function extend(newProps, target, src) {

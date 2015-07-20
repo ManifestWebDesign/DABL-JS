@@ -25,7 +25,7 @@ var Model = dabl.Class.extend({
 		for (var fieldName in model._fields) {
 			var field = model._fields[fieldName];
 			if (typeof field.value !== 'undefined') {
-				defaults[fieldName] = copy(field.value);
+				defaults[fieldName] = dabl.copy(field.value);
 			} else if (field.type === Array) {
 				defaults[fieldName] = [];
 			} else {
@@ -69,7 +69,7 @@ var Model = dabl.Class.extend({
 	isModified: function(fieldName) {
 		if (fieldName) {
 			var type = this.constructor.getFieldType(fieldName);
-			return !equals(this[fieldName], this._oldValues[fieldName], type);
+			return !dabl.equals(this[fieldName], this._oldValues[fieldName], type);
 		}
 		for (var fieldName in this.constructor._fields) {
 			if (this.isModified(fieldName)) {
@@ -159,18 +159,18 @@ var Model = dabl.Class.extend({
 					if (value[x] !== null && typeof value[x].toJSON === 'function') {
 						newValue[x] = value[x].toJSON();
 					} else {
-						newValue[x] = copy(value[x]);
+						newValue[x] = dabl.copy(value[x]);
 					}
 				}
 				value = newValue;
 			} else if (type === JSON) {
 				value = JSON.stringify(value);
 			} else if (type === Model.FIELD_TYPE_DATE) {
-				value = formatDate(value);
+				value = dabl.formatDate(value);
 			} else if (value !== null && typeof value.toJSON === 'function') {
 				value = value.toJSON();
 			} else {
-				value = copy(value);
+				value = dabl.copy(value);
 			}
 			values[fieldName] = value;
 		}
@@ -299,7 +299,11 @@ var Model = dabl.Class.extend({
 			if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
 				this.created = new Date();
 			}
-			if ((this.isNew() || this.isModified()) && model.hasField('updated') && !this.isModified('updated')) {
+			if (
+				(this.isNew() || this.isModified())
+				&& model.hasField('updated')
+				&& !this.isModified('updated')
+			) {
 				this.updated = new Date();
 			}
 
@@ -334,7 +338,11 @@ var Model = dabl.Class.extend({
 			if (this.isNew() && model.hasField('created') && !this.isModified('created')) {
 				this.created = new Date();
 			}
-			if ((this.isNew() || this.isModified()) && model.hasField('updated') && !this.isModified('updated')) {
+			if (
+				(this.isNew() || this.isModified())
+				&& model.hasField('updated')
+				&& !this.isModified('updated')
+			) {
 				this.updated = new Date();
 			}
 
@@ -502,7 +510,7 @@ Model.coerceValue = function(value, field) {
 		}
 	} else if (temporal) {
 		if (!(value instanceof Date)) {
-			value = constructDate(value);
+			value = dabl.constructDate(value);
 		}
 	} else if (fieldType === Array) {
 		if (field.elementType) {
@@ -611,7 +619,7 @@ Model.setAdapter = function(adapter){
  */
 Model.inflate = function(values) {
 	var pk = this.getKey(),
-		adapter = this.getAdapter(),
+		adapter = this._adapter,
 		instance;
 	if (pk && values[pk]) {
 		instance = adapter.cache(this._table, values[pk]);
@@ -672,7 +680,7 @@ Model.getTableName = function() {
  * @return {Object}
  */
 Model.getFields = function() {
-	return copy(this._fields);
+	return dabl.copy(this._fields);
 };
 
 /**
@@ -681,7 +689,7 @@ Model.getFields = function() {
  * @return {Object}
  */
 Model.getField = function(fieldName) {
-	return copy(this._fields[fieldName]);
+	return dabl.copy(this._fields[fieldName]);
 };
 
 /**
@@ -826,9 +834,9 @@ Model.extend = function(table, opts) {
 		newClass._fields = {};
 		newClass._relations = [];
 	} else {
-		newClass._keys = copy(this._keys);
-		newClass._fields = copy(this._fields);
-		newClass._relations = copy(this._relations);
+		newClass._keys = dabl.copy(this._keys);
+		newClass._fields = dabl.copy(this._fields);
+		newClass._relations = dabl.copy(this._relations);
 	}
 
 	newClass._table = table;
