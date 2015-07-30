@@ -82,7 +82,7 @@ angular.module('dabl', [])
 
 		update: function(instance) {
 			if (!instance.isModified()) {
-				var def = dabl.Deferred();
+				var def = $q.defer();
 				def.resolve(instance);
 				return def.promise;
 			}
