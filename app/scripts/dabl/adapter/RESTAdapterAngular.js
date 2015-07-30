@@ -80,6 +80,16 @@ angular.module('dabl', [])
 			return def.promise;
 		},
 
+		update: function(instance) {
+			if (!instance.isModified()) {
+				var def = dabl.Deferred();
+				def.resolve(instance);
+				return def.promise;
+			}
+
+			return this._save(instance, 'PUT');
+		},
+
 		remove: function(instance) {
 			var model = instance.constructor,
 				route = this._getRoute(model._url),
