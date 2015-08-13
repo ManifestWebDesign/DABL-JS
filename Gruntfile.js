@@ -208,14 +208,8 @@ module.exports = function (grunt) {
 						expand: true,
 						cwd: '.tmp/concat/scripts',
 						src: '*.js',
-						dest: '.tmp/concat/scripts'
+						dest: '.tmp/concat/min'
 					}]
-			}
-		},
-		// Replace Google CDN references
-		cdnify: {
-			dist: {
-				html: ['<%= yeoman.dist %>/*.html']
 			}
 		},
 		// Copies remaining files to places other tasks can use
@@ -285,13 +279,64 @@ module.exports = function (grunt) {
 		//     }
 		//   }
 		// },
-		// concat: {
-		//   dist: {}
-		// },
-
+		concat: {
+			generated: {
+				files: [{
+					dest: '.tmp\\concat\\scripts\\modules.min.js',
+					src: ['app\\bower_components\\jquery\\jquery.js',
+						'app\\bower_components\\angular\\angular.js'
+					]
+				}, {
+					dest: 'dist\\scripts\\dabl.js',
+					src: ['{.tmp,app}\\scripts\\dabl\\dabl.js',
+						'{.tmp,app}\\scripts\\dabl\\Deferred.js',
+						'{.tmp,app}\\scripts\\dabl\\Class.js',
+						'{.tmp,app}\\scripts\\dabl\\Model.js',
+						'{.tmp,app}\\scripts\\dabl\\query\\Condition.js',
+						'{.tmp,app}\\scripts\\dabl\\query\\Query.js',
+						'{.tmp,app}\\scripts\\dabl\\query\\QueryJoin.js',
+						'{.tmp,app}\\scripts\\dabl\\query\\QueryStatement.js',
+						'{.tmp,app}\\scripts\\dabl\\adapter\\Adapter.js'
+					]
+				}, {
+					dest: 'dist\\scripts\\dabl.adapter.rest.js',
+					src: ['{.tmp,app}\\scripts\\dabl\\adapter\\RESTAdapter.js']
+				}, {
+					dest: 'dist\\scripts\\dabl.adapter.rest.angular.js',
+					src: ['{.tmp,app}\\scripts\\dabl\\adapter\\RESTAdapterAngular.js']
+				}, {
+					dest: 'dist\\scripts\\dabl.adapter.sql.js',
+					src: ['{.tmp,app}\\scripts\\dabl\\adapter\\SQLAdapter.js']
+				}, {
+					dest: '.tmp\\concat\\scripts\\app.js',
+					src: ['{.tmp,app}\\scripts\\app.js']
+				}]
+			}
+		},
 		uglify: {
 			options: {
 				wrap: true
+			},
+			generated: {
+				files: [{
+					dest: 'dist\\scripts\\modules.min.js',
+					src: ['.tmp\\concat\\scripts\\modules.min.js']
+				}, {
+					dest: 'dist\\scripts\\dabl.min.js',
+					src: ['dist\\scripts\\dabl.js']
+				}, {
+					dest: 'dist\\scripts\\dabl.adapter.rest.min.js',
+					src: ['dist\\scripts\\dabl.adapter.rest.js']
+				}, {
+					dest: 'dist\\scripts\\dabl.adapter.rest.angular.min.js',
+					src: ['dist\\scripts\\dabl.adapter.rest.angular.js']
+				}, {
+					dest: 'dist\\scripts\\dabl.adapter.sql.min.js',
+					src: ['dist\\scripts\\dabl.adapter.sql.js']
+				}, {
+					dest: 'dist\\scripts\\app.min.js',
+					src: ['.tmp\\concat\\scripts\\app.js']
+				}]
 			}
 		},
 		// Test settings
@@ -333,17 +378,17 @@ module.exports = function (grunt) {
 
 	grunt.registerTask('build', [
 		'clean:dist',
-		'useminPrepare',
+//		'useminPrepare',
 		'concurrent:dist',
 		'autoprefixer',
 		'concat',
 		'ngmin',
 		'copy:dist',
-		'cdnify',
+		//'cdnify',
 //    'cssmin',
-		'uglify',
+		'uglify'
 //    'rev',
-		'usemin'
+//		'usemin'
 	]);
 
 	grunt.registerTask('default', [

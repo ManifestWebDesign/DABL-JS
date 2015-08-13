@@ -19,16 +19,39 @@
 		<!-- Add your site or application content here -->
 		<div class="container"></div>
 
-        <script src="scripts/modules.min.js"></script>
+        <!-- build:js scripts/modules.min.js -->
+		<script src="bower_components/jquery/jquery.js"></script>
+		<script src="bower_components/angular/angular.js"></script>
+        <!-- endbuild -->
 
-        <script src="scripts/dabl.min.js"></script>
+        <!-- build:js({.tmp,app}) scripts/dabl.js -->
+		<script src="scripts/dabl/dabl.js"></script>
+		<script src="scripts/dabl/Deferred.js"></script>
+		<script src="scripts/dabl/Class.js"></script>
+		<script src="scripts/dabl/Model.js"></script>
 
-        <script src="scripts/dabl.adapter.rest.min.js"></script>
+		<script src="scripts/dabl/query/Condition.js"></script>
+		<script src="scripts/dabl/query/Query.js"></script>
+		<script src="scripts/dabl/query/QueryJoin.js"></script>
+		<script src="scripts/dabl/query/QueryStatement.js"></script>
 
-        <script src="scripts/dabl.adapter.rest.angular.min.js"></script>
+		<script src="scripts/dabl/adapter/Adapter.js"></script>
+		<!-- endbuild -->
 
-        <script src="scripts/dabl.adapter.sql.min.js"></script>
+        <!-- build:js({.tmp,app}) scripts/dabl.adapter.rest.js -->
+		<script src="scripts/dabl/adapter/RESTAdapter.js"></script>
+		<!-- endbuild -->
 
-		<script src="scripts/app.min.js"></script>
+        <!-- build:js({.tmp,app}) scripts/dabl.adapter.rest.angular.js -->
+		<script src="scripts/dabl/adapter/RESTAdapterAngular.js"></script>
+		<!-- endbuild -->
+
+        <!-- build:js({.tmp,app}) scripts/dabl.adapter.sql.js -->
+		<script src="scripts/dabl/adapter/SQLAdapter.js"></script>
+		<!-- endbuild -->
+
+		<!-- build:js({.tmp,app}) scripts/app.js -->
+        <script src="scripts/app.js"></script>
+        <!-- endbuild -->
 	</body>
 </html>
