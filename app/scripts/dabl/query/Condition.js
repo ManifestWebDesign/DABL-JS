@@ -705,10 +705,8 @@ var Condition = dabl.Class.extend({
 			}
 			if (cond.length === 2) {
 				r[cond[0]] = cond[1];
-			} else if (cond[1] === Condition.EQUAL) {
+			} else  {
 				r[cond[0]] = cond[2];
-			} else {
-				throw new Error('Cannot export complex condition: "' + this._processCondition.apply(this, cond) + '"');
 			}
 		}
 		return r;

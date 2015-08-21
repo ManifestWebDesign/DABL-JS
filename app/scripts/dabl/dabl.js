@@ -91,3 +91,17 @@ dabl.constructDate = function(value) {
 	}
 	return date;
 };
+
+dabl.serialize = function(obj, prefix) {
+	//Method from http://stackoverflow.com/questions/1714786/querystring-encoding-of-a-javascript-object
+	var str = [];
+	for (var p in obj) {
+		if (obj.hasOwnProperty(p)) {
+			var k = prefix ? prefix + '[' + p + ']' : p, v = obj[p];
+			str.push(typeof v === 'object' ?
+				dabl.serialize(v, k) :
+				encodeURIComponent(k) + '=' + encodeURIComponent(v));
+		}
+	}
+	return str.join('&');
+};

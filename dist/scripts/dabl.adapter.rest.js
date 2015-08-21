@@ -60,19 +60,12 @@ Route.prototype = {
 
 	urlGet: function(params) {
 		var url = this.url(params);
-
 		params = params || {};
 
 		url = url.replace(/\/?#$/, '');
-		var query = [];
-		for (var key in params) {
-			if (!this.urlParams[key]) {
-				query.push(encodeUriQuery(key) + '=' + encodeUriQuery(params[key]));
-			}
-		}
-		query.sort();
+		var query = dabl.serialize(params);
 		url = url.replace(/\/*$/, '');
-		return url + (query.length ? '?' + query.join('&') : '');
+		return url + (query.length ? '?' + query : '');
 	}
 };
 
