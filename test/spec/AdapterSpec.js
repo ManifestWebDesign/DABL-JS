@@ -31,6 +31,14 @@ describe('Adapter', function() {
 				.toBe("SELECT foo.* FROM foo WHERE name = 'foo' AND foo = 'bar'");
 		});
 
+		it ('should accept a hash of field names and an array of values', function() {
+			var q = a.findQuery(Foo, {
+				'name': ['foo', 'bar']
+			});
+			expect(norm(q.getQuery(a)))
+				.toBe("SELECT foo.* FROM foo WHERE name IN ('foo','bar')");
+		});
+
 		it ('should accept a Query', function() {
 			var q = new dabl.Query();
 			q.and('name', 'eq', 'foo');
