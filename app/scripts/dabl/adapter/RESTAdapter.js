@@ -41,9 +41,9 @@ Route.prototype = {
 			val = typeof params[urlParam] !== 'undefined' || params.hasOwnProperty(urlParam) ? params[urlParam] : self.defaults[urlParam];
 			if (typeof val !== 'undefined' && val !== null) {
 				encodedVal = encodeUriSegment(val);
-				url = url.replace(new RegExp(":" + urlParam + "(\\W)", "g"), encodedVal + "$1");
+				url = url.replace(new RegExp(":" + urlParam + "(\\W|$)", "g"), encodedVal + "$1");
 			} else {
-				url = url.replace(new RegExp("(\/?):" + urlParam + "(\\W)", "g"), function(match, leadingSlashes, tail) {
+				url = url.replace(new RegExp("(\/?):" + urlParam + "(\\W|$)", "g"), function(match, leadingSlashes, tail) {
 					if (tail.charAt(0) === '/') {
 						return tail;
 					} else {
@@ -330,3 +330,5 @@ var RESTAdapter = dabl.Adapter.extend({
 });
 
 dabl.RESTAdapter = RESTAdapter;
+
+dabl.RESTAdapter.Route = Route;
