@@ -20,8 +20,9 @@ angular.module('dabl', [])
 		},
 
 		_getErrorCallback: function(def) {
-			return function(data, status, headers, config){
+			return function(response){
 				var error = 'Request failed.';
+				var data = response.data;
 				if (data) {
 					if (data.error) {
 						error = data.error;
@@ -29,7 +30,7 @@ angular.module('dabl', [])
 						error = data.errors.join('\n');
 					}
 				}
-				def.reject(error, data, config);
+				def.reject(error, data, response.config);
 			};
 		},
 
@@ -53,7 +54,8 @@ angular.module('dabl', [])
 				data[fieldName] = value;
 			}
 
-			var success = function(data, status, headers, config) {
+			var success = function(response) {
+				var data = response.data;
 				if (!self._isValidResponseObject(data, model)) {
 					error.apply(this, arguments);
 					return;
@@ -99,7 +101,8 @@ angular.module('dabl', [])
 				def = $q.defer(),
 				error = this._getErrorCallback(def);
 
-			var success = function(data, status, headers, config) {
+			var success = function(response) {
+				var data = response.data;
 				if (data && (data.error || (data.errors && data.errors.length))) {
 					error.apply(this, arguments);
 					return;
@@ -148,7 +151,8 @@ angular.module('dabl', [])
 				data = q.getSimpleJSON();
 			}
 
-			var success = function(data, status, headers, config) {
+			var success = function(response) {
+				var data = response.data;
 				if (!self._isValidResponseObject(data, model)) {
 					error.apply(this, arguments);
 					return;
@@ -172,7 +176,8 @@ angular.module('dabl', [])
 				def = $q.defer(),
 				error = this._getErrorCallback(def);
 
-			var success = function(data, status, headers, config) {
+			var success = function(response) {
+				var data = response.data;
 				if (typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
 					error.apply(this, arguments);
 					return;
@@ -196,7 +201,8 @@ angular.module('dabl', [])
 				def = $q.defer(),
 				error = this._getErrorCallback(def);
 
-			var success = function(data, status, headers, config) {
+			var success = function(response) {
+				var data = response.data;
 				var count = parseInt(data.total, 10);
 				if (isNaN(count) || typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
 					error.apply(this, arguments);
