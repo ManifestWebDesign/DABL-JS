@@ -247,7 +247,7 @@ describe('Model', function() {
 			var result = foo.save(asyncSpy, asyncSpy);
 			expect(result.constructor).toBe(Deferred().promise().constructor);
 			expect(asyncSpy).toHaveBeenCalled();
-			expect(asyncSpy.calls.length).toBe(1);
+			expect(asyncSpy.calls.count()).toBe(1);
 		});
 	});
 
@@ -256,7 +256,7 @@ describe('Model', function() {
 			var result = foo.insert(asyncSpy, asyncSpy);
 			expect(result.constructor).toBe(Deferred().promise().constructor);
 			expect(asyncSpy).toHaveBeenCalled();
-			expect(asyncSpy.calls.length).toBe(1);
+			expect(asyncSpy.calls.count()).toBe(1);
 		});
 	});
 
@@ -265,7 +265,7 @@ describe('Model', function() {
 			var result = foo.update(asyncSpy, asyncSpy);
 			expect(result.constructor).toBe(Deferred().promise().constructor);
 			expect(asyncSpy).toHaveBeenCalled();
-			expect(asyncSpy.calls.length).toBe(1);
+			expect(asyncSpy.calls.count()).toBe(1);
 		});
 	});
 
@@ -274,7 +274,7 @@ describe('Model', function() {
 			var result = foo.remove(asyncSpy, asyncSpy);
 			expect(result.constructor).toBe(Deferred().promise().constructor);
 			expect(asyncSpy).toHaveBeenCalled();
-			expect(asyncSpy.calls.length).toBe(1);
+			expect(asyncSpy.calls.count()).toBe(1);
 		});
 	});
 

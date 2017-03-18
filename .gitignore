@@ -2,7 +2,8 @@
 nbproject/
 node_modules
 dist
-.tmp
+.tmp/
 .sass-cache
 app/bower_components
 !/dist/
+/.idea/
