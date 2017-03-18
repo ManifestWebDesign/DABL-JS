@@ -62,8 +62,15 @@ Route.prototype = {
 		var url = this.url(params);
 		params = params || {};
 
-		url = url.replace(/\/?#$/, '');
-		var query = dabl.serialize(params);
+		var filteredParams = {};
+		for (var key in params) {
+			if (params.hasOwnProperty(key) && !this.urlParams[key]) {
+				filteredParams[key] = params[key];
+			}
+		}
+
+		var query = dabl.serialize(filteredParams);
+
 		url = url.replace(/\/*$/, '');
 		return url + (query.length ? '?' + query : '');
 	}
