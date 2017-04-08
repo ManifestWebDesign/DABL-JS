@@ -164,8 +164,8 @@ angular.module('dabl', [])
 			};
 
 			$http
-			.get(route.urlGet(data))
-			.then(success, error);
+				.get(route.urlGet(data))
+				.then(success, error);
 			return def.promise;
 		},
 
@@ -178,19 +178,32 @@ angular.module('dabl', [])
 
 			var success = function(response) {
 				var data = response.data;
-				if (typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
+
+				if (
+					data !== null
+					&& typeof data === 'object'
+					&& (
+						data.error
+						|| (data.errors && data.errors.length)
+					)
+				) {
 					error.apply(this, arguments);
 					return;
 				}
+
 				if (!(data instanceof Array)) {
-					data = [data];
+					if (data === null || typeof data === 'undefined') {
+						data = [];
+					} else {
+						data = [data];
+					}
 				}
 				def.resolve(model.inflateArray(data));
 			};
 
 			$http
-			.get(route.urlGet(data))
-			.then(success, error);
+				.get(route.urlGet(data))
+				.then(success, error);
 			return def.promise;
 		},
 
@@ -212,8 +225,8 @@ angular.module('dabl', [])
 			};
 
 			$http
-			.get(route.urlGet(data))
-			.then(success, error);
+				.get(route.urlGet(data))
+				.then(success, error);
 			return def.promise;
 		}
 	});

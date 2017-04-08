@@ -1,6 +1,6 @@
 {
   "name": "dabl",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "JavaScript ORM for REST and SQLite data sources.",
   "dependencies": {},
   "devDependencies": {

@@ -110,7 +110,7 @@ var RESTAdapter = dabl.Adapter.extend({
 				}
 			} catch (e) {
 				data = null;
-			};
+			}
 			var error = errorThrown || 'Request failed.';
 			if (data) {
 				if (data.error) {
@@ -125,15 +125,14 @@ var RESTAdapter = dabl.Adapter.extend({
 
 	_isValidResponseObject: function(data, model) {
 		var pk = model.getKey();
-		if (
-			typeof data !== 'object'
+		return !(
+			data === null
+			|| typeof data === 'undefined'
+			|| typeof data !== 'object'
 			|| data.error
 			|| (data.errors && data.errors.length !== 0)
 			|| (pk && typeof data[pk] === 'undefined')
-		) {
-			return false;
-		}
-		return true;
+		);
 	},
 
 	_save: function(instance, method) {
@@ -296,7 +295,13 @@ var RESTAdapter = dabl.Adapter.extend({
 			error = this._getErrorCallback(def);
 
 		jQuery.get(route.urlGet(data), function(data, textStatus, jqXHR) {
-			if (typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
+			if (
+				data === null
+				|| typeof data === 'undefined'
+				|| typeof data !== 'object'
+				|| data.error
+				|| (data.errors && data.errors.length)
+			) {
 				error(jqXHR, textStatus, 'Invalid response.');
 				return;
 			}
@@ -317,12 +322,18 @@ var RESTAdapter = dabl.Adapter.extend({
 			error = this._getErrorCallback(def);
 
 		jQuery.get(route.urlGet(data), function(data, textStatus, jqXHR) {
-			var count = parseInt(data.total, 10);
-			if (isNaN(count) || typeof data !== 'object' || data.error || (data.errors && data.errors.length)) {
+			if (
+				data === null
+				|| typeof data === 'undefined'
+				|| isNaN(parseInt(data.total, 10))
+				|| typeof data !== 'object'
+				|| data.error
+				|| (data.errors && data.errors.length)
+			) {
 				error(jqXHR, textStatus, 'Invalid response.');
 				return;
 			}
-			def.resolve(count);
+			def.resolve(parseInt(data.total, 10));
 		})
 		.fail(error);
 		return def.promise();
