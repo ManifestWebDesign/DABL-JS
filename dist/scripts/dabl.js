@@ -694,7 +694,7 @@ var Model = dabl.Class.extend({
 				value = JSON.stringify(value);
 			} else if (type === Model.FIELD_TYPE_DATE) {
 				value = dabl.formatDate(value);
-			} else if (value !== null && typeof value.toJSON === 'function') {
+			} else if (value !== null && typeof value !== 'undefined' && typeof value.toJSON === 'function') {
 				value = value.toJSON();
 			} else {
 				value = dabl.copy(value);
