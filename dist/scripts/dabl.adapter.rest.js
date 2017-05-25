@@ -192,13 +192,16 @@ var RESTAdapter = dabl.Adapter.extend({
 			value = dabl.constructDate(value);
 		}
 		var offset = -value.getTimezoneOffset() / 60;
-		offset = (offset > 0 ? '+' : '-') + dabl.sPad(Math.abs(offset));
+		offset = (offset > 0 ? '+' : '-') + dabl.sPad(Math.abs(offset)).replace('.', '');
+		while (offset.length < 5) {
+			offset += '0';
+		}
 
 		return value.getFullYear() + '-' + dabl.sPad(value.getMonth() + 1) + '-' + dabl.sPad(value.getDate())
 			+ ' ' + dabl.sPad(value.getHours())
 			+ ':' + dabl.sPad(value.getMinutes())
 			+ ':' + dabl.sPad(value.getSeconds())
-			+ ' ' + offset + '00';
+			+ ' ' + offset;
 	},
 
 	insert: function(instance) {
